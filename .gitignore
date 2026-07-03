@@ -1,1 +1,8 @@
 /docs
+
+# Open API
+/openPharmacy/open-api/.agents
+/openPharmacy/open-api/skills-lock.json
+# Open Fronted
+/openPharmacy/open-fronted/.agents
+/openPharmacy/open-fronted/skills-lock.json
