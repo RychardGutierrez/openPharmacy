@@ -1,1 +1,1 @@
-export type { Sale } from '../../../../prisma/generated/client.js';
+export type { Sale } from '@prisma/client';

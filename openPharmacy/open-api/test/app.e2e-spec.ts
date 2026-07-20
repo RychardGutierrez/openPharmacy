@@ -1,29 +1,37 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppModule } from '../src/app.module';
+import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('AppController (e2e smoke)', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
+    app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('GET /api should return 404 (no root route)', () => {
+    return request(app.getHttpServer()).get('/api').expect(404);
+  });
+
+  it('POST /api/auth/login with empty body should 400', () => {
+    return request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({})
+      .expect(400);
   });
 });

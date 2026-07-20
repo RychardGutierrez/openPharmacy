@@ -1,1 +1,1 @@
-export type { Config } from '../../../../prisma/generated/client.js';
+export type { Config } from '@prisma/client';

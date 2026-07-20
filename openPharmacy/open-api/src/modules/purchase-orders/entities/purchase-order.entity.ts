@@ -1,1 +1,1 @@
-export type { PurchaseOrder } from '../../../../prisma/generated/client.js';
+export type { PurchaseOrder } from '@prisma/client';

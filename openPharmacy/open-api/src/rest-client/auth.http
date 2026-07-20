@@ -1,0 +1,212 @@
+### ─── Auth endpoints ─────────────────────────────────────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+### Both .env variables ({{host}}, {{port}}) and chained request variables
+### (accessToken, refreshCookie) are resolved automatically.
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Open this file and click "Send Request" above each test.
+###   3. Tests marked "AC1", "AC2", "AC3" match the ticket acceptance criteria.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — valid credentials (AC1)
+### Expect: 200 + accessToken + Set-Cookie refresh token
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginValid
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store tokens for later requests ─────────────────────────────────────
+
+@accessToken = {{loginValid.response.body.accessToken}}
+# Rest Client does not expose raw Set-Cookie headers as variables.
+# Copy the value of the "refresh" cookie from the login response above
+# and paste it into the next request's Cookie header manually, or use the
+# REST Client cookie jar (enabled by default — the first login stores it).
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — unknown email (no enumeration)
+### Expect: 401 (identical message to wrong password)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginUnknownEmail
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@example.com",
+  "password": "whatever"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — wrong password for known user
+### Expect: 401
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginWrongPwd
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "wrong-password"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — missing required field
+### Expect: 400 (ValidationPipe)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginMissingField
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@openpharmacy.com"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — extra property (forbidNonWhitelisted)
+### Expect: 400
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginExtraProp
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123",
+  "evil": "payload"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN — malformed email (class-validator @IsEmail)
+### Expect: 400
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginBadEmail
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "x"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN LOCKOUT (AC2)
+### Send 6 bad passwords in sequence, then verify the 6th is 422.
+###
+### The REST Client will send 6 sequential requests from a brand-new
+### session (no cookie persisted yet). Change the email to a user that
+### exists and has not been locked yet.
+### ═══════════════════════════════════════════════════════════════════════════
+
+### 1st bad attempt → 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+### 2nd bad attempt → 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+### 3rd bad attempt → 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+### 4th bad attempt → 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+### 5th bad attempt → 401 (lock is set but still returns 401)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+### 6th bad attempt → 422 ACCOUNT_LOCKED
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@openpharmacy.com", "password": "wrong" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REFRESH — valid (needs a valid refresh cookie in the Cookie header)
+### Expect: 200 + new access + new Set-Cookie refresh
+### Cookie value comes from the loginValid response above.
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name refreshValid
+POST {{base}}/auth/refresh
+Cookie: refresh=PASTE_REFRESH_COOKIE_VALUE_HERE
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REFRESH — with no cookie
+### Expect: 401
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/auth/refresh
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REFRESH — stale / rotated cookie (from the login before last refresh)
+### Expect: 401
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/auth/refresh
+Cookie: refresh=PASTE_OLD_REFRESH_COOKIE_VALUE_HERE
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGOUT — valid
+### Expect: 204 + cleared cookie
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/auth/logout
+Cookie: refresh=PASTE_REFRESH_COOKIE_VALUE_HERE
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGOUT — without a cookie (still 204)
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/auth/logout
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTHENTICATED — /api/users/me (requires valid access token)
+### Expect: 200 + user profile OR 401 depending on token validity
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/users
+Authorization: Bearer {{accessToken}}

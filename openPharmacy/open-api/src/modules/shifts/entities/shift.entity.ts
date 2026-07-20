@@ -1,1 +1,1 @@
-export type { Shift } from '../../../../prisma/generated/client.js';
+export type { Shift } from '@prisma/client';

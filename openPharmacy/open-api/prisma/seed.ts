@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, UserRole, ProductCategory } from '../prisma/generated/client.js';
+import { PrismaClient, UserRole, ProductCategory } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 
@@ -14,7 +14,6 @@ async function main() {
     { name: UserRole.ADMIN, description: 'System administrator with full access' },
     { name: UserRole.PHARMACIST, description: 'Licensed pharmacist' },
     { name: UserRole.CASHIER, description: 'Cashier for point of sale' },
-    { name: UserRole.TECHNICIAN, description: 'Pharmacy technician' },
   ];
 
   for (const role of roles) {

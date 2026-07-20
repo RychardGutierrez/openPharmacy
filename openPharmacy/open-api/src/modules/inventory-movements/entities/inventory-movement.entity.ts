@@ -1,1 +1,1 @@
-export type { InventoryMovement } from '../../../../prisma/generated/client.js';
+export type { InventoryMovement } from '@prisma/client';

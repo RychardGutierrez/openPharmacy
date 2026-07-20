@@ -1,1 +1,1 @@
-export type { Prescription } from '../../../../prisma/generated/client.js';
+export type { Prescription } from '@prisma/client';

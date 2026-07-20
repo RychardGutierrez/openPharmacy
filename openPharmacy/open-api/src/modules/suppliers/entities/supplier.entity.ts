@@ -1,1 +1,1 @@
-export type { Supplier } from '../../../../prisma/generated/client.js';
+export type { Supplier } from '@prisma/client';

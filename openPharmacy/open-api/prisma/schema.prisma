@@ -1,6 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -14,7 +13,6 @@ enum UserRole {
   ADMIN
   PHARMACIST
   CASHIER
-  TECHNICIAN
 
   @@schema("auth")
 }
@@ -105,19 +103,23 @@ model Role {
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  full_name    String    @map("full_name")
-  ci           String    @unique
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  role         Role      @relation(fields: [roleName], references: [name])
-  roleName     UserRole  @map("role_name")
-  reg_number   String?   @map("reg_number")
-  active       Boolean   @default(true)
-  deleted_at   DateTime? @map("deleted_at")
-  last_login   DateTime? @map("last_login")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid()) @db.Uuid
+  full_name           String    @map("full_name")
+  ci                  String    @unique
+  email               String    @unique
+  passwordHash        String    @map("password_hash")
+  role                Role      @relation(fields: [roleName], references: [name])
+  roleName            UserRole  @map("role_name")
+  reg_number          String?   @map("reg_number")
+  active              Boolean   @default(true)
+  deleted_at          DateTime? @map("deleted_at")
+  last_login          DateTime? @map("last_login")
+  failed_attempts     Int       @default(0) @map("failed_attempts")
+  locked_until        DateTime? @map("locked_until")
+  last_failed_at      DateTime? @map("last_failed_at")
+  password_changed_at DateTime? @map("password_changed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   shifts               Shift[]
   inventoryMovements   InventoryMovement[] @relation("MovementUser")
@@ -126,8 +128,48 @@ model User {
   sales                Sale[]
   returns              Return[]
   configUpdates        Config[]            @relation("ConfigUpdatedBy")
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
 
   @@map("users")
+  @@schema("auth")
+}
+
+// ─── Auth — Refresh Tokens ───────────────────────────────────────────────────
+
+model RefreshToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  user_id     String    @map("user_id") @db.Uuid
+  hashed_jti  String    @unique @map("hashed_jti")
+  expires_at  DateTime  @map("expires_at")
+  revoked_at  DateTime? @map("revoked_at")
+  created_at  DateTime  @default(now()) @map("created_at")
+  replaced_by String?   @map("replaced_by") @db.Uuid
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("refresh_tokens")
+  @@schema("auth")
+}
+
+// ─── Auth — Audit Log ────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String?  @map("user_id") @db.Uuid
+  event      String
+  ip         String?
+  user_agent String?  @map("user_agent")
+  metadata   Json?
+  created_at DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, created_at])
+  @@index([event, created_at])
+  @@map("audit_logs")
   @@schema("auth")
 }
 

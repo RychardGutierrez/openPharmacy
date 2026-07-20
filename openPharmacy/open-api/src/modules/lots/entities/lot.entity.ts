@@ -1,1 +1,1 @@
-export type { Lot } from '../../../../prisma/generated/client.js';
+export type { Lot } from '@prisma/client';
