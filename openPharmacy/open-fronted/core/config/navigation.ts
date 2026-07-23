@@ -13,7 +13,6 @@ import {
   Settings,
   RotateCcw,
   Repeat,
-  type LucideProps,
 } from "lucide-react"
 
 export type NavItem = {
@@ -95,4 +94,33 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
 
 export function getPageInfo(pathname: string): { title: string; subtitle: string } {
   return TITLE_MAP[pathname] ?? { title: "Open Pharmacy", subtitle: "" }
+}
+
+/** Flat lookup: href -> trail of ancestor labels (excluding the leaf). */
+const HREF_TRAIL: Record<string, string[]> = (() => {
+  const map: Record<string, string[]> = {}
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      if ("items" in item) {
+        for (const child of item.items) {
+          map[child.href] = [section.title, item.title]
+        }
+      } else {
+        map[item.href] = [section.title]
+      }
+    }
+  }
+  return map
+})()
+
+export type BreadcrumbItem = { label: string; href?: string }
+
+/** Returns the breadcrumb trail for a pathname, leaf last. */
+export function getBreadcrumb(pathname: string): BreadcrumbItem[] {
+  const trail = HREF_TRAIL[pathname]
+  const info = getPageInfo(pathname)
+  return [
+    ...(trail ?? []).map((label) => ({ label })),
+    { label: info.title, href: pathname },
+  ]
 }

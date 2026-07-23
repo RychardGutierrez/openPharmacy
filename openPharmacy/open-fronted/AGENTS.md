@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | Task       | Command                        |
 |------------|--------------------------------|
-| Dev server | `npm run dev`                  |
+| Dev server | `npm run dev` (port **3001** — the NestJS API owns 3000) |
 | Build      | `npm run build`                |
 | Lint       | `npm run lint`                 |
 | Typecheck  | `npx tsc --noEmit`             |
@@ -38,10 +38,17 @@ features/<name>/
 
 Other boundaries:
 - `app/` — Next.js App Router. Route groups: `(auth)/`, `(dashboard)/`
-- `core/` — Cross-cutting: `config/`, `guards/`, `middleware.ts`, `providers/`
+- `core/` — Cross-cutting: `config/`, `guards/` (e.g. `AuthGuard` on `(dashboard)`), `providers/` (`AppProviders` mounts React Query in `app/layout.tsx`)
 - `shared/` — Reusable: `constants/`, `hooks/`, `utils/`
 - `components/ui/` — shadcn primitives only
 - `lib/utils.ts` — `cn()` (clsx + tailwind-merge)
+- `proxy.ts` (project root) — Next 16 renamed `middleware` → `proxy`. Route-level redirects based on the `op_session` flag cookie; real authz is the `AuthGuard` refresh round trip + backend JWT.
+
+## Auth & API access
+
+- Browser calls are same-origin `/api/*`; `next.config.ts` rewrites proxy them to the NestJS API (`API_URL` in `.env.local`, see `.env.example`). No CORS involved.
+- `POST /api/auth/login` → `{ accessToken, expiresIn, user }`; refresh token travels in an HttpOnly cookie scoped to `Path=/api/auth` (invisible to `proxy.ts` and RSC). Access token lives in memory only (`features/auth/store/auth-store.ts`), never in localStorage.
+- Session lifecycle: `useSession()` exchanges the refresh cookie on mount; `AuthGuard` enforces it for `(dashboard)`; failed login errors are normalized in `features/auth/api/auth-api.ts` (401 is always generic — anti-enumeration).
 
 ## State & forms
 
