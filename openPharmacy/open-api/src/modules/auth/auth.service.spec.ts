@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
-import { UsersRepository } from './repositories/users.repository';
-import { AuditLogRepository } from './repositories/audit-log.repository';
+import { UsersRepository } from '../users/repositories/users.repository';
+import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { UserRole } from '@prisma/client';
 
@@ -175,7 +175,7 @@ describe('AuthService', () => {
       expect(audit.create).toHaveBeenCalledWith(
         expect.objectContaining({
           event: 'LOGIN_FAIL',
-          metadata: { attempts: 2 },
+          metadata: { attempts: 2, locked: false },
         }),
       );
     });
@@ -196,8 +196,8 @@ describe('AuthService', () => {
       );
       expect(audit.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'LOGIN_LOCKED',
-          metadata: { reason: 'max_attempts_reached', attempts: 5 },
+          event: 'LOGIN_FAIL',
+          metadata: { attempts: 5, locked: true },
         }),
       );
     });

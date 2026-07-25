@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuditInterceptor } from './interceptors/audit.interceptor';
-import { AuditLogRepository } from './repositories/audit-log.repository';
+import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 
 describe('AuthController', () => {
   let controller: AuthController;

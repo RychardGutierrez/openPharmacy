@@ -7,9 +7,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AllExceptionsFilter } from '../../common/filters/all-exceptions.filter';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UsersRepository } from './repositories/users.repository';
-import { AuditLogRepository } from './repositories/audit-log.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { UsersModule } from '../users/users.module';
+import { AuditModule } from '../../common/audit/audit.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -38,6 +38,8 @@ const parseTtlToSec = (ttl: string): number => {
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    UsersModule,
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -71,8 +73,6 @@ const parseTtlToSec = (ttl: string): number => {
   controllers: [AuthController],
   providers: [
     AuthService,
-    UsersRepository,
-    AuditLogRepository,
     RefreshTokenRepository,
     JwtStrategy,
     JwtAuthGuard,

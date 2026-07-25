@@ -26,4 +26,13 @@ export const validationSchema = Joi.object({
   THROTTLE_LONG_LIMIT: Joi.number().integer().default(100),
   THROTTLE_LOGIN_TTL: Joi.number().integer().default(60000),
   THROTTLE_LOGIN_LIMIT: Joi.number().integer().default(5),
+
+  // ─── Mailer (optional in dev; falls back to Ethereal test account) ───────
+  SMTP_HOST: Joi.string().allow('').default(''),
+  SMTP_PORT: Joi.number().integer().default(587),
+  SMTP_USER: Joi.string().allow('').default(''),
+  SMTP_PASS: Joi.string().allow('').default(''),
+  SMTP_SECURE: Joi.boolean().default(false),
+  SMTP_FROM: Joi.string().email().default('noreply@openpharmacy.com'),
+  FRONTEND_URL: Joi.string().uri().default('http://localhost:4200'),
 });

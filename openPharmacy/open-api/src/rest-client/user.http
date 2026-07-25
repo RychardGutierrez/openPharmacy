@@ -1,0 +1,219 @@
+### ─── User management endpoints ──────────────────────────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+### All user endpoints require an ADMIN bearer token.
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Send the "LOGIN as admin" request below.
+###   3. Use "Send Request" on any of the user endpoints.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN as admin (required before calling user endpoints)
+### Expect: 200 + accessToken
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store token for later requests ────────────────────────────────────────
+
+@accessToken = {{loginAdmin.response.body.accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE USER — admin creates a new pharmacist (AC1)
+### Expect: 201 + created user
+### A welcome email is sent asynchronously with a temporary password.
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name createPharmacist
+POST {{base}}/users
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Dr. Ana Lopez",
+  "ci": "11223344",
+  "email": "pharmacist.new@example.com",
+  "role": "PHARMACIST",
+  "regNumber": "FARM-2026-001"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE USER — admin creates a cashier
+### Expect: 201; regNumber is not required for non-pharmacist roles
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name createCashier
+POST {{base}}/users
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Pedro Ramirez",
+  "ci": "55667788",
+  "email": "cashier.new@example.com",
+  "role": "CASHIER"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE USER — validation error: PHARMACIST without regNumber
+### Expect: 400 with message "regNumber is required when role is PHARMACIST"
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/users
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Dr. No Reg",
+  "ci": "98765432",
+  "email": "noreg@example.com",
+  "role": "PHARMACIST"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE USER — validation error: duplicate email
+### Expect: 409 EMAIL_EXISTS
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/users
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Duplicate Email",
+  "ci": "11111111",
+  "email": "pharmacist.new@example.com",
+  "role": "CASHIER"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST USERS — paginated, default page=1, pageSize=20
+### Expect: 200 + { data, total, page, pageSize, totalPages }
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/users
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST USERS — with filters and pagination
+### Query params: page, pageSize (max 100), role, active, q
+### Expect: 200 + filtered paginated list
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/users?page=1&pageSize=5&role=PHARMACIST&active=true&q=Ana
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET USER BY ID — including soft-deactivated users
+### Replace :id with a real user id from the list above.
+### Expect: 200 + user
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name getUser
+GET {{base}}/users/{{createPharmacist.response.body.id}}
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### UPDATE USER — full or partial update
+### Expect: 200 + updated user
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/users/{{createPharmacist.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Dr. Ana Lopez Updated",
+  "regNumber": "FARM-2026-999"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DEACTIVATE USER — soft-delete / set active=false
+### Expect: 200 + deactivated user
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/users/{{createCashier.response.body.id}}/deactivate
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### ACTIVATE USER — restore a deactivated user
+### Expect: 200 + restored user
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/users/{{createCashier.response.body.id}}/activate
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET DEACTIVATED USER — still visible to admins
+### Expect: 200 + user with active=false
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/users/{{createCashier.response.body.id}}
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FORBIDDEN — non-admin user tries to create a user
+### First login as a pharmacist or cashier, then use that token here.
+### Expect: 403 Forbidden
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+###
+POST {{base}}/users
+Content-Type: application/json
+Authorization: Bearer {{loginPharmacist.response.body.accessToken}}
+
+{
+  "fullName": "Hacker",
+  "ci": "99998888",
+  "email": "hacker@example.com",
+  "role": "CASHIER"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LAST ADMIN — cannot deactivate the only active admin
+### First list users and copy the id of the seeded admin, then paste it below.
+### Expect: 409 LAST_ADMIN
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/users?role=ADMIN&active=true
+Authorization: Bearer {{accessToken}}
+
+###
+PATCH {{base}}/users/PASTE_ADMIN_ID_HERE/deactivate
+Authorization: Bearer {{accessToken}}

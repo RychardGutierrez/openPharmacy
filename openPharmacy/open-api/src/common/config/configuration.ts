@@ -10,6 +10,21 @@ export const appConfig = () => ({
   },
 });
 
+export type MailerConfigType = ReturnType<typeof mailerConfig>;
+
+export const mailerConfig = () => ({
+  mailer: {
+    host: process.env.SMTP_HOST ?? '',
+    port: parseInt(process.env.SMTP_PORT ?? '587', 10),
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    secure: process.env.SMTP_SECURE === 'true',
+    from: process.env.SMTP_FROM ?? 'noreply@openpharmacy.com',
+    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:4200',
+    ethereal: !process.env.SMTP_HOST,
+  },
+});
+
 export const authConfig = () => ({
   auth: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? 'change-me-access',

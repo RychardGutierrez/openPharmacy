@@ -1,44 +1,75 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
+  HttpCode,
+  HttpStatus,
   Param,
-  Delete,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Public } from '../../common/decorators/public.decorator';
+import { UserQueryDto } from './dto/user-query.dto';
+import { UserResponseDto } from './dto/user-response.dto';
+import { PaginatedResponseDto } from './dto/paginated-response.dto';
 
+@ApiTags('users')
+@ApiBearerAuth()
+@Roles(UserRole.ADMIN)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({
+    long: { limit: 10, ttl: 60000 },
+  })
+  @ApiOperation({ summary: 'Create a new user (admin only)' })
+  create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
+    return this.usersService.create(dto);
   }
 
-  @Public()
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  @ApiOperation({ summary: 'List users with pagination and filters' })
+  findAll(
+    @Query() query: UserQueryDto,
+  ): Promise<PaginatedResponseDto<UserResponseDto>> {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  @ApiOperation({ summary: 'Get a user by ID (including soft-deleted)' })
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+  @ApiOperation({ summary: 'Update a user' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.update(id, dto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  @Patch(':id/deactivate')
+  @ApiOperation({ summary: 'Soft-delete / deactivate a user' })
+  deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
+    return this.usersService.deactivate(id);
+  }
+
+  @Patch(':id/activate')
+  @ApiOperation({ summary: 'Restore / activate a deactivated user' })
+  activate(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
+    return this.usersService.activate(id);
   }
 }
