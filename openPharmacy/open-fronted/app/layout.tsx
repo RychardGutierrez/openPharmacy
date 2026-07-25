@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
 import { AppProviders } from "@/core/providers/app-providers";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const fontSans = Inter({
@@ -33,7 +34,10 @@ export default function RootLayout({
       lang="en"
       className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} antialiased`}>
       <body>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          {children}
+          <Toaster />
+        </AppProviders>
       </body>
     </html>
   );

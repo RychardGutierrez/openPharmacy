@@ -17,9 +17,15 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronRight } from "lucide-react"
 import { NAV_SECTIONS, type NavItem, type NavParentItem } from "@/core/config/navigation"
+import { useAuthStore } from "@/features/auth/store/auth-store"
 
 function isParentItem(item: NavItem | NavParentItem): item is NavParentItem {
   return "items" in item
+}
+
+function canSee(item: NavItem, role: string | undefined): boolean {
+  if (!item.requiredRole) return true
+  return role === item.requiredRole
 }
 
 function NavItemLink({ item, pathname }: { item: NavItem; pathname: string }) {
@@ -82,6 +88,8 @@ function NavParentItemLink({ item, pathname }: { item: NavParentItem; pathname: 
 
 export function NavMain() {
   const pathname = usePathname()
+  const user = useAuthStore((state) => state.user)
+  const role = user?.role
 
   return (
     <>
@@ -90,13 +98,21 @@ export function NavMain() {
           <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {section.items.map((item) =>
-                isParentItem(item) ? (
-                  <NavParentItemLink key={item.title} item={item} pathname={pathname} />
-                ) : (
-                  <NavItemLink key={item.href} item={item} pathname={pathname} />
-                )
-              )}
+              {section.items.map((item) => {
+                if (isParentItem(item)) {
+                  const visibleChildren = item.items.filter((child) => canSee(child, role))
+                  if (visibleChildren.length === 0) return null
+                  return (
+                    <NavParentItemLink
+                      key={item.title}
+                      item={{ ...item, items: visibleChildren }}
+                      pathname={pathname}
+                    />
+                  )
+                }
+                if (!canSee(item, role)) return null
+                return <NavItemLink key={item.href} item={item} pathname={pathname} />
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

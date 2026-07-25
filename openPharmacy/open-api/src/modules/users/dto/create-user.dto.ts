@@ -41,7 +41,6 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
