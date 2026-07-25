@@ -1,19 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-
-/**
- * Audit event types tracked by the system. Each event maps to a single row in
- * the `auth.audit_logs` table. The naming follows `{ACTION}_{RESULT}` so
- * filtering by event is straightforward.
- */
-export type AuditEvent =
-  | 'LOGIN_SUCCESS'
-  | 'LOGIN_FAIL'
-  | 'LOGIN_LOCKED'
-  | 'REFRESH_SUCCESS'
-  | 'REFRESH_FAIL'
-  | 'LOGOUT';
+import { AuditEvent } from './audit-event';
 
 /**
  * Shape passed to `AuditLogRepository.create()`. All fields except `event`
@@ -36,9 +24,9 @@ export interface AuditRecord {
 /**
  * Data-access layer for the `auth.audit_logs` table.
  *
- * Every login attempt (success or failure), refresh, and logout produces
- * exactly one audit row so that security events can be traced end-to-end.
- * See the lockout flow in `AuthService` for how these rows are written.
+ * Centralized in `common/audit` because both the authentication module and
+ * the user-management module need to write security audit rows. Any module that
+ * imports `AuditModule` can use this repository.
  */
 @Injectable()
 export class AuditLogRepository {
@@ -52,14 +40,30 @@ export class AuditLogRepository {
    */
   async create(record: AuditRecord): Promise<void> {
     await this.prisma.auditLog.create({
-      data: {
-        user_id: record.userId ?? null,
-        event: record.event,
-        ip: record.ip ?? null,
-        user_agent: record.userAgent ?? null,
-        metadata: record.metadata ?? Prisma.JsonNull,
-      },
+      data: this.buildData(record),
     });
+  }
+
+  /**
+   * Persist a single audit record inside an existing Prisma transaction.
+   */
+  async createInTx(
+    tx: Prisma.TransactionClient,
+    record: AuditRecord,
+  ): Promise<void> {
+    await tx.auditLog.create({
+      data: this.buildData(record),
+    });
+  }
+
+  private buildData(record: AuditRecord): Prisma.AuditLogUncheckedCreateInput {
+    return {
+      user_id: record.userId ?? null,
+      event: record.event,
+      ip: record.ip ?? null,
+      user_agent: record.userAgent ?? null,
+      metadata: record.metadata ?? Prisma.JsonNull,
+    };
   }
 
   /**

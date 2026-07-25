@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Welcome to openPharmacy</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.5; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .box { background: #f5f5f5; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .button { display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; }
+    .muted { color: #666; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome, {{fullName}}</h1>
+    <p>Your openPharmacy account has been created by an administrator.</p>
+
+    <div class="box">
+      <p><strong>Temporary password:</strong></p>
+      <code>{{tempPassword}}</code>
+    </div>
+
+    <p>For security, please set your own password within 24 hours using the link below:</p>
+    <a href="{{changePasswordUrl}}" class="button">Set your password</a>
+
+    <p class="muted">If the button does not work, paste this URL into your browser:<br>{{changePasswordUrl}}</p>
+    <p class="muted">If you did not expect this email, please contact your administrator.</p>
+  </div>
+</body>
+</html>

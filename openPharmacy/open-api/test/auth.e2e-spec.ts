@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
@@ -49,6 +49,7 @@ describeDb('AuthController (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.use(cookieParser(process.env.COOKIE_SECRET));
     app.useGlobalPipes(
       new ValidationPipe({
@@ -110,7 +111,7 @@ describeDb('AuthController (e2e)', () => {
     const user = await createUser('ac1');
 
     const res = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: user.email, password: user.password })
       .expect(200);
 
@@ -123,7 +124,7 @@ describeDb('AuthController (e2e)', () => {
     expect(first).toMatch(/refresh=/);
     expect(first.toLowerCase()).toMatch(/httponly/);
     expect(first).toMatch(/samesite=lax/i);
-    expect(first).toMatch(/path=\/auth/);
+    expect(first).toMatch(/path=\/api\/auth/i);
   });
 
   it('AC2: 5 failed attempts return 401, the 6th returns 422 (locked)', async () => {
@@ -132,7 +133,7 @@ describeDb('AuthController (e2e)', () => {
     const statuses: number[] = [];
     for (let i = 0; i < 6; i++) {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ email: user.email, password: 'WRONG' });
       statuses.push(res.status);
     }
@@ -159,11 +160,11 @@ describeDb('AuthController (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: user.email, password: user.password })
       .expect(200);
     await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: user.email, password: 'WRONG' })
       .expect(401);
 
@@ -180,13 +181,13 @@ describeDb('AuthController (e2e)', () => {
   it('refresh: rotates the cookie and rejects the previous refresh token', async () => {
     const user = await createUser('refresh');
     const login = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: user.email, password: user.password })
       .expect(200);
     const oldCookie = extractCookie(login.headers['set-cookie']);
 
     const refreshed = await request(app.getHttpServer())
-      .post('/auth/refresh')
+      .post('/api/auth/refresh')
       .set('Cookie', oldCookie)
       .expect(200);
     const newCookie = extractCookie(refreshed.headers['set-cookie']);
@@ -194,7 +195,7 @@ describeDb('AuthController (e2e)', () => {
     expect(newCookie).not.toBe(oldCookie);
 
     await request(app.getHttpServer())
-      .post('/auth/refresh')
+      .post('/api/auth/refresh')
       .set('Cookie', oldCookie)
       .expect(401);
   });
@@ -202,32 +203,32 @@ describeDb('AuthController (e2e)', () => {
   it('logout: clears the cookie and revokes the refresh token', async () => {
     const user = await createUser('logout');
     const login = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: user.email, password: user.password })
       .expect(200);
     const cookie = extractCookie(login.headers['set-cookie']);
 
     await request(app.getHttpServer())
-      .post('/auth/logout')
+      .post('/api/auth/logout')
       .set('Cookie', cookie)
       .expect(204);
 
     await request(app.getHttpServer())
-      .post('/auth/refresh')
+      .post('/api/auth/refresh')
       .set('Cookie', cookie)
       .expect(401);
   });
 
   it('rejects malformed email', async () => {
     await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'not-an-email', password: 'x' })
       .expect(400);
   });
 
   it('rejects unknown email with 401 (no enumeration)', async () => {
     await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'nobody@example.com', password: 'x' })
       .expect(401);
   });

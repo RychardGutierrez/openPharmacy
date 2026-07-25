@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuditModule } from './common/audit/audit.module';
+import { MailerModule } from './common/mailer/mailer.module';
 import { DoctorsModule } from './modules/doctors/doctors.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
@@ -23,6 +26,7 @@ import {
   appConfig,
   authConfig,
   throttleConfig,
+  mailerConfig,
 } from './common/config/configuration';
 import { validationSchema } from './common/config/validation.schema';
 
@@ -31,11 +35,14 @@ import { validationSchema } from './common/config/validation.schema';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, authConfig, throttleConfig],
+      load: [appConfig, authConfig, throttleConfig, mailerConfig],
       validationSchema,
       validationOptions: { abortEarly: true, allowUnknown: true },
     }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
+    AuditModule,
+    MailerModule,
     AuthModule,
     UsersModule,
     ProductsModule,

@@ -13,6 +13,7 @@ describe('AppController (e2e smoke)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true }),
     );

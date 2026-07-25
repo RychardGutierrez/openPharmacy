@@ -9,8 +9,8 @@ import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { User } from '@prisma/client';
-import { UsersRepository } from './repositories/users.repository';
-import { AuditLogRepository } from './repositories/audit-log.repository';
+import { UsersRepository } from '../users/repositories/users.repository';
+import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import {
   RefreshTokenRepository,
   hashJti,
@@ -166,23 +166,16 @@ export class AuthService {
         now,
       );
 
-      if (shouldLock) {
-        await this.audit.create({
-          userId: user.id,
-          event: 'LOGIN_LOCKED',
-          ip: meta.ip,
-          userAgent: meta.userAgent,
-          metadata: { reason: 'max_attempts_reached', attempts: nextAttempts },
-        });
-      } else {
-        await this.audit.create({
-          userId: user.id,
-          event: 'LOGIN_FAIL',
-          ip: meta.ip,
-          userAgent: meta.userAgent,
-          metadata: { attempts: nextAttempts },
-        });
-      }
+      await this.audit.create({
+        userId: user.id,
+        event: 'LOGIN_FAIL',
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        metadata: {
+          attempts: nextAttempts,
+          locked: shouldLock,
+        },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 

@@ -7,11 +7,7 @@ import {
 } from '@nestjs/common';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 import { Request } from 'express';
-import {
-  AuditLogRepository,
-  AuditEvent,
-} from '../repositories/audit-log.repository';
-import { AuthenticatedUser } from '../interfaces/jwt-payload.interface';
+import { AuditLogRepository } from '../../../common/audit/audit-log.repository';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -30,13 +26,13 @@ export class AuditInterceptor implements NestInterceptor {
           `${route} ok in ${Date.now() - startedAt}ms (interceptor)`,
         );
       }),
-      catchError((err) => {
+      catchError((err: unknown) => {
         this.logger.debug(
           `${route} failed in ${Date.now() - startedAt}ms: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
-        return throwError(() => err);
+        return throwError(() => err as Error);
       }),
     );
   }

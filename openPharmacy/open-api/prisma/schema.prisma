@@ -131,6 +131,7 @@ model User {
   refreshTokens        RefreshToken[]
   auditLogs            AuditLog[]
 
+  @@index([deleted_at])
   @@map("users")
   @@schema("auth")
 }
