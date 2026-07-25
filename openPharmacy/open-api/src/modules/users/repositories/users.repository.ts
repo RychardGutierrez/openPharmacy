@@ -195,9 +195,11 @@ export class UsersRepository {
     const { page, pageSize, role, active, q } = query;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.UserWhereInput = {
-      deleted_at: active === false ? { not: null } : null,
-    };
+    const where: Prisma.UserWhereInput = {};
+
+    if (active !== undefined) {
+      where.deleted_at = active ? null : { not: null };
+    }
 
     if (role) {
       where.roleName = role;

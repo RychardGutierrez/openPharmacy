@@ -14,11 +14,14 @@ import {
   RotateCcw,
   Repeat,
 } from "lucide-react"
+import type { UserRole } from "@/features/auth/types"
 
 export type NavItem = {
   title: string
   href: string
   icon: LucideIcon
+  /** When set, the item is only rendered for users with this role. */
+  requiredRole?: UserRole
 }
 
 export type NavParentItem = {
@@ -64,7 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
       },
       { title: "Reports", href: "/reports", icon: BarChart3 },
       { title: "Doctors", href: "/doctors", icon: Stethoscope },
-      { title: "Users", href: "/users", icon: Users },
+      { title: "Users", href: "/users", icon: Users, requiredRole: "ADMIN" },
       { title: "Sedes", href: "/sedes", icon: MapPin },
     ],
   },
