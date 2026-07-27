@@ -1,10 +1,8 @@
 import { cn } from "@/lib/utils"
-import {
-  USER_STATUS_LABELS,
-  type UserStatus,
-} from "@/features/users/types"
 
-const statusStyles: Record<UserStatus, string> = {
+type StatusTone = "active" | "inactive"
+
+const statusStyles: Record<StatusTone, string> = {
   active:
     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   inactive:
@@ -12,21 +10,35 @@ const statusStyles: Record<UserStatus, string> = {
 }
 
 export interface StatusBadgeProps {
-  status: UserStatus
+  active: boolean
+  activeLabel?: string
+  inactiveLabel?: string
   className?: string
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+/**
+ * Generic active/inactive pill. Decoupled from any feature so it can be
+ * reused for products, users, lots, etc. Defaults are Spanish to match
+ * the OpenPharmacy domain.
+ */
+export function StatusBadge({
+  active,
+  activeLabel = "Activo",
+  inactiveLabel = "Inactivo",
+  className,
+}: StatusBadgeProps) {
+  const tone: StatusTone = active ? "active" : "inactive"
   return (
     <span
       data-slot="status-badge"
+      data-status={tone}
       className={cn(
         "inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-        statusStyles[status],
+        statusStyles[tone],
         className,
       )}
     >
-      {USER_STATUS_LABELS[status]}
+      {active ? activeLabel : inactiveLabel}
     </span>
   )
 }

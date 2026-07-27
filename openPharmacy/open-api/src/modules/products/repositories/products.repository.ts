@@ -6,7 +6,7 @@ export interface ProductsQuery {
   page: number;
   pageSize: number;
   category?: ProductCategory;
-  active?: boolean;
+  active?: boolean | string;
   q?: string;
 }
 
@@ -92,7 +92,9 @@ export class ProductsRepository {
 
     const where: Prisma.ProductWhereInput = {};
 
-    if (active === false) {
+    // Accept both boolean (validated DTO) and string (raw query) values so the
+    // filter works whether or not the DTO transform has been applied.
+    if (active === false || active === 'false') {
       where.deleted_at = { not: null };
     } else if (active !== undefined) {
       where.deleted_at = null;
