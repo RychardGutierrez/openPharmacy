@@ -14,11 +14,22 @@ export const Prisma = {
 export type User = Record<string, unknown>;
 export type RefreshToken = Record<string, unknown>;
 export type AuditLog = Record<string, unknown>;
+export type Product = Record<string, unknown>;
 
-// Mock the UserRole enum so tests can reference UserRole.ADMIN etc.
+// Mock enums so unit tests can reference enum values without loading the real
+// generated client (which uses import.meta and breaks under ts-jest CJS).
 export const UserRole = {
   ADMIN: 'ADMIN',
   PHARMACIST: 'PHARMACIST',
   CASHIER: 'CASHIER',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const ProductCategory = {
+  OTC: 'OTC',
+  PRESCRIPTION_ONLY: 'PRESCRIPTION_ONLY',
+  PSYCHOTROPIC: 'PSYCHOTROPIC',
+  NARCOTIC: 'NARCOTIC',
+  NON_PHARMACEUTICAL: 'NON_PHARMACEUTICAL',
+} as const;
+export type ProductCategory = (typeof ProductCategory)[keyof typeof ProductCategory];
