@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table"
 import { RoleBadge } from "@/shared/components/role-badge"
 import { StatusBadge } from "@/shared/components/status-badge"
-import { getUserStatus, type User } from "@/features/users/types"
+import { type User } from "@/features/users/types"
 
 export interface UsersTableProps {
   data: User[]
@@ -60,7 +60,7 @@ export function UsersTable({ data, onEdit, onToggleStatus }: UsersTableProps) {
       accessorKey: "active",
       header: "Status",
       cell: ({ row }) => (
-        <StatusBadge status={getUserStatus(row.original.active)} />
+        <StatusBadge active={row.original.active} activeLabel="Active" inactiveLabel="Inactive" />
       ),
     },
     {

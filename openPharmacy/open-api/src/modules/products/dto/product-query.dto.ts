@@ -1,4 +1,5 @@
 import { Type, Transform } from 'class-transformer';
+
 import {
   IsBoolean,
   IsEnum,
@@ -30,9 +31,10 @@ export class ProductQueryDto {
   category?: ProductCategory;
 
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }: { value: unknown }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
     return value;
   })
   @IsBoolean()
