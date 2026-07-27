@@ -21,4 +21,10 @@ export type AuditEvent =
   | 'USER_CREATED'
   | 'USER_UPDATED'
   | 'USER_DEACTIVATED'
-  | 'USER_ACTIVATED';
+  | 'USER_ACTIVATED'
+  // Product-catalog events
+  | 'PRODUCT_CREATED'
+  | 'PRODUCT_UPDATED'
+  | 'PRODUCT_DEACTIVATED'
+  | 'PRODUCT_ACTIVATED'
+  | 'PRODUCT_BULK_IMPORTED';

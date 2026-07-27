@@ -112,7 +112,7 @@ The database uses two PostgreSQL schemas for domain isolation:
 | `Return`             | `returns`              | `ReturnType`                                   |
 | `ReturnItem`         | `return_items`         |                                                |
 | `Doctor`             | `doctors`              |                                                |
-| `Prescription`       | `prescriptions`        | `ControlledType`                               |
+| `Prescription`       | `prescriptions`        |                                                |
 | `Config`             | `config`               |                                                |
 
 ### Cross-schema foreign keys
@@ -133,13 +133,22 @@ No code changes needed — Prisma handles cross-schema queries transparently.
 | --------------------- | --------- | ------------------------------------------------------------ |
 | `UserRole`            | auth      | ADMIN, PHARMACIST, CASHIER                                   |
 | `ShiftStatus`         | auth      | OPEN, CLOSED                                                 |
-| `ProductCategory`     | pharmacy  | OTC, PRESCRIPTION, CONTROLLED, COSMETIC, SUPPLEMENT, OTHER   |
-| `MovementType`        | pharmacy  | ENTRY, EXIT, ADJUSTMENT, TRANSFER, RETURN                    |
-| `PurchaseOrderStatus` | pharmacy  | PENDING, ORDERED, PARTIAL, RECEIVED, CANCELLED               |
-| `PaymentMethod`       | pharmacy  | CASH, CARD, TRANSFER, QR                                     |
-| `SaleStatus`          | pharmacy  | COMPLETED, CANCELLED, REFUNDED                               |
-| `ReturnType`          | pharmacy  | FULL, PARTIAL                                                |
-| `ControlledType`      | pharmacy  | NONE, SCHEDULE_I, SCHEDULE_II, SCHEDULE_III, SCHEDULE_IV     |
+| `ProductCategory`     | pharmacy  | OTC (Over-the-counter), PRESCRIPTION_ONLY (Prescription required), PSYCHOTROPIC (Controlled psychoactive), NARCOTIC (Controlled narcotic), NON_PHARMACEUTICAL (Cosmetics/supplements/etc.) |
+| `MovementType`        | pharmacy  | ENTRY, EXIT, ADJUSTMENT, TRANSFER, RETURN                          |
+| `PurchaseOrderStatus` | pharmacy  | PENDING, ORDERED, PARTIAL, RECEIVED, CANCELLED                     |
+| `PaymentMethod`       | pharmacy  | CASH, CARD, TRANSFER, QR                                           |
+| `SaleStatus`          | pharmacy  | COMPLETED, CANCELLED, REFUNDED                                     |
+| `ReturnType`          | pharmacy  | FULL, PARTIAL                                                      |
+
+### `ProductCategory` reference
+
+| Value               | Full name / meaning                         | Notes                                            |
+| ------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `OTC`               | Over-the-counter                             | Sold without prescription.                       |
+| `PRESCRIPTION_ONLY` | Prescription-only medicine                   | Requires a valid prescription.                   |
+| `PSYCHOTROPIC`      | Controlled psychoactive substance            | Treated as controlled; restricted sale.          |
+| `NARCOTIC`          | Controlled narcotic substance                | Treated as controlled; strictest sale rules.     |
+| `NON_PHARMACEUTICAL` | Non-pharmaceutical product                  | Cosmetics, supplements, hygiene items, etc.      |
 
 ### Models (18 tables)
 
@@ -193,7 +202,7 @@ No code changes needed — Prisma handles cross-schema queries transparently.
 | Model           | Table           | Schema   | PK   | Key fields                                            |
 | --------------- | --------------- | -------- | ---- | ----------------------------------------------------- |
 | `Doctor`        | `doctors`       | pharmacy | uuid | full_name, reg_number, specialty, phone, email, active |
-| `Prescription`  | `prescriptions` | pharmacy | uuid | sale_id (FK), doctor_id (FK), patient_name, patient_ci, rx_date, rx_number, image_path, controlled_type |
+| `Prescription`  | `prescriptions` | pharmacy | uuid | sale_id (FK), doctor_id (FK), patient_name, patient_ci, rx_date, rx_number, image_path |
 
 #### Pharmacy Schema — Config
 
@@ -327,18 +336,18 @@ The seed script (`prisma/seed.ts`) populates the database with sample data for d
 
 ### Seeded Products
 
-| DCI Name        | Commercial | Lab              | Category      | Price (Bs) |
-| --------------- | ---------- | ---------------- | ------------- | ---------- |
-| Paracetamol     | Paragesic  | Phoenix          | OTC           | 12.50      |
-| Ibuprofeno      | Ibuprom    | Medix            | OTC           | 18.00      |
-| Amoxicilina     | Amoxil     | GSK              | PRESCRIPTION  | 35.00      |
-| Omeprazol       | Omepral    | Mi Pharma        | OTC           | 22.00      |
-| Losartan        | Losartan   | Microsules       | PRESCRIPTION  | 28.00      |
-| Metformina      | Metformin  | Biopinox         | PRESCRIPTION  | 25.00      |
-| Ambroxol        | Mucosolvan | Abbott           | OTC           | 32.00      |
-| Diclofenaco     | Diclofen   | Ketonal          | OTC           | 15.00      |
-| Ciprofloxacino  | Ciproxina  | Bayer            | PRESCRIPTION  | 42.00      |
-| Loratadina      | Clarityne  | Bayer            | OTC           | 20.00      |
+| DCI Name        | Commercial | Lab              | Category           | Price (Bs) |
+| --------------- | ---------- | ---------------- | ------------------ | ---------- |
+| Paracetamol     | Paragesic  | Phoenix          | OTC                | 12.50      |
+| Ibuprofeno      | Ibuprom    | Medix            | OTC                | 18.00      |
+| Amoxicilina     | Amoxil     | GSK              | PRESCRIPTION_ONLY  | 35.00      |
+| Omeprazol       | Omepral    | Mi Pharma        | OTC                | 22.00      |
+| Losartan        | Losartan   | Microsules       | PRESCRIPTION_ONLY  | 28.00      |
+| Metformina      | Metformin  | Biopinox         | PRESCRIPTION_ONLY  | 25.00      |
+| Ambroxol        | Mucosolvan | Abbott           | OTC                | 32.00      |
+| Diclofenaco     | Diclofen   | Ketonal          | OTC                | 15.00      |
+| Ciprofloxacino  | Ciproxina  | Bayer            | PRESCRIPTION_ONLY  | 42.00      |
+| Loratadina      | Clarityne  | Bayer            | OTC                | 20.00      |
 
 ### Re-seeding
 

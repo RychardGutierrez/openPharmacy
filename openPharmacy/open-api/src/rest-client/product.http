@@ -1,0 +1,289 @@
+### ─── Product catalog endpoints ──────────────────────────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+### Product endpoints require an ADMIN or PHARMACIST bearer token.
+###
+### Category values:
+###   OTC                  → Over-the-counter (no prescription needed)
+###   PRESCRIPTION_ONLY    → Requires a prescription
+###   PSYCHOTROPIC         → Controlled psychoactive substance
+###   NARCOTIC             → Controlled narcotic substance
+###   NON_PHARMACEUTICAL   → Cosmetics, supplements, hygiene items, etc.
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Send the "LOGIN as pharmacist" request below.
+###   3. Use "Send Request" on any of the product endpoints.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LOGIN as pharmacist (required before calling product endpoints)
+### Expect: 200 + accessToken
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store token for later requests ────────────────────────────────────────
+
+@accessToken = {{loginPharmacist.response.body.accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE PRODUCT — pharmacist creates an OTC product (AC1)
+### Expect: 201 + created product
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name createProduct
+POST {{base}}/products
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "dciName": "Paracetamol",
+  "commercialName": "Tylenol REST",
+  "laboratory": "PharmaCo",
+  "form": "Tableta",
+  "concentration": "500mg",
+  "barcode": "1234567890123",
+  "category": "OTC",
+  "salePrice": 12.50,
+  "costPrice": 8.00,
+  "minStock": 10
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE PRODUCT — prescription-only product
+### Expect: 201 + created product with category PRESCRIPTION_ONLY
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name createPrescriptionProduct
+POST {{base}}/products
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "dciName": "Amoxicilina",
+  "commercialName": "Amoxil REST",
+  "laboratory": "GSK",
+  "form": "Cápsula",
+  "concentration": "500mg",
+  "barcode": "1234567890124",
+  "category": "PRESCRIPTION_ONLY",
+  "salePrice": 35.00,
+  "costPrice": 22.00,
+  "minStock": 50
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE PRODUCT — controlled substance (PSYCHOTROPIC)
+### Expect: 201; downstream SalesModule will use isControlled=true
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/products
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "dciName": "Diazepam",
+  "commercialName": "Valium REST",
+  "laboratory": "Roche",
+  "form": "Tableta",
+  "concentration": "10mg",
+  "barcode": "1234567890125",
+  "category": "PSYCHOTROPIC",
+  "salePrice": 45.00,
+  "costPrice": 30.00,
+  "minStock": 5
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### CREATE PRODUCT — duplicate barcode returns 409 DUPLICATE_BARCODE
+### Expect: 409 with code "DUPLICATE_BARCODE" and field "barcode"
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/products
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "dciName": "Duplicate",
+  "commercialName": "Duplicate Barcode",
+  "barcode": "1234567890123",
+  "category": "OTC",
+  "salePrice": 1.00,
+  "costPrice": 0.50,
+  "minStock": 0
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST PRODUCTS — paginated, default page=1, pageSize=20
+### Query params: page, pageSize (max 100), category, active, q
+### Expect: 200 + { data, total, page, pageSize, totalPages }
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/products
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST PRODUCTS — filtered by category and search term
+### Expect: 200 + filtered paginated list
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/products?page=1&pageSize=10&category=OTC&active=true&q=Tylenol
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### SEARCH PRODUCTS — autocomplete by name or barcode
+### Expect: 200 + array of matching products
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/products/search?q=Tylenol
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET PRODUCT BY ID
+### Replace :id with a real product id, or use the chained variable below.
+### Expect: 200 + product
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/products/f56b2f81-dfad-4f62-a51e-638a3b8b97c1
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### UPDATE PRODUCT — partial update
+### Expect: 200 + updated product
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/products/f56b2f81-dfad-4f62-a51e-638a3b8b97c1
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "commercialName": "Tylenol REST Updated",
+  "salePrice": 13.00,
+  "minStock": 20
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### UPDATE PRODUCT — duplicate barcode on update returns 409
+### Expect: 409 DUPLICATE_BARCODE
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/products/f56b2f81-dfad-4f62-a51e-638a3b8b97c1
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "barcode": "1234567890124"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DEACTIVATE PRODUCT — soft-delete / set active=false
+### Expect: 200 + deactivated product
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/products/f56b2f81-dfad-4f62-a51e-638a3b8b97c1/deactivate
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### ACTIVATE PRODUCT — restore a deactivated product
+### Expect: 200 + restored product
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/products/f56b2f81-dfad-4f62-a51e-638a3b8b97c1/activate
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### BULK IMPORT — inline CSV with valid and invalid rows
+### Expect: 200 + { inserted, failed: [{ row, barcode, errors: [...] }] }
+### The file must be sent as multipart/form-data with field name "file".
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/products/bulk-import
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxk
+Authorization: Bearer {{accessToken}}
+
+------WebKitFormBoundary7MA4YWxk
+Content-Disposition: form-data; name="file"; filename="products.csv"
+Content-Type: text/csv
+
+dciName,commercialName,barcode,category,salePrice,costPrice,minStock
+Ibuprofeno,Ibuprom Bulk,9876543210123,OTC,18.00,11.00,80
+Loratadina,Clarityne Bulk,9876543210124,OTC,20.00,12.00,60
+Invalid Row,,BAD-BARCODE,OTC,5.00,3.00,20
+
+------WebKitFormBoundary7MA4YWxk--
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### BULK IMPORT — load the sample CSV file from open-api/documents
+### Expect: 200 + { inserted, failed: [...] }
+### Sample file contains 6 valid rows and 3 invalid rows.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/products/bulk-import
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxk
+Authorization: Bearer {{accessToken}}
+
+------WebKitFormBoundary7MA4YWxk
+Content-Disposition: form-data; name="file"; filename="products-sample-import.csv"
+Content-Type: text/csv
+
+< ../../documents/products-sample-import.csv
+
+------WebKitFormBoundary7MA4YWxk--
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FORBIDDEN — cashier tries to create a product
+### First login as a cashier, then use that token here.
+### Expect: 403 Forbidden
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+###
+POST {{base}}/products
+Content-Type: application/json
+Authorization: Bearer {{loginCashier.response.body.accessToken}}
+
+{
+  "dciName": "Unauthorized",
+  "commercialName": "Unauthorized Product",
+  "barcode": "9999999999999",
+  "category": "OTC",
+  "salePrice": 1.00,
+  "costPrice": 0.50,
+  "minStock": 0
+}

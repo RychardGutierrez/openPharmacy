@@ -1,0 +1,10 @@
+dciName,commercialName,laboratory,form,concentration,barcode,category,salePrice,costPrice,minStock
+Paracetamol,Paragesic,Laboratorios Phoenix,Tableta,500mg,779,OTC,12.50,8.00,100
+Ibuprofeno,Ibuprom,Medix,Tableta,400mg,771,OTC,18.00,11.00,80
+Amoxicilina,Amoxil,GSK,Capsula,500mg,772,PRESCRIPTION_ONLY,35.00,22.00,50
+Diazepam,Valium,Roche,Tableta,10mg,773,PSYCHOTROPIC,45.00,30.00,5
+Morfina,Morphine,Generic,Tableta,10mg,774,NARCOTIC,120.00,85.00,3
+Vitamina C,Cebion,Generic,Frasco,500ml,775,NON_PHARMACEUTICAL,25.00,15.00,40
+INVALID_MISSING_NAME,,Generic,Tableta,500mg,776,OTC,10.00,6.00,20
+INVALID_BAD_BARCODE,Bad Barcode,Generic,Tableta,500mg,ABC123,OTC,10.00,6.00,20
+INVALID_CATEGORY,Wrong Cat,Generic,Tableta,500mg,7791000000008,UNKNOWN,10.00,6.00,20

@@ -27,12 +27,16 @@ enum ShiftStatus {
 // ─── Enums — Pharmacy ────────────────────────────────────────────────────────
 
 enum ProductCategory {
+  /// Over-the-counter medicines that can be sold without a prescription.
   OTC
-  PRESCRIPTION
-  CONTROLLED
-  COSMETIC
-  SUPPLEMENT
-  OTHER
+  /// Medicines that require a medical prescription before sale.
+  PRESCRIPTION_ONLY
+  /// Psychoactive controlled substances with additional sale restrictions.
+  PSYCHOTROPIC
+  /// Narcotic controlled substances with the strictest sale restrictions.
+  NARCOTIC
+  /// Non-pharmaceutical items (cosmetics, supplements, hygiene, etc.).
+  NON_PHARMACEUTICAL
 
   @@schema("pharmacy")
 }
@@ -81,15 +85,6 @@ enum ReturnType {
   @@schema("pharmacy")
 }
 
-enum ControlledType {
-  NONE
-  SCHEDULE_I
-  SCHEDULE_II
-  SCHEDULE_III
-  SCHEDULE_IV
-
-  @@schema("pharmacy")
-}
 
 // ─── Auth — Roles & Users ────────────────────────────────────────────────────
 
@@ -203,7 +198,7 @@ model Product {
   form              String?
   concentration     String?
   barcode           String?         @unique
-  category          ProductCategory @default(OTHER)
+  category          ProductCategory @default(NON_PHARMACEUTICAL)
   sale_price        Decimal         @map("sale_price") @db.Decimal(12, 2)
   cost_price        Decimal         @map("cost_price") @db.Decimal(12, 2)
   min_stock         Int             @default(0) @map("min_stock")
@@ -217,6 +212,10 @@ model Product {
   orderItems           OrderItem[]
   saleItems            SaleItem[]
 
+  @@index([deleted_at])
+  @@index([category])
+  @@index([dci_name])
+  @@index([commercial_name])
   @@map("products")
   @@schema("pharmacy")
 }
@@ -434,7 +433,6 @@ model Prescription {
   rx_date         DateTime       @map("rx_date") @db.Date
   rx_number       String         @unique @map("rx_number")
   image_path      String?        @map("image_path")
-  controlledType  ControlledType @default(NONE) @map("controlled_type")
   created_at      DateTime       @default(now()) @map("created_at")
 
   sale   Sale   @relation(fields: [sale_id], references: [id])
