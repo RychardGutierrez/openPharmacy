@@ -11,10 +11,25 @@ export const Prisma = {
   InputJsonValue: class {} as new () => unknown,
 };
 
+export class Decimal {
+  constructor(value: string | number) {
+    // Minimal Decimal stub for unit tests.
+    void value;
+  }
+
+  toString(): string {
+    return '0';
+  }
+}
+
 export type User = Record<string, unknown>;
 export type RefreshToken = Record<string, unknown>;
 export type AuditLog = Record<string, unknown>;
 export type Product = Record<string, unknown>;
+export type Lot = Record<string, unknown>;
+export type InventoryMovement = Record<string, unknown>;
+export type SaleItem = Record<string, unknown>;
+export type ReturnItem = Record<string, unknown>;
 
 // Mock enums so unit tests can reference enum values without loading the real
 // generated client (which uses import.meta and breaks under ts-jest CJS).

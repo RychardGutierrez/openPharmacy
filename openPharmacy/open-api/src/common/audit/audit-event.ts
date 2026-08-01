@@ -27,4 +27,9 @@ export type AuditEvent =
   | 'PRODUCT_UPDATED'
   | 'PRODUCT_DEACTIVATED'
   | 'PRODUCT_ACTIVATED'
-  | 'PRODUCT_BULK_IMPORTED';
+  | 'PRODUCT_BULK_IMPORTED'
+  // Lot / inventory events
+  | 'LOT_CREATED'
+  | 'LOT_UPDATED'
+  | 'LOT_VOIDED'
+  | 'STOCK_DEDUCTED_FEFO';

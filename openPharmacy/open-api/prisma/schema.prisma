@@ -125,6 +125,7 @@ model User {
   configUpdates        Config[]            @relation("ConfigUpdatedBy")
   refreshTokens        RefreshToken[]
   auditLogs            AuditLog[]
+  voidedLots           Lot[]             @relation("LotVoidedBy")
 
   @@index([deleted_at])
   @@map("users")
@@ -227,13 +228,20 @@ model Lot {
   expiry_date DateTime  @map("expiry_date") @db.Date
   initial_qty Int       @map("initial_qty")
   current_qty Int       @map("current_qty")
+  voided_at   DateTime? @map("voided_at")
+  voided_by   String?   @map("voided_by") @db.Uuid
+  void_reason String?   @map("void_reason")
   created_at  DateTime  @default(now()) @map("created_at")
 
-  product            Product[]
+  product            Product             @relation(fields: [product_id], references: [id])
   inventoryMovements InventoryMovement[]
   saleItems          SaleItem[]
   returnItems        ReturnItem[]
+  voidedBy           User?               @relation("LotVoidedBy", fields: [voided_by], references: [id])
 
+  @@index([product_id])
+  @@index([expiry_date])
+  @@unique([product_id, lot_number])
   @@map("lots")
   @@schema("pharmacy")
 }

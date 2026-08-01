@@ -172,7 +172,7 @@ No code changes needed — Prisma handles cross-schema queries transparently.
 | Model                | Table                  | Schema   | PK   | Key fields                                            |
 | -------------------- | ---------------------- | -------- | ---- | ----------------------------------------------------- |
 | `Product`            | `products`             | pharmacy | uuid | dci_name, commercial_name, laboratory, form, concentration, barcode, category, sale_price, cost_price, min_stock, active, deleted_at |
-| `Lot`                | `lots`                 | pharmacy | uuid | product_id (FK), lot_number, expiry_date, initial_qty, current_qty |
+| `Lot`                | `lots`                 | pharmacy | uuid | product_id (FK), lot_number, expiry_date, initial_qty, current_qty, voided_at, voided_by (FK), void_reason |
 | `InventoryMovement`  | `inventory_movements`  | pharmacy | uuid | product_id (FK), lot_id (FK), user_id (FK), movement_type, quantity, reason, approved_by (FK) |
 
 #### Pharmacy Schema — Suppliers & Purchasing
@@ -233,9 +233,11 @@ Product ──┬── has many Lots
           ├── has many OrderItems
           └── has many SaleItems
 
-Lot ──────┬── has many InventoryMovements
+Lot ──────┬── belongs to one Product
+          ├── has many InventoryMovements
           ├── has many SaleItems
-          └── has many ReturnItems
+          ├── has many ReturnItems
+          └── was voided by one User (optional)
 
 Supplier ──── has many PurchaseOrders
 
@@ -429,7 +431,63 @@ await this.prisma.user.update({
 
 ---
 
-## 12. Production Notes
+## 12. Lots, Expiry, and FEFO (PMS-005)
+
+### Lot model rules
+
+| Field | Mutable? | Notes |
+| ----- | -------- | ----- |
+| `product_id` | Create only | Real FK to `products.id` (`ON DELETE RESTRICT`). |
+| `lot_number` | Typo-only | Editable only while the lot has **no** movements, sales, or returns and `current_qty == initial_qty`; requires `reason`. |
+| `expiry_date` | Typo-only | Same restrictions as `lot_number`. |
+| `initial_qty` | Never | Historical receipt fact. |
+| `current_qty` | **Never direct edit** | Updated only by `fn_deduct_stock_fefo` or future inventory-movement transactions. |
+| `voided_at` / `voided_by` / `void_reason` | Void operation only | Allowed only when `current_qty = 0` and the lot has no sales/returns/movements. Keeps the row for traceability. |
+
+### FEFO deduction function
+
+```sql
+SELECT * FROM pharmacy.fn_deduct_stock_fefo(product_id::uuid, quantity);
+```
+
+`pharmacy.fn_deduct_stock_fefo` is the **only** place FEFO logic lives:
+
+- Locks candidate lots in `expiry_date ASC` order (`FOR UPDATE`).
+- Skips expired lots (`expiry_date < CURRENT_DATE`) and voided lots (`voided_at IS NOT NULL`).
+- Raises an exception if total active stock is insufficient, causing the caller transaction to roll back.
+- Returns a breakdown: `lot_id`, `lot_number`, `deducted_qty`.
+
+### Expiry alert thresholds
+
+Alerts are computed from `lots.expiry_date`:
+
+| Status | Window |
+| ------ | ------ |
+| RED    | expired or ≤ 30 days |
+| ORANGE | 31–90 days |
+| GREEN  | > 90 days |
+
+A lazy 6-hour scan (in-code `Date.now()` comparison) emits one SSE alert per newly-crossed threshold. There is **no alerts table**; alerts are computed views.
+
+### Indexes
+
+- `lots_product_id_idx` — list lots by product.
+- `lots_expiry_date_idx` — B-tree used by expiry dashboard and alert queries.
+- `lots_product_id_lot_number_key` — prevents duplicate lot numbers per product.
+
+---
+
+## 13. Regulatory Context (Bolivia / AGEMED)
+
+openPharmacy aligns with Bolivian law and internationally accepted GDP principles that AGEMED inspections generally reference:
+
+- **Ley 1737** and **DS 25235** require `lote` and `fecha de vencimiento` on medicines and QC/import documentation.
+- **EU GDP / WHO GSDP** (FEFO rotation, expiry segregation, documented corrections, record retention ≥ 5 years) underpins the no-hard-delete, append-only audit design.
+- Lot records are never destroyed once they have participated in inventory or sales; corrections are made via void/adjustment with reason, preserving the original row.
+
+---
+
+## 14. Production Notes
 
 - Never use `db push` in production — always use `migrate deploy`.
 - Set `DATABASE_URL` via secret manager, not `.env` files.

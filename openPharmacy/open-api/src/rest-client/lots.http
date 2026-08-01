@@ -1,0 +1,64 @@
+### Base URL and auth token placeholder
+@baseUrl = http://localhost:3000/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### Create a lot
+POST {{baseUrl}}/lots
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "productId": "PRODUCT_UUID",
+  "lotNumber": "LOT-001",
+  "expiryDate": "2027-12-31",
+  "initialQty": 100
+}
+
+### List lots by product
+GET {{baseUrl}}/lots/product/PRODUCT_UUID?includeVoided=false
+Authorization: Bearer {{token}}
+
+### Expiry dashboard
+GET {{baseUrl}}/lots/expiry-dashboard
+Authorization: Bearer {{token}}
+
+### Traceability by lot number
+GET {{baseUrl}}/lots/traceability/LOT-001
+Authorization: Bearer {{token}}
+
+### Correct a lot (typo only)
+PATCH {{baseUrl}}/lots/LOT_UUID
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "lotNumber": "LOT-001-CORRECTED",
+  "reason": "Typo correction"
+}
+
+### Void a lot
+PATCH {{baseUrl}}/lots/LOT_UUID/void
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "reason": "Created by mistake"
+}
+
+### Deduct stock via FEFO
+POST {{baseUrl}}/lots/fefo/deduct
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "productId": "PRODUCT_UUID",
+  "quantity": 10
+}
+
+### Current alerts snapshot
+GET {{baseUrl}}/alerts
+Authorization: Bearer {{token}}
+
+### SSE alerts stream
+GET {{baseUrl}}/alerts/stream
+Authorization: Bearer {{token}}
