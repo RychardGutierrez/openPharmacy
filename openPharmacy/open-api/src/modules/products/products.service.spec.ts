@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ProductCategory } from '@prisma/client';
+import { Product, ProductCategory } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { ProductsRepository } from './repositories/products.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
@@ -10,7 +10,7 @@ import { DuplicateBarcodeException } from './exceptions/duplicate-barcode.except
 import { ProductNotFoundException } from './exceptions/product-not-found.exception';
 import { CreateProductDto } from './dto/create-product.dto';
 
-const mockProduct = (overrides: Record<string, unknown> = {}) => ({
+const mockProduct = (overrides: Partial<Product> = {}): Product => ({
   id: 'p-1',
   dci_name: 'Paracetamol',
   commercial_name: 'Tylenol',
@@ -19,8 +19,8 @@ const mockProduct = (overrides: Record<string, unknown> = {}) => ({
   concentration: '500mg',
   barcode: '7501234567890',
   category: ProductCategory.OTC,
-  sale_price: 12.5,
-  cost_price: 8.0,
+  sale_price: 12.5 as unknown as Product['sale_price'],
+  cost_price: 8.0 as unknown as Product['cost_price'],
   min_stock: 10,
   active: true,
   deleted_at: null,

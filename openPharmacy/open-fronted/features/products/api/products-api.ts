@@ -133,7 +133,6 @@ const searchResponseSchema = z.array(productSchema)
 
 export function searchProducts(q: string): Promise<ProductSearchResult[]> {
   const params = new URLSearchParams()
-  console.log(q, "q");
   params.set("q", q)
   return request(
     `/products/search?${params.toString()}`,

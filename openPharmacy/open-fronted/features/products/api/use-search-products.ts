@@ -8,6 +8,6 @@ export function useSearchProducts(q: string) {
   return useQuery({
     queryKey: productsKeys.search(q),
     queryFn: () => searchProducts(q),
-    enabled: q.trim().length >= 3,
+    enabled: q.trim().length >= 1,
   })
 }

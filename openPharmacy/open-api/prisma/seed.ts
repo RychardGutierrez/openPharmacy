@@ -210,6 +210,65 @@ async function main() {
   }
   console.log('✓ Products created');
 
+  // ─── Lots ─────────────────────────────────────────────────────────────────
+  const paracetamol = await prisma.product.findUnique({ where: { barcode: '890' } });
+  const ibuprofeno = await prisma.product.findUnique({ where: { barcode: '891' } });
+  const amoxicilina = await prisma.product.findUnique({ where: { barcode: '892' } });
+
+  if (paracetamol && ibuprofeno && amoxicilina) {
+    const lots = [
+      // Paracetamol 890 — two lots, one near expiry (FEFO demo)
+      {
+        product_id: paracetamol.id,
+        lot_number: 'PAR-2026-A',
+        expiry_date: new Date('2026-08-15'),
+        initial_qty: 120,
+        current_qty: 120,
+      },
+      {
+        product_id: paracetamol.id,
+        lot_number: 'PAR-2027-B',
+        expiry_date: new Date('2027-06-30'),
+        initial_qty: 300,
+        current_qty: 300,
+      },
+      // Ibuprofeno 891 — one lot
+      {
+        product_id: ibuprofeno.id,
+        lot_number: 'IBU-2026-001',
+        expiry_date: new Date('2027-03-20'),
+        initial_qty: 200,
+        current_qty: 200,
+      },
+      // Amoxicilina 892 — prescription product with one lot
+      {
+        product_id: amoxicilina.id,
+        lot_number: 'AMX-2026-X',
+        expiry_date: new Date('2026-09-10'),
+        initial_qty: 80,
+        current_qty: 80,
+      },
+    ];
+
+    for (const lot of lots) {
+      await prisma.lot.upsert({
+        where: {
+          product_id_lot_number: {
+            product_id: lot.product_id,
+            lot_number: lot.lot_number,
+          },
+        },
+        update: {
+          expiry_date: lot.expiry_date,
+          initial_qty: lot.initial_qty,
+          current_qty: lot.current_qty,
+        },
+        create: lot,
+      });
+    }
+    console.log('✓ Lots created');
+  }
+
   console.log('\nSeeding complete!');
   console.log('─────────────────────────────────────────────');
   console.log('Users:');
