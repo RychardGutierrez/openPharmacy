@@ -33,6 +33,16 @@ export function formatDaysUntilExpiry(daysUntil: number): string {
   return `En ${daysUntil} día${daysUntil === 1 ? "" : "s"}`
 }
 
+export const marginAlertSchema = z.object({
+  previousUnitCost: z.number().nullable(),
+  newUnitCost: z.number(),
+  increasePct: z.number().nullable(),
+  currentSalePrice: z.number(),
+  currentMarginPct: z.number(),
+  suggestedSalePrice: z.number().nullable(),
+})
+export type MarginAlert = z.infer<typeof marginAlertSchema>
+
 export const lotSchema = z.object({
   id: z.string(),
   productId: z.string(),
@@ -48,10 +58,12 @@ export const lotSchema = z.object({
   expiryDate: z.string(),
   initialQty: z.number().int(),
   currentQty: z.number().int(),
+  unitCost: z.number(),
   voidedAt: z.string().nullable().optional(),
   voidReason: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),
+  marginAlert: marginAlertSchema.nullable().optional(),
 })
 export type Lot = z.infer<typeof lotSchema>
 
@@ -80,8 +92,12 @@ export const lotFormSchema = z.object({
   initialQty: z
     .number({ message: "Ingresa una cantidad válida" })
     .int("Debe ser un número entero")
-    .min(0, "No puede ser negativo")
+    .min(1, "La cantidad inicial debe ser al menos 1")
     .max(999999, "Máximo 999999"),
+  unitCost: z
+    .number({ message: "Ingresa el costo del lote" })
+    .min(0.01, "El costo unitario debe ser mayor a 0")
+    .max(99999999.99, "Máximo 99999999.99"),
   reason: z
     .string()
     .min(5, "La razón debe tener al menos 5 caracteres")
@@ -152,6 +168,7 @@ export const lotTraceSchema = z.object({
   expiryDate: z.string(),
   initialQty: z.number().int(),
   currentQty: z.number().int(),
+  unitCost: z.number(),
   product: lotTraceProductSchema.nullable().optional(),
   movements: z.array(lotTraceMovementSchema),
   saleItems: z.array(lotTraceSaleItemSchema),

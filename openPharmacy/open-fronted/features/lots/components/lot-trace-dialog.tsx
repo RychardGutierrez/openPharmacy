@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table"
 import { useLotTraceability } from "@/features/lots/api/use-lot-traceability"
 import { useDebounce } from "@/shared/hooks/use-debounce"
+import { formatCurrencyBOB } from "@/shared/utils/format"
 
 export interface LotTraceDialogProps {
   children?: React.ReactNode
@@ -112,6 +113,12 @@ export function LotTraceDialog({
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Cantidad actual:</span>
                     <span className="font-medium">{data.currentQty}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Costo unitario:</span>
+                    <span className="font-medium">
+                      {formatCurrencyBOB(data.unitCost)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Vencimiento:</span>

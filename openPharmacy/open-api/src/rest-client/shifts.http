@@ -1,0 +1,158 @@
+### Shift and cash-register endpoints
+### Uses the REST Client extension (humao.rest-client).
+### All routes require a Bearer access token.
+###
+### Roles:
+###   - CASHIER / PHARMACIST: open, close, and request reopening
+###   - ADMIN: review requests and reopen shifts
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+@token = YOUR_JWT_TOKEN_HERE
+@shiftId = SHIFT_UUID_HERE
+@requestId = REOPEN_REQUEST_UUID_HERE
+
+
+### ================================================================
+### OPEN SHIFT
+### CASHIER or PHARMACIST
+### Expect: 201
+### A second open shift for the same user is rejected with 409.
+### ================================================================
+
+# @name openShift
+POST {{base}}/shifts/open
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "openingCash": 250.00
+}
+
+
+### ================================================================
+### CLOSE SHIFT
+### CASHIER or PHARMACIST, owner of the shift
+### Expect: 200
+###
+### closingCash is the counted physical cash. The API calculates:
+###   expectedCash = openingCash + cash received - change given
+###   difference = expectedCash - closingCash
+###
+### expectedCash and difference are always calculated from database sales.
+### Client-submitted expected totals are not accepted.
+### ================================================================
+
+# @name closeShift
+PATCH {{base}}/shifts/{{shiftId}}/close
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "closingCash": 320.50
+}
+
+
+### ================================================================
+### SALES REQUIRE AN OPEN SHIFT
+### Use this request to verify the active-shift guard at the sales boundary.
+### Expect: 409 when the authenticated user has no open shift.
+### The sale endpoint is currently scaffolded and will be expanded with the
+### sales ticket.
+### ================================================================
+
+POST {{base}}/sales
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{}
+
+
+### ================================================================
+### REQUEST SHIFT REOPEN
+### CASHIER or PHARMACIST, owner of the closed shift
+### Expect: 201
+### Only one pending request is allowed for a shift at a time.
+### ================================================================
+
+# @name requestShiftReopen
+POST {{base}}/shifts/{{shiftId}}/reopen-request
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "reason": "The closing cash count was entered incorrectly."
+}
+
+
+### ================================================================
+### LIST PENDING REOPEN REQUESTS
+### ADMIN only
+### Expect: 200
+### ================================================================
+
+# @name listReopenRequests
+GET {{base}}/shifts/reopen-requests
+Accept: application/json
+Authorization: Bearer {{token}}
+
+
+### ================================================================
+### APPROVE REOPEN REQUEST
+### ADMIN only
+### Expect: 200
+### The shift becomes OPEN and its closing reconciliation values are cleared.
+### ================================================================
+
+# @name approveReopenRequest
+PATCH {{base}}/shifts/reopen-requests/{{requestId}}/approve
+Accept: application/json
+Authorization: Bearer {{token}}
+
+
+### ================================================================
+### REJECT REOPEN REQUEST
+### ADMIN only
+### Expect: 200
+### ================================================================
+
+# @name rejectReopenRequest
+PATCH {{base}}/shifts/reopen-requests/{{requestId}}/reject
+Accept: application/json
+Authorization: Bearer {{token}}
+
+
+### ================================================================
+### DIRECTLY REOPEN A SHIFT
+### ADMIN only
+### Expect: 200
+###
+### This is the administrative override. Non-ADMIN users receive 403.
+### Prefer the request/approval flow for normal operational corrections.
+### ================================================================
+
+# @name adminReopenShift
+PATCH {{base}}/shifts/{{shiftId}}/reopen
+Accept: application/json
+Authorization: Bearer {{token}}
+
+
+### ================================================================
+### AUTHORIZATION CHECKS
+### Run these with a CASHIER or PHARMACIST token.
+### Expect: 403 for each ADMIN-only endpoint.
+### ================================================================
+
+GET {{base}}/shifts/reopen-requests
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+PATCH {{base}}/shifts/{{shiftId}}/reopen
+Accept: application/json
+Authorization: Bearer {{token}}

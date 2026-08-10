@@ -28,8 +28,15 @@ export type AuditEvent =
   | 'PRODUCT_DEACTIVATED'
   | 'PRODUCT_ACTIVATED'
   | 'PRODUCT_BULK_IMPORTED'
+  | 'PRODUCT_PRICE_CHANGED'
   // Lot / inventory events
   | 'LOT_CREATED'
   | 'LOT_UPDATED'
   | 'LOT_VOIDED'
-  | 'STOCK_DEDUCTED_FEFO';
+  | 'STOCK_DEDUCTED_FEFO'
+  // Shift / cash-register events
+  | 'SHIFT_OPENED'
+  | 'SHIFT_CLOSED'
+  | 'SHIFT_REOPEN_REQUESTED'
+  | 'SHIFT_REOPENED'
+  | 'SHIFT_REOPEN_REQUEST_REJECTED';

@@ -67,6 +67,7 @@ describe('LotsController', () => {
         lotNumber: 'LOT-001',
         expiryDate: '2027-12-31',
         initialQty: 100,
+        unitCost: 12.5,
       };
       const expected = { id: 'lot-1', lotNumber: dto.lotNumber };
       lotsService.create.mockResolvedValue(

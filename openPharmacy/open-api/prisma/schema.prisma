@@ -24,6 +24,14 @@ enum ShiftStatus {
   @@schema("auth")
 }
 
+enum ShiftReopenRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@schema("auth")
+}
+
 // ─── Enums — Pharmacy ────────────────────────────────────────────────────────
 
 enum ProductCategory {
@@ -117,6 +125,8 @@ model User {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   shifts               Shift[]
+  shiftReopenRequests  ShiftReopenRequest[] @relation("ShiftReopenRequester")
+  shiftReopenReviews   ShiftReopenRequest[] @relation("ShiftReopenReviewer")
   inventoryMovements   InventoryMovement[] @relation("MovementUser")
   approvedMovements    InventoryMovement[] @relation("MovementApprovedBy")
   purchaseOrders       PurchaseOrder[]
@@ -126,6 +136,7 @@ model User {
   refreshTokens        RefreshToken[]
   auditLogs            AuditLog[]
   voidedLots           Lot[]             @relation("LotVoidedBy")
+  productPriceHistory  ProductPriceHistory[]
 
   @@index([deleted_at])
   @@map("users")
@@ -184,8 +195,31 @@ model Shift {
 
   user  User   @relation(fields: [user_id], references: [id])
   sales Sale[]
+  reopenRequests ShiftReopenRequest[]
 
+  @@index([user_id, status])
   @@map("shifts")
+  @@schema("auth")
+}
+
+model ShiftReopenRequest {
+  id          String                   @id @default(uuid()) @db.Uuid
+  shift_id    String                   @map("shift_id") @db.Uuid
+  requested_by String                  @map("requested_by") @db.Uuid
+  reason      String
+  status      ShiftReopenRequestStatus @default(PENDING)
+  reviewed_by String?                  @map("reviewed_by") @db.Uuid
+  reviewed_at DateTime?                @map("reviewed_at")
+  created_at  DateTime                 @default(now()) @map("created_at")
+  updated_at  DateTime                 @updatedAt @map("updated_at")
+
+  shift       Shift @relation(fields: [shift_id], references: [id])
+  requester   User  @relation("ShiftReopenRequester", fields: [requested_by], references: [id])
+  reviewer    User? @relation("ShiftReopenReviewer", fields: [reviewed_by], references: [id])
+
+  @@index([shift_id, status])
+  @@index([requested_by, status])
+  @@map("shift_reopen_requests")
   @@schema("auth")
 }
 
@@ -201,7 +235,7 @@ model Product {
   barcode           String?         @unique
   category          ProductCategory @default(NON_PHARMACEUTICAL)
   sale_price        Decimal         @map("sale_price") @db.Decimal(12, 2)
-  cost_price        Decimal         @map("cost_price") @db.Decimal(12, 2)
+  min_sale_price    Decimal         @default(0) @map("min_sale_price") @db.Decimal(12, 2)
   min_stock         Int             @default(0) @map("min_stock")
   active            Boolean         @default(true)
   deleted_at        DateTime?       @map("deleted_at")
@@ -212,6 +246,7 @@ model Product {
   inventoryMovements   InventoryMovement[]
   orderItems           OrderItem[]
   saleItems            SaleItem[]
+  priceHistory         ProductPriceHistory[]
 
   @@index([deleted_at])
   @@index([category])
@@ -228,6 +263,7 @@ model Lot {
   expiry_date DateTime  @map("expiry_date") @db.Date
   initial_qty Int       @map("initial_qty")
   current_qty Int       @map("current_qty")
+  unit_cost   Decimal   @map("unit_cost") @db.Decimal(12, 2)
   voided_at   DateTime? @map("voided_at")
   voided_by   String?   @map("voided_by") @db.Uuid
   void_reason String?   @map("void_reason")
@@ -243,6 +279,23 @@ model Lot {
   @@index([expiry_date])
   @@unique([product_id, lot_number])
   @@map("lots")
+  @@schema("pharmacy")
+}
+
+model ProductPriceHistory {
+  id            String    @id @default(uuid()) @db.Uuid
+  product_id    String    @map("product_id") @db.Uuid
+  old_sale_price Decimal? @map("old_sale_price") @db.Decimal(12, 2)
+  new_sale_price Decimal   @map("new_sale_price") @db.Decimal(12, 2)
+  reason        String?
+  changed_by    String?   @map("changed_by") @db.Uuid
+  created_at    DateTime  @default(now()) @map("created_at")
+
+  product Product @relation(fields: [product_id], references: [id])
+  user    User?   @relation(fields: [changed_by], references: [id])
+
+  @@index([product_id, created_at])
+  @@map("product_price_history")
   @@schema("pharmacy")
 }
 

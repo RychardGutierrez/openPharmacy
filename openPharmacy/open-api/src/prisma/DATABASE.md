@@ -171,8 +171,9 @@ No code changes needed — Prisma handles cross-schema queries transparently.
 
 | Model                | Table                  | Schema   | PK   | Key fields                                            |
 | -------------------- | ---------------------- | -------- | ---- | ----------------------------------------------------- |
-| `Product`            | `products`             | pharmacy | uuid | dci_name, commercial_name, laboratory, form, concentration, barcode, category, sale_price, cost_price, min_stock, active, deleted_at |
-| `Lot`                | `lots`                 | pharmacy | uuid | product_id (FK), lot_number, expiry_date, initial_qty, current_qty, voided_at, voided_by (FK), void_reason |
+| `Product`            | `products`             | pharmacy | uuid | dci_name, commercial_name, laboratory, form, concentration, barcode, category, sale_price, min_sale_price, min_stock, active, deleted_at |
+| `Lot`                | `lots`                 | pharmacy | uuid | product_id (FK), lot_number, expiry_date, initial_qty, current_qty, unit_cost, voided_at, voided_by (FK), void_reason |
+| `ProductPriceHistory`| `product_price_history`| pharmacy | uuid | product_id (FK), old_sale_price, new_sale_price, reason, changed_by (FK), created_at |
 | `InventoryMovement`  | `inventory_movements`  | pharmacy | uuid | product_id (FK), lot_id (FK), user_id (FK), movement_type, quantity, reason, approved_by (FK) |
 
 #### Pharmacy Schema — Suppliers & Purchasing

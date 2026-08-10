@@ -10,26 +10,33 @@ import { DuplicateBarcodeException } from './exceptions/duplicate-barcode.except
 import { ProductNotFoundException } from './exceptions/product-not-found.exception';
 import { CreateProductDto } from './dto/create-product.dto';
 
-const mockProduct = (overrides: Partial<Product> = {}): Product => ({
-  id: 'p-1',
-  dci_name: 'Paracetamol',
-  commercial_name: 'Tylenol',
-  laboratory: 'PharmaCo',
-  form: 'Tablet',
-  concentration: '500mg',
-  barcode: '7501234567890',
-  category: ProductCategory.OTC,
-  sale_price: 12.5 as unknown as Product['sale_price'],
-  cost_price: 8.0 as unknown as Product['cost_price'],
-  min_stock: 10,
-  active: true,
-  deleted_at: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
+const mockProduct = (
+  overrides: Partial<Record<keyof Product, unknown>> = {},
+): Product =>
+  ({
+    id: 'p-1',
+    dci_name: 'Paracetamol',
+    commercial_name: 'Tylenol',
+    laboratory: 'PharmaCo',
+    form: 'Tablet',
+    concentration: '500mg',
+    barcode: '7501234567890',
+    category: ProductCategory.OTC,
+    sale_price: 12.5 as unknown as Product['sale_price'],
+    min_sale_price: 8.0 as unknown as Product['min_sale_price'],
+    min_stock: 10,
+    active: true,
+    deleted_at: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }) as unknown as Product;
 
-const mockTx = {} as never;
+const mockTx = {
+  productPriceHistory: {
+    create: jest.fn().mockResolvedValue({}),
+  },
+};
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -55,6 +62,11 @@ describe('ProductsService', () => {
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
         fn(mockTx),
       ),
+      productPriceHistory: {
+        create: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     } as unknown as jest.Mocked<PrismaService>;
 
     eventEmitter = {
@@ -94,7 +106,7 @@ describe('ProductsService', () => {
         barcode: '7501234567890',
         category: ProductCategory.OTC,
         salePrice: 12.5,
-        costPrice: 8.0,
+        minSalePrice: 8.0,
         minStock: 10,
       };
       const created = mockProduct({ barcode: dto.barcode });
@@ -135,7 +147,7 @@ describe('ProductsService', () => {
           barcode: '7501234567890',
           category: ProductCategory.OTC,
           salePrice: 1,
-          costPrice: 0.5,
+          minSalePrice: 0.5,
           minStock: 0,
         }),
       ).rejects.toThrow(DuplicateBarcodeException);
@@ -250,6 +262,78 @@ describe('ProductsService', () => {
 
       expect(result).toHaveLength(1);
       expect(products.searchAutocomplete).toHaveBeenCalledWith('tylenol', 10);
+    });
+  });
+
+  describe('updatePrice', () => {
+    it('updates the sale price and records history + audit', async () => {
+      const existing = mockProduct({ sale_price: 12.5 });
+      products.findByIdIncludingDeleted.mockResolvedValue(existing);
+      products.updateTx.mockResolvedValue(mockProduct({ sale_price: 15 }));
+
+      const result = await service.updatePrice(
+        'p-1',
+        { salePrice: 15, reason: 'Cost increase' },
+        'user-1',
+      );
+
+      expect(result.salePrice).toBe(15);
+      expect(products.updateTx).toHaveBeenCalledWith(mockTx, 'p-1', {
+        sale_price: 15,
+      });
+      expect(mockTx.productPriceHistory.create).toHaveBeenCalledWith({
+        data: {
+          product_id: 'p-1',
+          old_sale_price: existing.sale_price,
+          new_sale_price: 15,
+          reason: 'Cost increase',
+          changed_by: 'user-1',
+        },
+      });
+      expect(audit.createInTx).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({ event: 'PRODUCT_PRICE_CHANGED' }),
+      );
+    });
+
+    it('throws when sale price is below the floor', async () => {
+      products.findByIdIncludingDeleted.mockResolvedValue(
+        mockProduct({ sale_price: 12.5, min_sale_price: 10 }),
+      );
+
+      await expect(
+        service.updatePrice('p-1', { salePrice: 5, reason: 'Sale' }, 'user-1'),
+      ).rejects.toThrow('Sale price cannot be below the minimum sale price');
+    });
+  });
+
+  describe('getPriceHistory', () => {
+    it('returns paginated history entries', async () => {
+      products.findByIdIncludingDeleted.mockResolvedValue(mockProduct());
+      (prisma.productPriceHistory.count as jest.Mock).mockResolvedValue(1);
+      (prisma.productPriceHistory.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'h-1',
+          product_id: 'p-1',
+          old_sale_price: 12.5,
+          new_sale_price: 15,
+          reason: 'Cost increase',
+          changed_by: 'user-1',
+          created_at: new Date(),
+          user: { full_name: 'Carlos' },
+        },
+      ]);
+
+      const result = await service.getPriceHistory('p-1', {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.data[0].oldSalePrice).toBe(12.5);
+      expect(result.data[0].newSalePrice).toBe(15);
+      expect(result.data[0].changedByName).toBe('Carlos');
     });
   });
 });

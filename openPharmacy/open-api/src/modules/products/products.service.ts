@@ -12,14 +12,18 @@ import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductPriceDto } from './dto/update-product-price.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import {
   BulkImportResponseDto,
   BulkImportRowDto,
 } from './dto/bulk-import-response.dto';
+import { PriceHistoryEntryDto } from './dto/price-history-response.dto';
+import { PriceHistoryQueryDto } from './dto/price-history-query.dto';
 import { PaginatedResponseDto } from '../users/dto/paginated-response.dto';
 import { DuplicateBarcodeException } from './exceptions/duplicate-barcode.exception';
+import { PriceBelowFloorException } from './exceptions/price-below-floor.exception';
 import { ProductNotFoundException } from './exceptions/product-not-found.exception';
 import { ProductsRepository } from './repositories/products.repository';
 import { RequestMetadata } from '../users/users.service';
@@ -132,6 +136,111 @@ export class ProductsService {
     });
 
     return this.toResponse(product);
+  }
+
+  async updatePrice(
+    id: string,
+    dto: UpdateProductPriceDto,
+    userId?: string,
+    meta?: RequestMetadata,
+  ): Promise<ProductResponseDto> {
+    const existing = await this.products.findByIdIncludingDeleted(id);
+    if (!existing) {
+      throw new ProductNotFoundException(id);
+    }
+
+    if (dto.salePrice < Number(existing.min_sale_price)) {
+      throw new PriceBelowFloorException(
+        id,
+        Number(existing.min_sale_price),
+        dto.salePrice,
+      );
+    }
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      const updated = await this.products.updateTx(tx, id, {
+        sale_price: dto.salePrice,
+      });
+
+      await tx.productPriceHistory.create({
+        data: {
+          product_id: id,
+          old_sale_price: existing.sale_price,
+          new_sale_price: dto.salePrice,
+          reason: dto.reason,
+          changed_by: userId ?? null,
+        },
+      });
+
+      await this.audit.createInTx(tx, {
+        userId: userId ?? null,
+        event: 'PRODUCT_PRICE_CHANGED',
+        ip: meta?.ip ?? null,
+        userAgent: meta?.userAgent ?? null,
+        metadata: {
+          productId: updated.id,
+          oldSalePrice: Number(existing.sale_price),
+          newSalePrice: dto.salePrice,
+          reason: dto.reason,
+        },
+      });
+
+      return updated;
+    });
+
+    return this.toResponse(product);
+  }
+
+  async getPriceHistory(
+    productId: string,
+    query: PriceHistoryQueryDto,
+  ): Promise<PaginatedResponseDto<PriceHistoryEntryDto>> {
+    const existing = await this.products.findByIdIncludingDeleted(productId);
+    if (!existing) {
+      throw new ProductNotFoundException(productId);
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const [total, entries] = await Promise.all([
+      this.prisma.productPriceHistory.count({
+        where: { product_id: productId },
+      }),
+      this.prisma.productPriceHistory.findMany({
+        where: { product_id: productId },
+        include: { user: true },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: entries.map((entry) =>
+        plainToInstance(
+          PriceHistoryEntryDto,
+          {
+            id: entry.id,
+            productId: entry.product_id,
+            oldSalePrice: entry.old_sale_price
+              ? Number(entry.old_sale_price)
+              : null,
+            newSalePrice: Number(entry.new_sale_price),
+            reason: entry.reason,
+            changedBy: entry.changed_by,
+            changedByName: entry.user?.full_name ?? null,
+            createdAt: entry.created_at,
+          },
+          { excludeExtraneousValues: true },
+        ),
+      ),
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   }
 
   async deactivate(
@@ -340,7 +449,7 @@ export class ProductsService {
       dci_name: 'dciName',
       commercial_name: 'commercialName',
       sale_price: 'salePrice',
-      cost_price: 'costPrice',
+      min_sale_price: 'minSalePrice',
       min_stock: 'minStock',
     };
 
@@ -365,7 +474,7 @@ export class ProductsService {
       barcode: dto.barcode,
       category: dto.category,
       sale_price: dto.salePrice,
-      cost_price: dto.costPrice,
+      min_sale_price: dto.minSalePrice,
       min_stock: dto.minStock,
       active: true,
       deleted_at: null,
@@ -387,7 +496,7 @@ export class ProductsService {
     if (dto.barcode !== undefined) data.barcode = dto.barcode;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
-    if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
+    if (dto.minSalePrice !== undefined) data.min_sale_price = dto.minSalePrice;
     if (dto.minStock !== undefined) data.min_stock = dto.minStock;
 
     return data;
@@ -404,7 +513,7 @@ export class ProductsService {
       barcode: product.barcode,
       category: product.category,
       salePrice: Number(product.sale_price),
-      costPrice: Number(product.cost_price),
+      minSalePrice: Number(product.min_sale_price),
       minStock: product.min_stock,
       active: product.active,
       createdAt: product.createdAt,

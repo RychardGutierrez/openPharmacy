@@ -53,7 +53,7 @@ export const productSchema = z.object({
   barcode: z.string(),
   category: z.enum(PRODUCT_CATEGORIES),
   salePrice: z.number().nonnegative(),
-  costPrice: z.number().nonnegative(),
+  minSalePrice: z.number().nonnegative(),
   minStock: z.number().int().nonnegative(),
   active: z.boolean(),
   createdAt: z.string(),
@@ -105,7 +105,7 @@ export const productFormSchema = z.object({
     message: "Selecciona una categoría",
   }),
   salePrice: z.number({ message: "Ingresa un precio válido" }).min(0, "No puede ser negativo"),
-  costPrice: z.number({ message: "Ingresa un costo válido" }).min(0, "No puede ser negativo"),
+  minSalePrice: z.number({ message: "Ingresa el precio mínimo" }).min(0, "No puede ser negativo"),
   minStock: z
     .number({ message: "Ingresa un stock válido" })
     .int("Debe ser un número entero")
@@ -124,7 +124,7 @@ export const BULK_IMPORT_HEADERS = [
   "barcode",
   "category",
   "salePrice",
-  "costPrice",
+  "minSalePrice",
   "minStock",
 ] as const
 

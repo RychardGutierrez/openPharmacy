@@ -2,6 +2,7 @@ import {
   IsDateString,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsString,
   IsUUID,
   Max,
@@ -35,12 +36,20 @@ export class CreateLotDto {
   expiryDate!: string;
 
   @ApiProperty({
-    description:
-      'Initial quantity received in this lot (0 allowed for mistaken entries)',
+    description: 'Initial quantity received in this lot (must be positive)',
   })
   @IsInt()
-  @Min(0)
+  @Min(1)
   @Max(999999)
   @Type(() => Number)
   initialQty!: number;
+
+  @ApiProperty({
+    description: 'Unit cost actually paid for this specific lot, in BOB',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(99999999.99)
+  @Type(() => Number)
+  unitCost!: number;
 }

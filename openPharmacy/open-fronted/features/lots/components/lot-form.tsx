@@ -44,7 +44,16 @@ const EMPTY_DEFAULTS: LotFormValues = {
   lotNumber: "",
   expiryDate: "",
   initialQty: 0,
+  unitCost: 0,
   reason: undefined,
+}
+
+function parseLocalDate(value: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return undefined
+
+  const [, year, month, day] = match
+  return new Date(Number(year), Number(month) - 1, Number(day))
 }
 
 export function LotForm({
@@ -119,7 +128,9 @@ export function LotForm({
           control={form.control}
           name="expiryDate"
           render={({ field }) => {
-            const selectedDate = field.value ? new Date(field.value) : undefined
+            const selectedDate = field.value
+              ? parseLocalDate(field.value)
+              : undefined
             return (
               <FormItem className="flex flex-col">
                 <FormLabel>Fecha de vencimiento</FormLabel>
@@ -136,7 +147,7 @@ export function LotForm({
                       >
                         <CalendarIcon className="mr-2 size-4" />
                         {field.value ? (
-                          format(selectedDate as Date, "PPP")
+                          selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"
                         ) : (
                           <span>Seleccionar fecha</span>
                         )}
@@ -178,17 +189,13 @@ export function LotForm({
                 <Input
                   type="number"
                   inputMode="numeric"
-                  min={0}
+                  min={1}
                   max={999999}
                   step={1}
                   placeholder="0"
                   value={field.value ?? 0}
                   onChange={(event) =>
-                    field.onChange(
-                      Math.trunc(
-                        Math.max(0, parseDecimalInput(event.target.value)),
-                      ),
-                    )
+                    field.onChange(Math.trunc(parseDecimalInput(event.target.value)))
                   }
                   disabled={mode === "edit"}
                 />
@@ -198,6 +205,37 @@ export function LotForm({
                 <p className="text-xs text-muted-foreground">
                   La cantidad inicial no se puede modificar una vez creado el
                   lote.
+                </p>
+              ) : null}
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="unitCost"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Costo unitario (Bs)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0.01}
+                  max={99999999.99}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={field.value ?? 0}
+                  onChange={(event) =>
+                    field.onChange(parseDecimalInput(event.target.value))
+                  }
+                  disabled={mode === "edit"}
+                />
+              </FormControl>
+              <FormMessage />
+              {mode === "edit" ? (
+                <p className="text-xs text-muted-foreground">
+                  El costo no se puede modificar una vez creado el lote.
                 </p>
               ) : null}
             </FormItem>
@@ -251,6 +289,7 @@ export function buildLotFormDefaults(lot?: Lot): Partial<LotFormValues> {
     lotNumber: lot.lotNumber,
     expiryDate: lot.expiryDate.split("T")[0],
     initialQty: lot.initialQty,
+    unitCost: lot.unitCost,
     reason: "",
   }
 }

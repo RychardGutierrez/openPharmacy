@@ -22,6 +22,7 @@ const mockLot = (overrides: Partial<Lot> = {}): Lot => ({
   expiry_date: new Date('2027-12-31'),
   initial_qty: 100,
   current_qty: 100,
+  unit_cost: 12.5 as unknown as Lot['unit_cost'],
   voided_at: null,
   voided_by: null,
   void_reason: null,
@@ -39,7 +40,7 @@ const mockProduct = (): Product => ({
   barcode: '7501234567890',
   category: ProductCategory.OTC,
   sale_price: 12.5 as unknown as Product['sale_price'],
-  cost_price: 8.0 as unknown as Product['cost_price'],
+  min_sale_price: 8.0 as unknown as Product['min_sale_price'],
   min_stock: 10,
   active: true,
   deleted_at: null,
@@ -54,7 +55,14 @@ const mockLotWithProduct = (
   product: mockProduct(),
 });
 
-const mockTx: unknown = {};
+const mockTx = {
+  lot: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
+  product: {
+    findUnique: jest.fn().mockResolvedValue(null),
+  },
+};
 
 describe('LotsService', () => {
   let service: LotsService;
@@ -116,6 +124,7 @@ describe('LotsService', () => {
         lotNumber: 'LOT-001',
         expiryDate: '2027-12-31',
         initialQty: 100,
+        unitCost: 12.5,
       };
       const created = mockLot();
 
@@ -126,6 +135,7 @@ describe('LotsService', () => {
 
       expect(result.lotNumber).toBe(dto.lotNumber);
       expect(result.initialQty).toBe(dto.initialQty);
+      expect(result.unitCost).toBe(12.5);
       expect(lots.createTx).toHaveBeenCalledWith(
         mockTx,
         expect.objectContaining({
@@ -133,6 +143,7 @@ describe('LotsService', () => {
           lot_number: dto.lotNumber,
           initial_qty: dto.initialQty,
           current_qty: dto.initialQty,
+          unit_cost: dto.unitCost,
         }),
       );
       expect(audit.createInTx).toHaveBeenCalledWith(
@@ -148,6 +159,7 @@ describe('LotsService', () => {
         lotNumber: 'LOT-001',
         expiryDate: '2027-12-31',
         initialQty: 100,
+        unitCost: 12.5,
       };
 
       lots.findByProductIdAndLotNumber.mockResolvedValue(mockLot());
@@ -163,6 +175,7 @@ describe('LotsService', () => {
         lotNumber: 'LOT-001',
         expiryDate: '2020-01-01',
         initialQty: 100,
+        unitCost: 12.5,
       };
 
       await expect(service.create(dto)).rejects.toThrow(

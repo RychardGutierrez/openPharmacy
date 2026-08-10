@@ -131,7 +131,7 @@ describeDb('LotsController (e2e)', () => {
         barcode: suffix,
         category: 'OTC',
         salePrice: 12.5,
-        costPrice: 8.0,
+        minSalePrice: 8.0,
         minStock: 10,
       })
       .expect(201);
@@ -142,7 +142,12 @@ describeDb('LotsController (e2e)', () => {
   async function createLot(
     token: string,
     productId: string,
-    overrides: { lotNumber?: string; expiryDate?: string; initialQty?: number },
+    overrides: {
+      lotNumber?: string;
+      expiryDate?: string;
+      initialQty?: number;
+      unitCost?: number;
+    },
   ) {
     const res = await request(app.getHttpServer())
       .post('/api/lots')
@@ -153,6 +158,7 @@ describeDb('LotsController (e2e)', () => {
         expiryDate:
           overrides.expiryDate ?? new Date().toISOString().split('T')[0],
         initialQty: overrides.initialQty ?? 100,
+        unitCost: overrides.unitCost ?? 10,
       })
       .expect(201);
     createdLotIds.push(res.body.id);
@@ -331,11 +337,19 @@ describeDb('LotsController (e2e)', () => {
     const token = await login(pharm.email, pharm.password);
     const productId = await createProduct(token);
 
-    const lot = await createLot(token, productId, {
-      lotNumber: `VOID-${Date.now()}`,
-      expiryDate: '2030-12-31',
-      initialQty: 0,
+    // The API no longer allows creating a zero-quantity lot, so create the
+    // zero-stock lot directly via prisma to exercise the void flow.
+    const lot = await prisma.lot.create({
+      data: {
+        product_id: productId,
+        lot_number: `VOID-${Date.now()}`,
+        expiry_date: new Date('2030-12-31'),
+        initial_qty: 0,
+        current_qty: 0,
+        unit_cost: 10,
+      },
     });
+    createdLotIds.push(lot.id);
 
     const res = await request(app.getHttpServer())
       .patch(`/api/lots/${lot.id}/void`)

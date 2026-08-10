@@ -78,7 +78,7 @@ export class CreateProductDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Type(() => Number)
-  costPrice!: number;
+  minSalePrice!: number;
 
   @IsInt()
   @Min(0)

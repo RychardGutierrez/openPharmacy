@@ -28,6 +28,7 @@ import { useDeactivateProduct } from "@/features/products/api/use-deactivate-pro
 import { useProduct } from "@/features/products/api/use-product"
 import { ProductCategoryBadge } from "@/features/products/components/product-category-badge"
 import { ProductDeactivateDialog } from "@/features/products/components/product-deactivate-dialog"
+import { UpdatePriceDialog } from "@/features/products/components/update-price-dialog"
 import {
   isControlledCategory,
   COMPLIANCE_WARNING_TEXT,
@@ -49,6 +50,7 @@ export function ProductDetailPageClient({ id }: { id: string }) {
   const router = useRouter()
   const { data: product, isLoading, error } = useProduct(id)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [priceDialogOpen, setPriceDialogOpen] = useState(false)
 
   const deactivate = useDeactivateProduct()
   const activate = useActivateProduct()
@@ -181,11 +183,18 @@ export function ProductDetailPageClient({ id }: { id: string }) {
                 value={formatCurrencyBOB(product.salePrice)}
               />
               <DetailItem
-                label="Precio de costo"
-                value={formatCurrencyBOB(product.costPrice)}
+                label="Precio mínimo de venta"
+                value={formatCurrencyBOB(product.minSalePrice)}
               />
               <Separator />
               <DetailItem label="Stock mínimo" value={product.minStock} />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setPriceDialogOpen(true)}
+              >
+                Actualizar precio de venta
+              </Button>
             </CardContent>
           </Card>
 
@@ -229,6 +238,15 @@ export function ProductDetailPageClient({ id }: { id: string }) {
         onConfirm={onConfirmToggle}
         isPending={deactivate.isPending || activate.isPending}
       />
+
+      {priceDialogOpen ? (
+        <UpdatePriceDialog
+          key={`price-${priceDialogOpen}`}
+          product={product}
+          open={priceDialogOpen}
+          onOpenChange={setPriceDialogOpen}
+        />
+      ) : null}
     </div>
   )
 }

@@ -78,7 +78,7 @@ async function main() {
       barcode: '890',
       category: ProductCategory.OTC,
       sale_price: 12.5,
-      cost_price: 8.0,
+      min_sale_price: 8.0,
       min_stock: 100,
     },
     {
@@ -90,7 +90,7 @@ async function main() {
       barcode: '891',
       category: ProductCategory.OTC,
       sale_price: 18.0,
-      cost_price: 11.0,
+      min_sale_price: 11.0,
       min_stock: 80,
     },
     {
@@ -102,7 +102,7 @@ async function main() {
       barcode: '892',
       category: ProductCategory.PRESCRIPTION_ONLY,
       sale_price: 35.0,
-      cost_price: 22.0,
+      min_sale_price: 22.0,
       min_stock: 50,
     },
     {
@@ -114,7 +114,7 @@ async function main() {
       barcode: '893',
       category: ProductCategory.OTC,
       sale_price: 22.0,
-      cost_price: 14.0,
+      min_sale_price: 14.0,
       min_stock: 60,
     },
     {
@@ -126,7 +126,7 @@ async function main() {
       barcode: '894',
       category: ProductCategory.PRESCRIPTION_ONLY,
       sale_price: 28.0,
-      cost_price: 18.0,
+      min_sale_price: 18.0,
       min_stock: 70,
     },
     {
@@ -138,7 +138,7 @@ async function main() {
       barcode: '895',
       category: ProductCategory.PRESCRIPTION_ONLY,
       sale_price: 25.0,
-      cost_price: 16.0,
+      min_sale_price: 16.0,
       min_stock: 60,
     },
     {
@@ -150,7 +150,7 @@ async function main() {
       barcode: '896',
       category: ProductCategory.OTC,
       sale_price: 32.0,
-      cost_price: 20.0,
+      min_sale_price: 20.0,
       min_stock: 40,
     },
     {
@@ -162,7 +162,7 @@ async function main() {
       barcode: '897',
       category: ProductCategory.OTC,
       sale_price: 15.0,
-      cost_price: 9.0,
+      min_sale_price: 9.0,
       min_stock: 90,
     },
     {
@@ -174,7 +174,7 @@ async function main() {
       barcode: '898',
       category: ProductCategory.PRESCRIPTION_ONLY,
       sale_price: 42.0,
-      cost_price: 28.0,
+      min_sale_price: 28.0,
       min_stock: 30,
     },
     {
@@ -186,7 +186,7 @@ async function main() {
       barcode: '899',
       category: ProductCategory.OTC,
       sale_price: 20.0,
-      cost_price: 12.0,
+      min_sale_price: 12.0,
       min_stock: 70,
     },
   ];
@@ -202,7 +202,7 @@ async function main() {
         concentration: product.concentration,
         category: product.category,
         sale_price: product.sale_price,
-        cost_price: product.cost_price,
+        min_sale_price: product.min_sale_price,
         min_stock: product.min_stock,
       },
       create: product,
@@ -224,6 +224,7 @@ async function main() {
         expiry_date: new Date('2026-08-15'),
         initial_qty: 120,
         current_qty: 120,
+        unit_cost: 8.0,
       },
       {
         product_id: paracetamol.id,
@@ -231,6 +232,7 @@ async function main() {
         expiry_date: new Date('2027-06-30'),
         initial_qty: 300,
         current_qty: 300,
+        unit_cost: 8.5,
       },
       // Ibuprofeno 891 — one lot
       {
@@ -239,6 +241,7 @@ async function main() {
         expiry_date: new Date('2027-03-20'),
         initial_qty: 200,
         current_qty: 200,
+        unit_cost: 11.0,
       },
       // Amoxicilina 892 — prescription product with one lot
       {
@@ -247,6 +250,7 @@ async function main() {
         expiry_date: new Date('2026-09-10'),
         initial_qty: 80,
         current_qty: 80,
+        unit_cost: 22.0,
       },
     ];
 
@@ -262,6 +266,7 @@ async function main() {
           expiry_date: lot.expiry_date,
           initial_qty: lot.initial_qty,
           current_qty: lot.current_qty,
+          unit_cost: lot.unit_cost,
         },
         create: lot,
       });

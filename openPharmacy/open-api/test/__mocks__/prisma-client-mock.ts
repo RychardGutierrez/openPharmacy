@@ -30,6 +30,12 @@ export type Lot = Record<string, unknown>;
 export type InventoryMovement = Record<string, unknown>;
 export type SaleItem = Record<string, unknown>;
 export type ReturnItem = Record<string, unknown>;
+export type Shift = Record<string, unknown>;
+export type ShiftReopenRequest = Record<string, unknown>;
+
+export type Prisma = {
+  TransactionClient: Record<string, any>;
+};
 
 // Mock enums so unit tests can reference enum values without loading the real
 // generated client (which uses import.meta and breaks under ts-jest CJS).
@@ -39,6 +45,20 @@ export const UserRole = {
   CASHIER: 'CASHIER',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const ShiftStatus = {
+  OPEN: 'OPEN',
+  CLOSED: 'CLOSED',
+} as const;
+export type ShiftStatus = (typeof ShiftStatus)[keyof typeof ShiftStatus];
+
+export const ShiftReopenRequestStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+export type ShiftReopenRequestStatus =
+  (typeof ShiftReopenRequestStatus)[keyof typeof ShiftReopenRequestStatus];
 
 export const ProductCategory = {
   OTC: 'OTC',
