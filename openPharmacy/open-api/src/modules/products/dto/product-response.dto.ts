@@ -30,7 +30,7 @@ export class ProductResponseDto {
   salePrice!: number;
 
   @Expose()
-  costPrice!: number;
+  minSalePrice!: number;
 
   @Expose()
   minStock!: number;

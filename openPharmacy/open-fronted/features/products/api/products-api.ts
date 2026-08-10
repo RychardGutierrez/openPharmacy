@@ -168,6 +168,60 @@ export function activateProduct(id: string): Promise<Product> {
   return request(`/products/${id}/activate`, { method: "PATCH" }, productSchema)
 }
 
+export interface UpdateProductPriceValues {
+  salePrice: number
+  reason: string
+}
+
+export function updateProductPrice(
+  id: string,
+  values: UpdateProductPriceValues,
+): Promise<Product> {
+  return request(
+    `/products/${id}/price`,
+    { method: "PATCH", body: JSON.stringify(values) },
+    productSchema,
+  )
+}
+
+export const productPriceHistoryEntrySchema = z.object({
+  id: z.string(),
+  productId: z.string(),
+  oldSalePrice: z.number().nullable().optional(),
+  newSalePrice: z.number(),
+  reason: z.string().nullable().optional(),
+  changedBy: z.string().nullable().optional(),
+  changedByName: z.string().nullable().optional(),
+  createdAt: z.string(),
+})
+export type ProductPriceHistoryEntry = z.infer<
+  typeof productPriceHistoryEntrySchema
+>
+
+export const paginatedPriceHistorySchema = z.object({
+  data: z.array(productPriceHistoryEntrySchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+  totalPages: z.number(),
+})
+export type PaginatedPriceHistory = z.infer<typeof paginatedPriceHistorySchema>
+
+export function getProductPriceHistory(
+  id: string,
+  page = 1,
+  pageSize = 20,
+): Promise<PaginatedPriceHistory> {
+  const params = new URLSearchParams()
+  params.set("page", String(page))
+  params.set("pageSize", String(pageSize))
+  return request(
+    `/products/${id}/price-history?${params.toString()}`,
+    { method: "GET" },
+    paginatedPriceHistorySchema,
+  )
+}
+
 export function bulkImportProducts(file: File): Promise<BulkImportResponse> {
   const formData = new FormData()
   formData.append("file", file)

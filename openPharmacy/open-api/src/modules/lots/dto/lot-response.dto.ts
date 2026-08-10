@@ -1,5 +1,25 @@
 import { Expose } from 'class-transformer';
 
+export class MarginAlertDto {
+  @Expose()
+  previousUnitCost!: number | null;
+
+  @Expose()
+  newUnitCost!: number;
+
+  @Expose()
+  increasePct!: number | null;
+
+  @Expose()
+  currentSalePrice!: number;
+
+  @Expose()
+  currentMarginPct!: number;
+
+  @Expose()
+  suggestedSalePrice!: number | null;
+}
+
 export class LotResponseDto {
   @Expose()
   id!: string;
@@ -20,6 +40,9 @@ export class LotResponseDto {
   currentQty!: number;
 
   @Expose()
+  unitCost!: number;
+
+  @Expose()
   voidedAt?: Date | null;
 
   @Expose()
@@ -30,4 +53,7 @@ export class LotResponseDto {
 
   @Expose()
   product?: { id: string; dciName: string; commercialName: string } | null;
+
+  @Expose()
+  marginAlert?: MarginAlertDto | null;
 }

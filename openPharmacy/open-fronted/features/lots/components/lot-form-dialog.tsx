@@ -10,9 +10,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { LotForm, buildLotFormDefaults } from "@/features/lots/components/lot-form"
+import { MarginAlertDialog } from "@/features/lots/components/margin-alert-dialog"
 import { useCreateLot } from "@/features/lots/api/use-create-lot"
 import { useUpdateLot } from "@/features/lots/api/use-update-lot"
-import type { Lot, LotFormValues } from "@/features/lots/types"
+import type { Lot, LotFormValues, MarginAlert } from "@/features/lots/types"
 
 export interface LotFormDialogProps {
   mode?: "create" | "edit"
@@ -38,6 +39,10 @@ export function LotFormDialog({
   const open = isControlled ? controlledOpen : internalOpen
   const setOpen = isControlled ? onOpenChange ?? setInternalOpen : setInternalOpen
 
+  const [marginAlert, setMarginAlert] = useState<MarginAlert | null>(null)
+  const [marginAlertOpen, setMarginAlertOpen] = useState(false)
+  const [alertProductId, setAlertProductId] = useState<string>("")
+
   const create = useCreateLot()
   const update = useUpdateLot()
   const isPending = create.isPending || update.isPending
@@ -60,7 +65,12 @@ export function LotFormDialog({
         },
       })
     } else {
-      await create.mutateAsync(values)
+      const created = await create.mutateAsync(values)
+      if (created.marginAlert) {
+        setMarginAlert(created.marginAlert)
+        setAlertProductId(created.productId)
+        setMarginAlertOpen(true)
+      }
     }
     setOpen(false)
     onSuccess?.()
@@ -89,6 +99,14 @@ export function LotFormDialog({
           isPending={isPending}
         />
       </DialogContent>
+
+      <MarginAlertDialog
+        alert={marginAlert}
+        productId={alertProductId}
+        open={marginAlertOpen}
+        onOpenChange={setMarginAlertOpen}
+        onKeepPrice={() => setMarginAlertOpen(false)}
+      />
     </Dialog>
   )
 }

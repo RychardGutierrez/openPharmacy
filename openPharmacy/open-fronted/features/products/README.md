@@ -49,7 +49,7 @@ A product represents a pharmaceutical or non-pharmaceutical item in inventory.
 | `barcode` | string | 3–14 digits, unique |
 | `category` | `ProductCategory` | See below |
 | `salePrice` | number | Selling price in BOB |
-| `costPrice` | number | Cost price in BOB |
+| `minSalePrice` | number | Minimum sale price (floor) in BOB |
 | `minStock` | number | Minimum stock threshold |
 | `active` | boolean | Soft-delete flag |
 
@@ -126,7 +126,7 @@ The `productFormSchema` enforces:
 - `dciName` / `commercialName`: required, 1–255 chars
 - `barcode`: 3–14 digits
 - `category`: one of the five enum values
-- `salePrice` / `costPrice`: non-negative numbers
+- `salePrice` / `minSalePrice`: non-negative numbers
 - `minStock`: integer, 0–999999
 
 ## Error Codes

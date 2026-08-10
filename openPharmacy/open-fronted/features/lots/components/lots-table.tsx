@@ -14,6 +14,7 @@ import {
 import { LotStatusBadge } from "@/features/lots/components/lot-status-badge"
 import { LotFefoIndicator } from "@/features/lots/components/lot-fefo-indicator"
 import { cn } from "@/lib/utils"
+import { formatCurrencyBOB } from "@/shared/utils/format"
 import type { Lot } from "@/features/lots/types"
 
 export interface LotsTableProps {
@@ -30,7 +31,7 @@ const ROW_HEIGHT = 56
 const OVERSCAN = 8
 
 const GRID_TEMPLATE =
-  "48px minmax(140px,1fr) minmax(120px,1fr) minmax(100px,0.8fr) minmax(100px,0.8fr) minmax(120px,1fr) 56px"
+  "48px minmax(140px,1fr) minmax(120px,1fr) minmax(100px,0.8fr) minmax(100px,0.8fr) minmax(100px,0.8fr) minmax(120px,1fr) 56px"
 
 function getNextFefoLot(lots: Lot[]): Lot | undefined {
   const now = new Date()
@@ -105,6 +106,7 @@ export function LotsTable({
         <div role="columnheader" className="px-3 py-2">Lote</div>
         <div role="columnheader" className="px-3 py-2">Vencimiento</div>
         <div role="columnheader" className="px-3 py-2">Cantidad</div>
+        <div role="columnheader" className="px-3 py-2">Costo</div>
         <div role="columnheader" className="px-3 py-2">Estado</div>
         <div role="columnheader" className="px-3 py-2">Registro</div>
         <div role="columnheader" className="px-2 py-2">
@@ -193,6 +195,12 @@ export function LotsTable({
                     className="flex items-center px-3 tabular-nums"
                   >
                     {lot.currentQty}
+                  </div>
+                  <div
+                    role="cell"
+                    className="flex items-center px-3 tabular-nums"
+                  >
+                    {formatCurrencyBOB(lot.unitCost)}
                   </div>
                   <div role="cell" className="flex items-center px-3">
                     <LotStatusBadge daysUntil={daysUntil} />

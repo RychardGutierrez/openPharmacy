@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -22,13 +23,30 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import type { Request } from 'express';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductPriceDto } from './dto/update-product-price.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { BulkImportResponseDto } from './dto/bulk-import-response.dto';
+import { PriceHistoryEntryDto } from './dto/price-history-response.dto';
+import { PriceHistoryQueryDto } from './dto/price-history-query.dto';
 import { PaginatedResponseDto } from '../users/dto/paginated-response.dto';
+
+const extractMetadata = (request: Request) => ({
+  ip:
+    (request.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]
+      ?.trim() ??
+    request.ip ??
+    request.socket?.remoteAddress ??
+    null,
+  userAgent: request.headers['user-agent'] ?? null,
+});
 
 @ApiTags('products')
 @ApiBearerAuth()
@@ -93,8 +111,34 @@ export class ProductsController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProductDto,
+    @Req() request: Request,
   ): Promise<ProductResponseDto> {
-    return this.productsService.update(id, dto);
+    return this.productsService.update(id, dto, extractMetadata(request));
+  }
+
+  @Patch(':id/price')
+  @ApiOperation({ summary: 'Update the sale price of a product' })
+  updatePrice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateProductPriceDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ): Promise<ProductResponseDto> {
+    return this.productsService.updatePrice(
+      id,
+      dto,
+      user.id,
+      extractMetadata(request),
+    );
+  }
+
+  @Get(':id/price-history')
+  @ApiOperation({ summary: 'List the price history of a product' })
+  getPriceHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: PriceHistoryQueryDto,
+  ): Promise<PaginatedResponseDto<PriceHistoryEntryDto>> {
+    return this.productsService.getPriceHistory(id, query);
   }
 
   @Patch(':id/deactivate')

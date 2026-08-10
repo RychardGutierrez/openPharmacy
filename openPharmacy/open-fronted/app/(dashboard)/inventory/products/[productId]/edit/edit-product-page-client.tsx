@@ -54,7 +54,7 @@ export function EditProductPageClient({ id }: { id: string }) {
     barcode: product.barcode,
     category: product.category,
     salePrice: product.salePrice,
-    costPrice: product.costPrice,
+    minSalePrice: product.minSalePrice,
     minStock: product.minStock,
   }
 

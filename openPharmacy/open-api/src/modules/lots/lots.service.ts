@@ -21,6 +21,7 @@ import { LotHasDependenciesException } from './exceptions/lot-has-dependencies.e
 import { LotNotEditableException } from './exceptions/lot-not-editable.exception';
 import { LotHasStockException } from './exceptions/lot-has-stock.exception';
 import { ExpiryStatus } from './events/lot-expiry-alert.event';
+import { computeMarginAlert, MarginAlert } from './utils/margin-alert';
 import { RequestMetadata } from '../users/users.service';
 
 @Injectable()
@@ -50,13 +51,17 @@ export class LotsService {
       throw new DuplicateLotNumberException(dto.productId, dto.lotNumber);
     }
 
+    let marginAlert: MarginAlert | null = null;
     const lot = await this.prisma.$transaction(async (tx) => {
+      marginAlert = await computeMarginAlert(tx, dto.productId, dto.unitCost);
+
       const created = await this.lots.createTx(tx, {
         product_id: dto.productId,
         lot_number: dto.lotNumber,
         expiry_date: expiryDate,
         initial_qty: dto.initialQty,
         current_qty: dto.initialQty,
+        unit_cost: dto.unitCost,
         voided_at: null,
         voided_by: null,
         void_reason: null,
@@ -73,6 +78,7 @@ export class LotsService {
           lotNumber: created.lot_number,
           expiryDate: created.expiry_date,
           initialQty: created.initial_qty,
+          unitCost: created.unit_cost,
         },
       });
 
@@ -80,7 +86,7 @@ export class LotsService {
     });
 
     this.emitLotCreated(lot);
-    return this.toResponse(lot);
+    return this.toResponseWithAlert(lot, marginAlert);
   }
 
   async findByProduct(
@@ -206,6 +212,7 @@ export class LotsService {
         expiryDate: lot.expiry_date,
         initialQty: lot.initial_qty,
         currentQty: lot.current_qty,
+        unitCost: Number(lot.unit_cost),
         product: {
           id: lot.product.id,
           dciName: lot.product.dci_name,
@@ -409,6 +416,13 @@ export class LotsService {
   }
 
   private toResponse(lot: Lot): LotResponseDto {
+    return this.toResponseWithAlert(lot, null);
+  }
+
+  private toResponseWithAlert(
+    lot: Lot,
+    marginAlert: MarginAlert | null,
+  ): LotResponseDto {
     const lotWithProduct = lot as Lot & {
       product?: {
         id: string;
@@ -423,6 +437,7 @@ export class LotsService {
       expiryDate: lot.expiry_date,
       initialQty: lot.initial_qty,
       currentQty: lot.current_qty,
+      unitCost: Number(lot.unit_cost),
       voidedAt: lot.voided_at,
       voidReason: lot.void_reason,
       createdAt: lot.created_at,
@@ -433,6 +448,7 @@ export class LotsService {
             commercialName: lotWithProduct.product.commercial_name,
           }
         : null,
+      marginAlert,
     });
   }
 

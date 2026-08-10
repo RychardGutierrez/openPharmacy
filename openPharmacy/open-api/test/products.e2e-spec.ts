@@ -69,6 +69,9 @@ describeDb('ProductsController (e2e)', () => {
   afterAll(async () => {
     if (prisma) {
       for (const id of createdProductIds) {
+        await prisma.productPriceHistory.deleteMany({
+          where: { product_id: id },
+        });
         await prisma.product.deleteMany({ where: { id } });
       }
       for (const id of createdUserIds) {
@@ -123,7 +126,7 @@ describeDb('ProductsController (e2e)', () => {
       barcode: `${Date.now()}`,
       category: 'OTC',
       salePrice: 12.5,
-      costPrice: 8.0,
+      minSalePrice: 8.0,
       minStock: 10,
     };
   }
@@ -238,7 +241,7 @@ describeDb('ProductsController (e2e)', () => {
     const barcode = `${Date.now()}3`;
 
     const csv = [
-      'dciName,commercialName,barcode,category,salePrice,costPrice,minStock',
+      'dciName,commercialName,barcode,category,salePrice,minSalePrice,minStock',
       `Aspirin,Aspirin E2E,${barcode},OTC,5.00,3.00,20`,
       'Invalid,,bad-barcode,OTC,5.00,3.00,20',
     ].join('\n');
@@ -281,5 +284,50 @@ describeDb('ProductsController (e2e)', () => {
     createdProductIds.push(created.body.id);
 
     expect(created.body.category).toBe('PSYCHOTROPIC');
+  });
+
+  it('AC7: update price records history and rejects below floor', async () => {
+    const pharm = await createUser(UserRole.PHARMACIST, 'ac7');
+    const token = await login(pharm.email, pharm.password);
+    const payload = {
+      ...baseProduct(),
+      commercialName: 'PriceChangeE2E',
+      barcode: `${Date.now()}5`,
+      salePrice: 25,
+      minSalePrice: 15,
+    };
+
+    const created = await request(app.getHttpServer())
+      .post('/api/products')
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload)
+      .expect(201);
+    createdProductIds.push(created.body.id);
+
+    const updated = await request(app.getHttpServer())
+      .patch(`/api/products/${created.body.id}/price`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ salePrice: 28, reason: 'Supplier cost increase' })
+      .expect(200);
+
+    expect(updated.body.salePrice).toBe(28);
+    expect(updated.body.minSalePrice).toBe(15);
+
+    const history = await request(app.getHttpServer())
+      .get(`/api/products/${created.body.id}/price-history`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(history.body.total).toBeGreaterThanOrEqual(1);
+    expect(history.body.data[0].newSalePrice).toBe(28);
+    expect(history.body.data[0].reason).toBe('Supplier cost increase');
+
+    const rejected = await request(app.getHttpServer())
+      .patch(`/api/products/${created.body.id}/price`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ salePrice: 10, reason: 'Trying below floor' })
+      .expect(400);
+
+    expect(rejected.body.code).toBe('PRICE_BELOW_FLOOR');
   });
 });

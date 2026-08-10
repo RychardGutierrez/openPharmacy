@@ -75,6 +75,9 @@ export class LotTraceResponseDto {
   currentQty!: number;
 
   @Expose()
+  unitCost!: number;
+
+  @Expose()
   product!: LotTraceProductDto;
 
   @Expose()

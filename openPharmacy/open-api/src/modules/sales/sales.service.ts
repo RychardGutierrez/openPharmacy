@@ -1,10 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { ShiftsService } from '../shifts/shifts.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 
 @Injectable()
 export class SalesService {
-  create(createSaleDto: CreateSaleDto) {
+  constructor(private readonly shiftsService: ShiftsService) {}
+
+  async create(userId: string, createSaleDto: CreateSaleDto) {
+    void createSaleDto;
+    await this.shiftsService.validateActiveShift(userId);
     return 'This action adds a new sale';
   }
 
@@ -17,6 +22,7 @@ export class SalesService {
   }
 
   update(id: number, updateSaleDto: UpdateSaleDto) {
+    void updateSaleDto;
     return `This action updates a #${id} sale`;
   }
 

@@ -41,7 +41,7 @@ const EMPTY_DEFAULTS: ProductFormValues = {
   barcode: "",
   category: "OTC",
   salePrice: 0,
-  costPrice: 0,
+  minSalePrice: 0,
   minStock: 0,
 }
 
@@ -246,10 +246,10 @@ export function ProductForm({
 
           <FormField
             control={form.control}
-            name="costPrice"
+            name="minSalePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Precio de costo</FormLabel>
+                <FormLabel>Precio mínimo de venta</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
