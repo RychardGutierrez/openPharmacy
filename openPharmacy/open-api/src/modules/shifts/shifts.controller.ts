@@ -33,6 +33,30 @@ export class ShiftsController {
     return this.shiftsService.open(user.id, dto);
   }
 
+  @Get('current')
+  @Roles(UserRole.CASHIER, UserRole.PHARMACIST)
+  @ApiOperation({ summary: 'Get the current user active shift' })
+  current(@CurrentUser() user: AuthenticatedUser) {
+    return this.shiftsService.findCurrent(user.id);
+  }
+
+  @Get('mine')
+  @Roles(UserRole.CASHIER, UserRole.PHARMACIST)
+  @ApiOperation({ summary: 'List the current user shifts' })
+  mine(@CurrentUser() user: AuthenticatedUser) {
+    return this.shiftsService.findMine(user.id);
+  }
+
+  @Get(':id/sales')
+  @Roles(UserRole.CASHIER, UserRole.PHARMACIST)
+  @ApiOperation({ summary: 'Get products and totals sold during a shift' })
+  sales(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.shiftsService.findShiftSales(user.id, id);
+  }
+
   @Patch(':id/close')
   @Roles(UserRole.CASHIER, UserRole.PHARMACIST)
   @ApiOperation({ summary: 'Close a cash register shift' })

@@ -15,6 +15,7 @@ import {
   Settings,
   RotateCcw,
   Repeat,
+  ShieldCheck,
 } from "lucide-react"
 import type { UserRole } from "@/features/auth/types"
 
@@ -24,6 +25,8 @@ export type NavItem = {
   icon: LucideIcon
   /** When set, the item is only rendered for users with this role. */
   requiredRole?: UserRole
+  /** Roles that must not see this item. */
+  hiddenForRoles?: UserRole[]
 }
 
 export type NavParentItem = {
@@ -47,7 +50,7 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: ShoppingCart,
         items: [
           { title: "POS", href: "/sales/pos", icon: ShoppingCart },
-          { title: "Cash Register", href: "/sales/cash-register", icon: RotateCcw },
+          { title: "Cash Register", href: "/sales/cash-register", icon: RotateCcw, hiddenForRoles: ["ADMIN"] },
           { title: "Returns", href: "/sales/returns", icon: Repeat },
         ],
       },
@@ -76,6 +79,12 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: "Admin",
+    items: [
+      { title: "Reopen Requests", href: "/admin/reopen-requests", icon: ShieldCheck, requiredRole: "ADMIN" },
+    ],
+  },
+  {
     title: "System",
     items: [
       { title: "Settings", href: "/settings", icon: Settings },
@@ -101,6 +110,7 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/doctors": { title: "Doctors", subtitle: "Manage doctor records" },
   "/users": { title: "Users", subtitle: "Manage system users" },
   "/sedes": { title: "Sedes", subtitle: "Manage locations" },
+  "/admin/reopen-requests": { title: "Reopen Requests", subtitle: "Review shift reopening requests" },
   "/settings": { title: "Settings", subtitle: "System configuration" },
 }
 
