@@ -2,6 +2,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
   NotFoundException,
 } from '@nestjs/common';
 import { ShiftReopenRequestStatus, ShiftStatus } from '@prisma/client';
@@ -28,11 +30,86 @@ const isUniqueViolation = (error: unknown): boolean =>
   (error as { code?: string }).code === 'P2002';
 
 @Injectable()
-export class ShiftsService {
+export class ShiftsService implements OnModuleInit, OnModuleDestroy {
+  private autoCloseTimer?: NodeJS.Timeout;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditLogRepository,
   ) {}
+
+  onModuleInit() {
+    // Check once per minute so shifts cannot remain open past Bolivia midnight.
+    this.autoCloseTimer = setInterval(() => {
+      void this.closeShiftsAtBoliviaEndOfDay();
+    }, 60_000);
+    this.autoCloseTimer.unref();
+    void this.closeShiftsAtBoliviaEndOfDay();
+  }
+
+  onModuleDestroy() {
+    if (this.autoCloseTimer) clearInterval(this.autoCloseTimer);
+  }
+
+  async closeShiftsAtBoliviaEndOfDay(now = new Date()): Promise<number> {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/La_Paz',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+    const hour = Number(parts.find((part) => part.type === 'hour')?.value);
+    const minute = Number(parts.find((part) => part.type === 'minute')?.value);
+    if (hour !== 0 || minute !== 0) return 0;
+
+    const openShifts = await this.prisma.shift.findMany({
+      where: { status: ShiftStatus.OPEN },
+      select: { id: true, user_id: true },
+    });
+    let closedCount = 0;
+    for (const openShift of openShifts) {
+      const closed = await this.prisma.$transaction(async (tx) => {
+        const shift = await tx.shift.findUnique({ where: { id: openShift.id } });
+        if (!shift || shift.status !== ShiftStatus.OPEN) return false;
+        const totals = await tx.sale.aggregate({
+          _sum: { cash_received: true, change_given: true },
+          where: { shift_id: shift.id, paymentMethod: 'CASH', status: 'COMPLETED' },
+        });
+        const expectedCash = money(
+          Number(shift.opening_cash) +
+            Number(totals._sum.cash_received ?? 0) -
+            Number(totals._sum.change_given ?? 0),
+        );
+        await tx.shift.update({
+          where: { id: shift.id },
+          data: {
+            // Automatic end-of-day close uses expected cash as the count.
+            closing_cash: expectedCash,
+            expected_cash: expectedCash,
+            status: ShiftStatus.CLOSED,
+            closed_at: now,
+          },
+        });
+        return { shift, expectedCash };
+      });
+      if (closed) {
+        closedCount += 1;
+        await this.audit.create({
+          userId: openShift.user_id,
+          event: 'SHIFT_CLOSED',
+          metadata: {
+            shiftId: openShift.id,
+            countedCash: closed.expectedCash,
+            expectedCash: closed.expectedCash,
+            difference: 0,
+            automatic: true,
+            reason: 'AUTOMATIC_END_OF_DAY_CLOSE',
+          },
+        });
+      }
+    }
+    return closedCount;
+  }
 
   async open(userId: string, dto: CreateShiftDto) {
     try {
