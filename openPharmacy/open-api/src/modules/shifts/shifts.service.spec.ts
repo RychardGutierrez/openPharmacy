@@ -20,6 +20,7 @@ describe('ShiftsService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
       sale: { aggregate: jest.fn() },
@@ -57,6 +58,28 @@ describe('ShiftsService', () => {
     expect(audit.create).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'SHIFT_OPENED', userId: 'user-1' }),
     );
+  });
+
+  it('returns the current open shift for a user', async () => {
+    const shift = { id: 'shift-1', user_id: 'user-1', status: 'OPEN' };
+    prisma.shift.findFirst.mockResolvedValue(shift);
+
+    await expect(service.findCurrent('user-1')).resolves.toBe(shift);
+    expect(prisma.shift.findFirst).toHaveBeenCalledWith({
+      where: { user_id: 'user-1', status: 'OPEN' },
+      orderBy: { opened_at: 'desc' },
+    });
+  });
+
+  it('lists only the current user shifts in reverse opening order', async () => {
+    const shifts = [{ id: 'shift-1', user_id: 'user-1' }];
+    prisma.shift.findMany.mockResolvedValue(shifts);
+
+    await expect(service.findMine('user-1')).resolves.toBe(shifts);
+    expect(prisma.shift.findMany).toHaveBeenCalledWith({
+      where: { user_id: 'user-1' },
+      orderBy: { opened_at: 'desc' },
+    });
   });
 
   it('translates the partial unique-index violation to HTTP 409', async () => {
@@ -97,8 +120,9 @@ describe('ShiftsService', () => {
       }),
     );
     const updateCall = prisma.shift.update.mock.calls[0] as unknown as [
-      { data: { expected_cash: number } },
+      { data: { closing_cash: number; expected_cash: number } },
     ];
+    expect(updateCall[0].data.closing_cash).toBe(160);
     expect(updateCall[0].data.expected_cash).toBe(170);
   });
 

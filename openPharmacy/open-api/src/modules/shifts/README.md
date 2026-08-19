@@ -45,6 +45,8 @@ All routes require a Bearer access token.
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
 | `POST` | `/api/shifts/open` | CASHIER, PHARMACIST | Open a shift |
+| `GET` | `/api/shifts/current` | CASHIER, PHARMACIST | Get the current user's open shift, or `null` |
+| `GET` | `/api/shifts/mine` | CASHIER, PHARMACIST | List the current user's shifts for history and reopen requests |
 | `PATCH` | `/api/shifts/:id/close` | CASHIER, PHARMACIST (owner) | Close a shift and reconcile |
 | `POST` | `/api/shifts/:id/reopen-request` | CASHIER, PHARMACIST (owner) | Request a reopen |
 | `GET` | `/api/shifts/reopen-requests` | ADMIN | List pending reopen requests |

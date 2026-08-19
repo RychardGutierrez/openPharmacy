@@ -173,3 +173,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body * { visibility: hidden; }
+  .print-report, .print-report * { visibility: visible; }
+  .print-report { display: block !important; position: absolute; top: 0; left: 0; width: 72mm; min-height: 100mm; padding: 8mm 5mm; color: #000; background: #fff; font: 9px/1.35 "Courier New", monospace; }
+  .print-report h1, .print-report h2 { margin: 0 0 4px; font: inherit; font-weight: 700; }
+  .print-report h1 { text-align: center; font-size: 11px; }
+  .print-report h2 { margin-top: 7px; }
+  .print-report p { display: flex; justify-content: space-between; gap: 4px; margin: 1px 0; white-space: pre-wrap; }
+  .print-report hr { border: 0; border-top: 1px dashed #888; margin: 7px 0; }
+}

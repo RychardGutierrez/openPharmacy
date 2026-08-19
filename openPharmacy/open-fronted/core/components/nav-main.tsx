@@ -17,13 +17,15 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronRight } from "lucide-react"
 import { NAV_SECTIONS, type NavItem, type NavParentItem } from "@/core/config/navigation"
+import type { UserRole } from "@/features/auth/types"
 import { useAuthStore } from "@/features/auth/store/auth-store"
 
 function isParentItem(item: NavItem | NavParentItem): item is NavParentItem {
   return "items" in item
 }
 
-function canSee(item: NavItem, role: string | undefined): boolean {
+function canSee(item: NavItem, role: UserRole | undefined): boolean {
+  if (role && item.hiddenForRoles?.includes(role)) return false
   if (!item.requiredRole) return true
   return role === item.requiredRole
 }

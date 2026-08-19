@@ -58,6 +58,103 @@ export class ShiftsService {
     }
   }
 
+  async findCurrent(userId: string) {
+    const shift = await this.prisma.shift.findFirst({
+      where: { user_id: userId, status: ShiftStatus.OPEN },
+      orderBy: { opened_at: 'desc' },
+    });
+    return shift ?? null;
+  }
+
+  findMine(userId: string) {
+    return this.prisma.shift.findMany({
+      where: { user_id: userId },
+      orderBy: { opened_at: 'desc' },
+    });
+  }
+
+  async findShiftSales(userId: string, shiftId: string) {
+    const shift = await this.prisma.shift.findUnique({
+      where: { id: shiftId },
+      select: { user_id: true },
+    });
+    if (!shift) throw new NotFoundException('Shift not found');
+    if (shift.user_id !== userId) {
+      throw new ForbiddenException('You can only review your own shift sales');
+    }
+
+    const sales = await this.prisma.sale.findMany({
+      where: { shift_id: shiftId, status: 'COMPLETED' },
+      select: {
+        subtotal: true,
+        total: true,
+        discount: true,
+        paymentMethod: true,
+        saleItems: {
+          select: {
+            quantity: true,
+            line_total: true,
+            product: { select: { id: true, commercial_name: true, dci_name: true } },
+          },
+        },
+      },
+    });
+
+    const products = new Map<string, { productId: string; name: string; quantity: number; total: number }>();
+    let grossSales = 0;
+    let discounts = 0;
+    let returns = 0;
+    const payments = { CASH: 0, CARD: 0, QR: 0, TRANSFER: 0 };
+    for (const sale of sales) {
+      grossSales += money(sale.subtotal);
+      discounts += money(sale.discount);
+      payments[sale.paymentMethod] += money(sale.total);
+      for (const item of sale.saleItems) {
+        const current = products.get(item.product.id) ?? {
+          productId: item.product.id,
+          name: item.product.commercial_name || item.product.dci_name,
+          quantity: 0,
+          total: 0,
+        };
+        current.quantity += item.quantity;
+        current.total += money(item.line_total);
+        products.set(item.product.id, current);
+      }
+    }
+    const saleReturns = await this.prisma.return.findMany({
+      where: { sale: { shift_id: shiftId } },
+      select: {
+        returnItems: {
+          select: { quantity: true, saleItem: { select: { unit_price: true } } },
+        },
+      },
+    });
+    for (const saleReturn of saleReturns) {
+      for (const item of saleReturn.returnItems) {
+        returns += money(Number(item.saleItem.unit_price) * item.quantity);
+      }
+    }
+    const productList = [...products.values()].map((product) => ({
+      ...product,
+      total: money(product.total),
+    }));
+    return {
+      products: productList,
+      totals: {
+        units: productList.reduce((sum, product) => sum + product.quantity, 0),
+        distinctProducts: productList.length,
+        transactions: sales.length,
+        grossSales: money(grossSales),
+        discounts: money(discounts),
+        returns: money(returns),
+        netSales: money(grossSales - discounts - returns),
+      },
+      payments: Object.fromEntries(
+        Object.entries(payments).map(([method, total]) => [method, money(total)]),
+      ),
+    };
+  }
+
   async close(
     userId: string,
     shiftId: string,
@@ -138,6 +235,15 @@ export class ShiftsService {
     }
     if (shift.status !== ShiftStatus.CLOSED) {
       throw new ConflictException('Only closed shifts can be reopened');
+    }
+    const activeShift = await this.prisma.shift.findFirst({
+      where: { user_id: userId, status: ShiftStatus.OPEN },
+      select: { id: true },
+    });
+    if (activeShift) {
+      throw new ConflictException(
+        'Close the active shift before requesting a reopen',
+      );
     }
 
     try {
@@ -252,6 +358,15 @@ export class ShiftsService {
     if (!shift) throw new NotFoundException('Shift not found');
     if (shift.status !== ShiftStatus.CLOSED) {
       throw new ConflictException('Only closed shifts can be reopened');
+    }
+    const activeShift = await tx.shift.findFirst({
+      where: { user_id: shift.user_id, status: ShiftStatus.OPEN },
+      select: { id: true },
+    });
+    if (activeShift) {
+      throw new ConflictException(
+        'Close the active shift before reopening this shift',
+      );
     }
     return tx.shift.update({
       where: { id: shiftId },
