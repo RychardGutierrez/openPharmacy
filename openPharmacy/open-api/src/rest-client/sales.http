@@ -1,0 +1,49 @@
+### Sale registration endpoints
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store token for later requests ─────────────────────────────────────
+
+@accessToken = {{loginCashier.response.body.accessToken}}
+
+### Register a cash sale. The current user's open shift is used when shiftId is omitted.
+POST {{base}}/sales
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": "f56b2f81-dfad-4f62-a51e-638a3b8b97c1",
+      "quantity": 2
+    }
+  ],
+  "paymentMethod": "CASH",
+  "cashReceived": 30,
+  "discount": 0
+}
+
+### List completed sales
+GET {{base}}/sales
+Authorization: Bearer {{accessToken}}
+
+### Get a receipt by sale id
+GET {{base}}/sales/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+### Subscribe to dashboard sale events
+GET {{base}}/dashboard/stream
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream

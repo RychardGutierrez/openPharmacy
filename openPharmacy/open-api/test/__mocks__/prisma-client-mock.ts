@@ -9,6 +9,7 @@ export class PrismaClient {
 export const Prisma = {
   JsonNull: 'JsonNull',
   InputJsonValue: class {} as new () => unknown,
+  TransactionIsolationLevel: { Serializable: 'Serializable' },
 };
 
 export class Decimal {
@@ -29,6 +30,7 @@ export type Product = Record<string, unknown>;
 export type Lot = Record<string, unknown>;
 export type InventoryMovement = Record<string, unknown>;
 export type SaleItem = Record<string, unknown>;
+export type Sale = Record<string, unknown>;
 export type ReturnItem = Record<string, unknown>;
 export type Shift = Record<string, unknown>;
 export type ShiftReopenRequest = Record<string, unknown>;
@@ -45,6 +47,21 @@ export const UserRole = {
   CASHIER: 'CASHIER',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const PaymentMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  TRANSFER: 'TRANSFER',
+  QR: 'QR',
+} as const;
+export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
+
+export const SaleStatus = {
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  REFUNDED: 'REFUNDED',
+} as const;
+export type SaleStatus = (typeof SaleStatus)[keyof typeof SaleStatus];
 
 export const ShiftStatus = {
   OPEN: 'OPEN',
@@ -67,4 +84,5 @@ export const ProductCategory = {
   NARCOTIC: 'NARCOTIC',
   NON_PHARMACEUTICAL: 'NON_PHARMACEUTICAL',
 } as const;
-export type ProductCategory = (typeof ProductCategory)[keyof typeof ProductCategory];
+export type ProductCategory =
+  (typeof ProductCategory)[keyof typeof ProductCategory];
