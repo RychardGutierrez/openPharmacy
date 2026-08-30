@@ -1,47 +1,41 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
   Param,
-  Delete,
+  ParseUUIDPipe,
+  Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { SalesService } from './sales.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateSaleDto } from './dto/create-sale.dto';
-import { UpdateSaleDto } from './dto/update-sale.dto';
+import { SalesService } from './sales.service';
 
+@ApiTags('sales')
+@ApiBearerAuth()
+@Roles(UserRole.CASHIER, UserRole.PHARMACIST)
 @Controller('sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Post()
-  create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() createSaleDto: CreateSaleDto,
-  ) {
-    return this.salesService.create(user.id, createSaleDto);
+  @ApiOperation({ summary: 'Register a sale and deduct stock using FEFO' })
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateSaleDto) {
+    return this.salesService.create(user.id, dto);
   }
 
   @Get()
+  @ApiOperation({ summary: 'List completed sales' })
   findAll() {
     return this.salesService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.salesService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSaleDto: UpdateSaleDto) {
-    return this.salesService.update(+id, updateSaleDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.salesService.remove(+id);
+  @ApiOperation({ summary: 'Get a sale receipt by id' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.salesService.findOne(id);
   }
 }

@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { LotsRepository } from './repositories/lots.repository';
 import { InsufficientStockException } from './exceptions/insufficient-stock.exception';
+import { Prisma } from '@prisma/client';
 
 export interface DeductResult {
   success: boolean;
@@ -75,6 +76,45 @@ export class FefoService {
         throw new InsufficientStockException(productId, quantity);
       }
 
+      throw error;
+    }
+  }
+
+  /** Deduct stock inside a caller-owned transaction, such as a sale. */
+  async deductStockInTx(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    quantity: number,
+    userId?: string,
+  ): Promise<DeductResult> {
+    try {
+      const rows = await this.lots.callFefo(tx, productId, quantity);
+      await this.audit.createInTx(tx, {
+        userId: userId ?? null,
+        event: 'STOCK_DEDUCTED_FEFO',
+        metadata: {
+          productId,
+          requestedQty: quantity,
+          lotsUsed: rows.map((row) => ({ ...row })),
+        },
+      });
+      return {
+        success: true,
+        lotsUsed: rows.map((r) => ({
+          lotId: r.lot_id,
+          lotNumber: r.lot_number,
+          deductedQty: r.deducted_qty,
+        })),
+        remainingQty: 0,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '';
+      if (
+        message.includes('insufficient active non-expired stock') ||
+        message.includes('quantity must be positive')
+      ) {
+        throw new InsufficientStockException(productId, quantity);
+      }
       throw error;
     }
   }
