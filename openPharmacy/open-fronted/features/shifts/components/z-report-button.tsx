@@ -14,7 +14,7 @@ export function ZReportButton({ shift, cashierName, closeResult, sales }: {
   const printReport = () => {
     window.print()
   }
-  const expected = closeResult?.expectedCash ?? shift.openingCash
+  const expected = closeResult?.expectedCash ?? sales?.expectedCash ?? shift.openingCash
   const counted = closeResult?.countedCash
   const difference = closeResult?.difference
   return (
@@ -24,8 +24,8 @@ export function ZReportButton({ shift, cashierName, closeResult, sales }: {
         Imprimir Z-Report
       </Button>
       <section className="print-report hidden" aria-hidden="true">
-        <h1>FARMACIA SAN RAFAEL</h1>
-        <h2>REPORTE DE CIERRE DE TURNO (Z)</h2>
+        <h1>OPEN PHARMACY</h1>
+        <h2>REPORTE DE CIERRE DE TURNO</h2>
         <p>Cajero: {cashierName}</p>
         <p>Turno: {new Date(shift.openedAt).toLocaleString("es-BO")} - {shift.closedAt ? new Date(shift.closedAt).toLocaleString("es-BO") : "abierto"}</p>
         <hr />
@@ -46,6 +46,7 @@ export function ZReportButton({ shift, cashierName, closeResult, sales }: {
         <p>Tarjeta: {formatCurrencyBOB(sales?.payments.CARD ?? 0)}</p>
         <p>QR: {formatCurrencyBOB(sales?.payments.QR ?? 0)}</p>
         <p>Transferencia: {formatCurrencyBOB(sales?.payments.TRANSFER ?? 0)}</p>
+        <p>Mixto: {formatCurrencyBOB(sales?.payments.MIXED ?? 0)}</p>
         <hr />
         <h2>RECONCILIACIÓN DE EFECTIVO</h2>
         <p>Apertura: {formatCurrencyBOB(shift.openingCash)}</p>

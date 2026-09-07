@@ -97,9 +97,9 @@ describe('ShiftsService', () => {
       opening_cash: 100,
       status: 'OPEN',
     });
-    prisma.sale.aggregate.mockResolvedValue({
-      _sum: { cash_received: 75, change_given: 5 },
-    });
+    prisma.sale.aggregate
+      .mockResolvedValueOnce({ _sum: { cash_received: 75, change_given: 5 } })
+      .mockResolvedValueOnce({ _sum: { cash_received: 0, change_given: 0 } });
     prisma.shift.update.mockResolvedValue({ id: 'shift-1', status: 'CLOSED' });
 
     await expect(
@@ -126,6 +126,28 @@ describe('ShiftsService', () => {
     expect(updateCall[0].data.expected_cash).toBe(170);
   });
 
+  it('includes mixed-payment cash portion in expected cash', async () => {
+    prisma.shift.findUnique.mockResolvedValue({
+      id: 'shift-1',
+      user_id: 'user-1',
+      opening_cash: 100,
+      status: 'OPEN',
+    });
+    prisma.sale.aggregate
+      .mockResolvedValueOnce({ _sum: { cash_received: 75, change_given: 5 } })
+      .mockResolvedValueOnce({ _sum: { cash_received: 40, change_given: 0 } });
+    prisma.shift.update.mockResolvedValue({ id: 'shift-1', status: 'CLOSED' });
+
+    await expect(
+      service.close('user-1', 'shift-1', { closingCash: 220 }),
+    ).resolves.toEqual({
+      shift: { id: 'shift-1', status: 'CLOSED' },
+      countedCash: 220,
+      expectedCash: 210,
+      difference: -10,
+    });
+  });
+
   it('blocks sales when the cashier has no active shift', async () => {
     prisma.shift.findFirst.mockResolvedValue(null);
 
@@ -136,21 +158,42 @@ describe('ShiftsService', () => {
 
   it('automatically closes open shifts at Bolivia midnight using expected cash', async () => {
     const midnight = new Date('2026-08-20T04:00:00.000Z');
-    prisma.shift.findMany.mockResolvedValue([{ id: 'shift-1', user_id: 'user-1' }]);
+    prisma.shift.findMany.mockResolvedValue([
+      { id: 'shift-1', user_id: 'user-1' },
+    ]);
     prisma.shift.findUnique.mockResolvedValue({
-      id: 'shift-1', user_id: 'user-1', opening_cash: 100, status: 'OPEN',
+      id: 'shift-1',
+      user_id: 'user-1',
+      opening_cash: 100,
+      status: 'OPEN',
     });
-    prisma.sale.aggregate.mockResolvedValue({ _sum: { cash_received: 75, change_given: 5 } });
+    prisma.sale.aggregate
+      .mockResolvedValueOnce({ _sum: { cash_received: 75, change_given: 5 } })
+      .mockResolvedValueOnce({ _sum: { cash_received: 0, change_given: 0 } });
     prisma.shift.update.mockResolvedValue({ id: 'shift-1', status: 'CLOSED' });
 
-    await expect(service.closeShiftsAtBoliviaEndOfDay(midnight)).resolves.toBe(1);
-    expect(prisma.shift.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ closing_cash: 170, expected_cash: 170, status: 'CLOSED' }),
-    }));
-    expect(audit.create).toHaveBeenCalledWith(expect.objectContaining({
-      event: 'SHIFT_CLOSED',
-      metadata: expect.objectContaining({ automatic: true, reason: 'AUTOMATIC_END_OF_DAY_CLOSE' }),
-    }));
+    await expect(service.closeShiftsAtBoliviaEndOfDay(midnight)).resolves.toBe(
+      1,
+    );
+    const updateCall = prisma.shift.update.mock.calls[0] as unknown as [
+      { data: { closing_cash: number; expected_cash: number; status: string } },
+    ];
+    expect(updateCall[0].data.closing_cash).toBe(170);
+    expect(updateCall[0].data.expected_cash).toBe(170);
+    expect(updateCall[0].data.status).toBe('CLOSED');
+    expect(audit.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'SHIFT_CLOSED',
+        metadata: {
+          shiftId: 'shift-1',
+          countedCash: 170,
+          expectedCash: 170,
+          difference: 0,
+          automatic: true,
+          reason: 'AUTOMATIC_END_OF_DAY_CLOSE',
+        },
+      }),
+    );
   });
 
   it('approves a pending reopen request and reopens the shift', async () => {

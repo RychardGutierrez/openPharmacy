@@ -5,6 +5,7 @@ export interface SaleReceiptItemDto {
   productId: string;
   productName: string;
   lotId: string;
+  lotNumber: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -19,6 +20,7 @@ export interface SaleResponseDto {
   discount: number;
   total: number;
   paymentMethod: PaymentMethod;
+  secondaryMethod: PaymentMethod | null;
   cashReceived: number;
   changeGiven: number;
   status: SaleStatus;

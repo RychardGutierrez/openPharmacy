@@ -42,6 +42,15 @@ export function isControlledCategory(category: ProductCategory): boolean {
 export const COMPLIANCE_WARNING_TEXT =
   "Esta categoría activa el flujo obligatorio de SEDES al registrar la venta."
 
+/** Aggregated sellable-stock info attached when `includeStock=true` (POS). */
+export const stockSummarySchema = z.object({
+  availableQty: z.number().int(),
+  earliestExpiry: z.string().nullable(),
+  daysUntilExpiry: z.number().int().nullable(),
+  expiringSoon: z.boolean(),
+})
+export type StockSummary = z.infer<typeof stockSummarySchema>
+
 /** Shape of a product as returned by the API. */
 export const productSchema = z.object({
   id: z.string(),
@@ -59,6 +68,7 @@ export const productSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().nullable().optional(),
+  stockSummary: stockSummarySchema.nullable().optional(),
 })
 export type Product = z.infer<typeof productSchema>
 

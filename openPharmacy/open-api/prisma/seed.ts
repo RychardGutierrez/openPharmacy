@@ -211,9 +211,15 @@ async function main() {
   console.log('✓ Products created');
 
   // ─── Lots ─────────────────────────────────────────────────────────────────
-  const paracetamol = await prisma.product.findUnique({ where: { barcode: '890' } });
-  const ibuprofeno = await prisma.product.findUnique({ where: { barcode: '891' } });
-  const amoxicilina = await prisma.product.findUnique({ where: { barcode: '892' } });
+  const paracetamol = await prisma.product.findUnique({
+    where: { barcode: '890' },
+  });
+  const ibuprofeno = await prisma.product.findUnique({
+    where: { barcode: '891' },
+  });
+  const amoxicilina = await prisma.product.findUnique({
+    where: { barcode: '892' },
+  });
 
   if (paracetamol && ibuprofeno && amoxicilina) {
     const lots = [
@@ -273,6 +279,23 @@ async function main() {
     }
     console.log('✓ Lots created');
   }
+
+  // ─── Config (receipt header for POS thermal printing) ─────────────────────
+  const configEntries = [
+    { key: 'PHARMACY_NAME', value: 'OpenPharmacy' },
+    { key: 'PHARMACY_ADDRESS', value: 'Av. Principal #123, La Paz' },
+    { key: 'PHARMACY_PHONE', value: '+591 2 1234567' },
+    { key: 'PHARMACY_NIT', value: '1023456789012' },
+  ] as const;
+
+  for (const entry of configEntries) {
+    await prisma.config.upsert({
+      where: { key: entry.key },
+      update: { value: entry.value },
+      create: entry,
+    });
+  }
+  console.log('✓ Config entries created');
 
   console.log('\nSeeding complete!');
   console.log('─────────────────────────────────────────────');

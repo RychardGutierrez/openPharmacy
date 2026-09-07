@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Prisma } from '@prisma/client';
 import { computeMarginAlert } from './margin-alert';
 
@@ -6,9 +5,6 @@ describe('computeMarginAlert', () => {
   const tx = {
     lot: { findFirst: jest.fn() },
     product: { findUnique: jest.fn() },
-  } as unknown as {
-    lot: { findFirst: jest.Mock };
-    product: { findUnique: jest.Mock };
   };
 
   const asTx = tx as unknown as Prisma.TransactionClient;
@@ -18,8 +14,8 @@ describe('computeMarginAlert', () => {
   });
 
   it('returns null when there is no previous lot', async () => {
-    (tx.lot.findFirst as jest.Mock).mockResolvedValue(null);
-    (tx.product.findUnique as jest.Mock).mockResolvedValue({
+    tx.lot.findFirst.mockResolvedValue(null);
+    tx.product.findUnique.mockResolvedValue({
       sale_price: 25,
       min_sale_price: 20,
     });
@@ -29,8 +25,8 @@ describe('computeMarginAlert', () => {
   });
 
   it('returns null when cost decreases (no alert needed)', async () => {
-    (tx.lot.findFirst as jest.Mock).mockResolvedValue({ unit_cost: 14 });
-    (tx.product.findUnique as jest.Mock).mockResolvedValue({
+    tx.lot.findFirst.mockResolvedValue({ unit_cost: 14 });
+    tx.product.findUnique.mockResolvedValue({
       sale_price: 25,
       min_sale_price: 20,
     });
@@ -40,8 +36,8 @@ describe('computeMarginAlert', () => {
   });
 
   it('computes increase pct and suggested price when cost rises', async () => {
-    (tx.lot.findFirst as jest.Mock).mockResolvedValue({ unit_cost: 14 });
-    (tx.product.findUnique as jest.Mock).mockResolvedValue({
+    tx.lot.findFirst.mockResolvedValue({ unit_cost: 14 });
+    tx.product.findUnique.mockResolvedValue({
       sale_price: 25,
       min_sale_price: 8,
     });
@@ -57,16 +53,16 @@ describe('computeMarginAlert', () => {
   });
 
   it('returns null when the product does not exist', async () => {
-    (tx.lot.findFirst as jest.Mock).mockResolvedValue({ unit_cost: 14 });
-    (tx.product.findUnique as jest.Mock).mockResolvedValue(null);
+    tx.lot.findFirst.mockResolvedValue({ unit_cost: 14 });
+    tx.product.findUnique.mockResolvedValue(null);
 
     const result = await computeMarginAlert(asTx, 'p-1', 16.5);
     expect(result).toBeNull();
   });
 
   it('alerts on the first lot when cost exceeds the minimum sale price', async () => {
-    (tx.lot.findFirst as jest.Mock).mockResolvedValue(null);
-    (tx.product.findUnique as jest.Mock).mockResolvedValue({
+    tx.lot.findFirst.mockResolvedValue(null);
+    tx.product.findUnique.mockResolvedValue({
       sale_price: 25,
       min_sale_price: 10,
     });

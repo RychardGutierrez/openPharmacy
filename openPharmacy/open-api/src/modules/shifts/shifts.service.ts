@@ -69,16 +69,14 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
     let closedCount = 0;
     for (const openShift of openShifts) {
       const closed = await this.prisma.$transaction(async (tx) => {
-        const shift = await tx.shift.findUnique({ where: { id: openShift.id } });
-        if (!shift || shift.status !== ShiftStatus.OPEN) return false;
-        const totals = await tx.sale.aggregate({
-          _sum: { cash_received: true, change_given: true },
-          where: { shift_id: shift.id, paymentMethod: 'CASH', status: 'COMPLETED' },
+        const shift = await tx.shift.findUnique({
+          where: { id: openShift.id },
         });
-        const expectedCash = money(
-          Number(shift.opening_cash) +
-            Number(totals._sum.cash_received ?? 0) -
-            Number(totals._sum.change_given ?? 0),
+        if (!shift || shift.status !== ShiftStatus.OPEN) return false;
+        const expectedCash = await this.computeExpectedCash(
+          tx,
+          shift.id,
+          shift.opening_cash,
         );
         await tx.shift.update({
           where: { id: shift.id },
@@ -153,7 +151,7 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
   async findShiftSales(userId: string, shiftId: string) {
     const shift = await this.prisma.shift.findUnique({
       where: { id: shiftId },
-      select: { user_id: true },
+      select: { user_id: true, opening_cash: true },
     });
     if (!shift) throw new NotFoundException('Shift not found');
     if (shift.user_id !== userId) {
@@ -171,17 +169,22 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
           select: {
             quantity: true,
             line_total: true,
-            product: { select: { id: true, commercial_name: true, dci_name: true } },
+            product: {
+              select: { id: true, commercial_name: true, dci_name: true },
+            },
           },
         },
       },
     });
 
-    const products = new Map<string, { productId: string; name: string; quantity: number; total: number }>();
+    const products = new Map<
+      string,
+      { productId: string; name: string; quantity: number; total: number }
+    >();
     let grossSales = 0;
     let discounts = 0;
     let returns = 0;
-    const payments = { CASH: 0, CARD: 0, QR: 0, TRANSFER: 0 };
+    const payments = { CASH: 0, CARD: 0, QR: 0, TRANSFER: 0, MIXED: 0 };
     for (const sale of sales) {
       grossSales += money(sale.subtotal);
       discounts += money(sale.discount);
@@ -202,7 +205,10 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
       where: { sale: { shift_id: shiftId } },
       select: {
         returnItems: {
-          select: { quantity: true, saleItem: { select: { unit_price: true } } },
+          select: {
+            quantity: true,
+            saleItem: { select: { unit_price: true } },
+          },
         },
       },
     });
@@ -215,6 +221,11 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
       ...product,
       total: money(product.total),
     }));
+    const expectedCash = await this.computeExpectedCash(
+      this.prisma,
+      shiftId,
+      shift.opening_cash,
+    );
     return {
       products: productList,
       totals: {
@@ -227,8 +238,12 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
         netSales: money(grossSales - discounts - returns),
       },
       payments: Object.fromEntries(
-        Object.entries(payments).map(([method, total]) => [method, money(total)]),
+        Object.entries(payments).map(([method, total]) => [
+          method,
+          money(total),
+        ]),
       ),
+      expectedCash,
     };
   }
 
@@ -247,18 +262,10 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
         throw new ConflictException('Shift is already closed');
       }
 
-      const totals = await tx.sale.aggregate({
-        _sum: { cash_received: true, change_given: true },
-        where: {
-          shift_id: shiftId,
-          paymentMethod: 'CASH',
-          status: 'COMPLETED',
-        },
-      });
-      const expectedCash = money(
-        Number(shift.opening_cash) +
-          Number(totals._sum.cash_received ?? 0) -
-          Number(totals._sum.change_given ?? 0),
+      const expectedCash = await this.computeExpectedCash(
+        tx,
+        shiftId,
+        shift.opening_cash,
       );
       const countedCash = money(dto.closingCash);
       const difference = money(expectedCash - countedCash);
@@ -298,6 +305,36 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
       );
     }
     return shift;
+  }
+
+  private async computeExpectedCash(
+    tx: Pick<PrismaService, 'sale'>,
+    shiftId: string,
+    openingCash: unknown,
+  ): Promise<number> {
+    const cashTotals = await tx.sale.aggregate({
+      _sum: { cash_received: true, change_given: true },
+      where: {
+        shift_id: shiftId,
+        paymentMethod: 'CASH',
+        status: 'COMPLETED',
+      },
+    });
+    const mixedTotals = await tx.sale.aggregate({
+      _sum: { cash_received: true, change_given: true },
+      where: {
+        shift_id: shiftId,
+        paymentMethod: 'MIXED',
+        status: 'COMPLETED',
+      },
+    });
+    return money(
+      Number(openingCash ?? 0) +
+        Number(cashTotals._sum.cash_received ?? 0) -
+        Number(cashTotals._sum.change_given ?? 0) +
+        Number(mixedTotals._sum.cash_received ?? 0) -
+        Number(mixedTotals._sum.change_given ?? 0),
+    );
   }
 
   async requestReopen(userId: string, shiftId: string, dto: ReopenRequestDto) {

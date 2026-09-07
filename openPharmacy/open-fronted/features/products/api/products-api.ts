@@ -34,6 +34,7 @@ export interface ProductsListQuery {
   category?: import("@/features/products/types").ProductCategory
   active?: boolean
   q?: string
+  includeStock?: boolean
 }
 
 interface ApiErrorBody {
@@ -111,6 +112,7 @@ function buildQueryString(query: ProductsListQuery): string {
   if (query.category) params.set("category", query.category)
   if (typeof query.active === "boolean") params.set("active", String(query.active))
   if (query.q && query.q.trim().length > 0) params.set("q", query.q.trim())
+  if (query.includeStock) params.set("includeStock", "true")
   const qs = params.toString()
   return qs.length > 0 ? `?${qs}` : ""
 }
@@ -131,9 +133,13 @@ export function getProduct(id: string): Promise<Product> {
 
 const searchResponseSchema = z.array(productSchema)
 
-export function searchProducts(q: string): Promise<ProductSearchResult[]> {
+export function searchProducts(
+  q: string,
+  includeStock = false,
+): Promise<ProductSearchResult[]> {
   const params = new URLSearchParams()
   params.set("q", q)
+  if (includeStock) params.set("includeStock", "true")
   return request(
     `/products/search?${params.toString()}`,
     { method: "GET" },

@@ -74,6 +74,7 @@ enum PaymentMethod {
   CARD
   TRANSFER
   QR
+  MIXED
 
   @@schema("pharmacy")
 }
@@ -391,6 +392,7 @@ model Sale {
   discount       Decimal       @default(0) @db.Decimal(12, 2)
   total          Decimal       @db.Decimal(12, 2)
   paymentMethod  PaymentMethod @map("payment_method")
+  secondary_method PaymentMethod? @map("secondary_method")
   cash_received  Decimal       @default(0) @map("cash_received") @db.Decimal(12, 2)
   change_given   Decimal       @default(0) @map("change_given") @db.Decimal(12, 2)
   status         SaleStatus    @default(COMPLETED)

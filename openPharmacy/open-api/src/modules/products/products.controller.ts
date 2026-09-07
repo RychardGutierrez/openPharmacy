@@ -66,6 +66,7 @@ export class ProductsController {
   }
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.PHARMACIST, UserRole.CASHIER)
   @ApiOperation({ summary: 'List products with pagination and filters' })
   findAll(
     @Query() query: ProductQueryDto,
@@ -74,11 +75,19 @@ export class ProductsController {
   }
 
   @Get('search')
+  @Roles(UserRole.ADMIN, UserRole.PHARMACIST, UserRole.CASHIER)
   @ApiOperation({
     summary: 'Search products by name or barcode for autocomplete',
   })
-  search(@Query('q') q: string): Promise<ProductResponseDto[]> {
-    return this.productsService.searchAutocomplete(q);
+  search(
+    @Query('q') q: string,
+    @Query('includeStock') includeStock?: string,
+  ): Promise<ProductResponseDto[]> {
+    return this.productsService.searchAutocomplete(
+      q,
+      10,
+      includeStock === 'true',
+    );
   }
 
   @Post('bulk-import')
@@ -101,6 +110,7 @@ export class ProductsController {
   }
 
   @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.PHARMACIST, UserRole.CASHIER)
   @ApiOperation({ summary: 'Get a product by ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ProductResponseDto> {
     return this.productsService.findOne(id);

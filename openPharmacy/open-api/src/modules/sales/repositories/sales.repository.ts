@@ -30,7 +30,7 @@ export class SalesRepository {
     return this.prisma.sale.findUnique({
       where: { id },
       include: {
-        saleItems: { include: { product: true } },
+        saleItems: { include: { product: true, lot: true } },
       },
     });
   }
@@ -38,7 +38,7 @@ export class SalesRepository {
   findByReceiptNumber(receiptNumber: string) {
     return this.prisma.sale.findUnique({
       where: { receipt_number: receiptNumber },
-      include: { saleItems: { include: { product: true } } },
+      include: { saleItems: { include: { product: true, lot: true } } },
     });
   }
 
@@ -50,7 +50,7 @@ export class SalesRepository {
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { saleItems: { include: { product: true } } },
+        include: { saleItems: { include: { product: true, lot: true } } },
       }),
       this.prisma.sale.count({ where }),
     ]);

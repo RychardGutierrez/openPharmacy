@@ -42,7 +42,8 @@ export async function computeMarginAlert(
 
   const previousUnitCost = previousLot ? Number(previousLot.unit_cost) : null;
   const currentSalePrice = Number(product.sale_price);
-  const increase = previousUnitCost === null ? 0 : newUnitCost - previousUnitCost;
+  const increase =
+    previousUnitCost === null ? 0 : newUnitCost - previousUnitCost;
   const increasePct =
     previousUnitCost !== null && previousUnitCost > 0
       ? Math.round((increase / previousUnitCost) * 10000) / 100

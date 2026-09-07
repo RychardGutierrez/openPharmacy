@@ -174,13 +174,30 @@
   }
 }
 
+@page {
+  size: 72mm auto;
+  margin: 0;
+}
+
+.print-pos-receipt { display: none; }
+
 @media print {
-  body * { visibility: hidden; }
-  .print-report, .print-report * { visibility: visible; }
-  .print-report { display: block !important; position: absolute; top: 0; left: 0; width: 72mm; min-height: 100mm; padding: 8mm 5mm; color: #000; background: #fff; font: 9px/1.35 "Courier New", monospace; }
-  .print-report h1, .print-report h2 { margin: 0 0 4px; font: inherit; font-weight: 700; }
-  .print-report h1 { text-align: center; font-size: 11px; }
-  .print-report h2 { margin-top: 7px; }
-  .print-report p { display: flex; justify-content: space-between; gap: 4px; margin: 1px 0; white-space: pre-wrap; }
-  .print-report hr { border: 0; border-top: 1px dashed #888; margin: 7px 0; }
+  body * { visibility: hidden !important; }
+  .print-report, .print-report * { visibility: visible !important; }
+  .print-report { display: block !important; position: absolute !important; top: 0 !important; left: 0 !important; width: 72mm !important; min-height: 100mm !important; padding: 8mm 5mm !important; color: #000 !important; background: #fff !important; font: 9px/1.35 "Courier New", monospace !important; }
+  .print-report h1, .print-report h2 { margin: 0 0 4px !important; font: inherit !important; font-weight: 700 !important; }
+  .print-report h1 { text-align: center !important; font-size: 11px !important; }
+  .print-report h2 { margin-top: 7px !important; }
+  .print-report p { display: flex !important; justify-content: space-between !important; gap: 4px !important; margin: 1px 0 !important; white-space: pre-wrap !important; }
+  .print-report hr { border: 0 !important; border-top: 1px dashed #888 !important; margin: 7px 0 !important; }
+
+  .print-pos-receipt, .print-pos-receipt * { visibility: visible !important; }
+  .print-pos-receipt { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; z-index: 99999 !important; width: 72mm !important; padding: 3mm 4mm !important; color: #000 !important; background: #fff !important; font: 9px/1.4 "Anonymous Pro", "Courier New", monospace !important; }
+  .print-pos-receipt .receipt-center { display: block !important; text-align: center !important; }
+  .print-pos-receipt .receipt-bold { font-weight: 700 !important; }
+  .print-pos-receipt .receipt-muted { color: #444 !important; }
+  .print-pos-receipt .receipt-dashed { border: 0 !important; border-top: 1px dashed #000 !important; margin: 4px 0 !important; }
+  .print-pos-receipt .receipt-item { margin: 2px 0 !important; }
+  .print-pos-receipt .receipt-item p { margin: 0 !important; }
+  .print-pos-receipt p { display: flex !important; justify-content: space-between !important; gap: 4px !important; margin: 1px 0 !important; white-space: pre-wrap !important; }
 }

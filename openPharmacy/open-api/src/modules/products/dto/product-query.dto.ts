@@ -47,4 +47,15 @@ export class ProductQueryDto {
     typeof value === 'string' ? value.trim() : value,
   )
   q?: string;
+
+  /** When true, attach aggregated lot stock/expiry info per product (POS). */
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
+  @IsBoolean()
+  includeStock?: boolean;
 }
