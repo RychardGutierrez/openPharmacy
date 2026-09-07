@@ -130,4 +130,94 @@ describe('SalesService', () => {
     ).rejects.toBeInstanceOf(EmptyCartException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it('splits a MIXED payment between the cash leg and the secondary method', async () => {
+    sales.createTx.mockResolvedValue({
+      id: 'sale-1',
+      shift_id: 'shift-1',
+      user_id: 'user-1',
+      receipt_number: '00000001',
+      subtotal: 20,
+      discount: 0,
+      total: 20,
+      paymentMethod: 'MIXED',
+      secondary_method: 'CARD',
+      cash_received: 8,
+      change_given: 0,
+      status: 'COMPLETED',
+      created_at: new Date(),
+    });
+
+    const result = await service.create('user-1', {
+      items: [{ productId: 'product-1', quantity: 2 }],
+      paymentMethod: 'MIXED',
+      cashReceived: 8,
+      secondaryMethod: 'CARD',
+    });
+
+    expect(result.paymentMethod).toBe('MIXED');
+    expect(result.secondaryMethod).toBe('CARD');
+    expect(sales.createTx).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        paymentMethod: 'MIXED',
+        secondary_method: 'CARD',
+        cash_received: 8,
+        change_given: 0,
+      }),
+    );
+  });
+
+  it('defaults the MIXED secondary method to CARD', async () => {
+    sales.createTx.mockResolvedValue({
+      id: 'sale-1',
+      shift_id: 'shift-1',
+      user_id: 'user-1',
+      receipt_number: '00000001',
+      subtotal: 20,
+      discount: 0,
+      total: 20,
+      paymentMethod: 'MIXED',
+      secondary_method: 'CARD',
+      cash_received: 8,
+      change_given: 0,
+      status: 'COMPLETED',
+      created_at: new Date(),
+    });
+
+    await service.create('user-1', {
+      items: [{ productId: 'product-1', quantity: 2 }],
+      paymentMethod: 'MIXED',
+      cashReceived: 8,
+    });
+
+    expect(sales.createTx).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ secondary_method: 'CARD' }),
+    );
+  });
+
+  it.each([0, 20, 25])(
+    'rejects a MIXED payment when cashReceived=%i is not strictly between 0 and total',
+    async (cashReceived) => {
+      await expect(
+        service.create('user-1', {
+          items: [{ productId: 'product-1', quantity: 2 }],
+          paymentMethod: 'MIXED',
+          cashReceived,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_MIXED_SPLIT' } });
+      expect(sales.createTx).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps lot numbers from FEFO on the receipt items', async () => {
+    const result = await service.create('user-1', {
+      items: [{ productId: 'product-1', quantity: 2 }],
+      paymentMethod: 'CASH',
+      cashReceived: 25,
+    });
+
+    expect(result.items[0]).toMatchObject({ lotNumber: 'LOT-1' });
+  });
 });

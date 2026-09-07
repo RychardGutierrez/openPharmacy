@@ -73,6 +73,7 @@ const shiftSalesSchema = z.object({
     netSales: z.number(),
   }),
   payments: z.record(z.string(), z.number()),
+  expectedCash: z.number(),
 })
 export type ShiftSales = z.infer<typeof shiftSalesSchema>
 export { shiftSalesSchema }

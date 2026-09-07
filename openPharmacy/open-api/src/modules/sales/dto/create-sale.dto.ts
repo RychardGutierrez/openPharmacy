@@ -11,6 +11,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+/** Electronic method used for the non-cash leg of a MIXED payment. */
+export const MIXED_SECONDARY_METHODS = [
+  PaymentMethod.CARD,
+  PaymentMethod.QR,
+  PaymentMethod.TRANSFER,
+] as const;
+
 export class CreateSaleItemDto {
   @IsUUID()
   productId!: string;
@@ -33,6 +40,12 @@ export class CreateSaleDto {
 
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod, {
+    message: 'secondaryMethod must be CARD, QR or TRANSFER',
+  })
+  secondaryMethod?: PaymentMethod;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

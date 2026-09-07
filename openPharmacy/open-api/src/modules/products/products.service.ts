@@ -14,7 +14,10 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductPriceDto } from './dto/update-product-price.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
-import { ProductResponseDto } from './dto/product-response.dto';
+import {
+  ProductResponseDto,
+  ProductStockSummaryDto,
+} from './dto/product-response.dto';
 import {
   BulkImportResponseDto,
   BulkImportRowDto,
@@ -75,8 +78,14 @@ export class ProductsService {
         q: query.q,
       });
 
+    const stock = query.includeStock
+      ? await this.buildStockSummaries(data.map((product) => product.id))
+      : null;
+
     return {
-      data: data.map((product) => this.toResponse(product)),
+      data: data.map((product) =>
+        this.toResponse(product, stock?.get(product.id) ?? null),
+      ),
       total,
       page,
       pageSize,
@@ -87,9 +96,55 @@ export class ProductsService {
   async searchAutocomplete(
     q: string,
     limit = 10,
+    includeStock = false,
   ): Promise<ProductResponseDto[]> {
     const products = await this.products.searchAutocomplete(q, limit);
-    return products.map((product) => this.toResponse(product));
+    const stock = includeStock
+      ? await this.buildStockSummaries(products.map((product) => product.id))
+      : null;
+    return products.map((product) =>
+      this.toResponse(product, stock?.get(product.id) ?? null),
+    );
+  }
+
+  /**
+   * One grouped query per page: sums sellable quantity and finds the earliest
+   * future expiry per product. Lots voided or already expired are excluded so
+   * the POS grid reflects what is actually sellable.
+   */
+  private async buildStockSummaries(
+    productIds: string[],
+  ): Promise<Map<string, ProductStockSummaryDto>> {
+    const summaries = new Map<string, ProductStockSummaryDto>();
+    if (productIds.length === 0) return summaries;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const rows = await this.prisma.lot.groupBy({
+      by: ['product_id'],
+      where: {
+        product_id: { in: productIds },
+        voided_at: null,
+        expiry_date: { gte: today },
+      },
+      _sum: { current_qty: true },
+      _min: { expiry_date: true },
+    });
+
+    for (const row of rows) {
+      const earliest = row._min.expiry_date ?? null;
+      const days = earliest
+        ? Math.floor((earliest.getTime() - today.getTime()) / 86_400_000)
+        : null;
+      summaries.set(row.product_id, {
+        availableQty: row._sum.current_qty ?? 0,
+        earliestExpiry: earliest,
+        daysUntilExpiry: days,
+        expiringSoon: days !== null && days <= 60,
+      });
+    }
+    return summaries;
   }
 
   async findOne(id: string): Promise<ProductResponseDto> {
@@ -502,7 +557,10 @@ export class ProductsService {
     return data;
   }
 
-  private toResponse(product: Product): ProductResponseDto {
+  private toResponse(
+    product: Product,
+    stockSummary: ProductStockSummaryDto | null = null,
+  ): ProductResponseDto {
     return plainToInstance(ProductResponseDto, {
       id: product.id,
       dciName: product.dci_name,
@@ -519,6 +577,7 @@ export class ProductsService {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       deletedAt: product.deleted_at,
+      stockSummary,
     });
   }
 }

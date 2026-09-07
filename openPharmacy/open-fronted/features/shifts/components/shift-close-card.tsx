@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { closeShiftFormSchema, type CloseShiftFormValues, type Shift, type ShiftSales } from "@/features/shifts/types"
 import { formatCurrencyBOB, parseDecimalInput } from "@/shared/utils/format"
 import { ZReportButton } from "@/features/shifts/components/z-report-button"
@@ -22,17 +21,22 @@ export function ShiftCloseCard({ shift, cashierName, sales, onSubmit, isPending 
 }) {
   const form = useForm<CloseShiftFormValues>({ resolver: zodResolver(closeShiftFormSchema) as Resolver<CloseShiftFormValues>, defaultValues: { closingCash: 0 } })
   const countedCash = Number(form.watch("closingCash") ?? 0)
-  const difference = countedCash - shift.openingCash
+  const expectedCash = sales?.expectedCash ?? shift.openingCash
+  const difference = countedCash - expectedCash
   const hasCount = Boolean(form.formState.dirtyFields.closingCash)
+  const payments = sales?.payments ?? {}
   return (
     <Card>
       <CardHeader><CardTitle>Cerrar turno</CardTitle></CardHeader>
       <CardContent className="flex flex-col gap-5">
         <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4 text-sm">
           <div><dt className="text-muted-foreground">Apertura</dt><dd className="font-medium">{formatCurrencyBOB(shift.openingCash)}</dd></div>
-          <div><dt className="text-muted-foreground">Ventas en efectivo</dt><dd className="font-medium">{formatCurrencyBOB(0)}</dd></div>
-          <div><dt className="text-muted-foreground">Ventas con tarjeta</dt><dd className="font-medium"><Tooltip><TooltipTrigger asChild><span className="cursor-help underline decoration-dotted">—</span></TooltipTrigger><TooltipContent>Disponible cuando el módulo de ventas esté activo.</TooltipContent></Tooltip></dd></div>
-          <div><dt className="text-muted-foreground">Efectivo esperado (provisional)</dt><dd className="font-medium">{formatCurrencyBOB(shift.openingCash)}</dd></div>
+          <div><dt className="text-muted-foreground">Efectivo esperado</dt><dd className="font-medium">{formatCurrencyBOB(expectedCash)}</dd></div>
+          <div><dt className="text-muted-foreground">Ventas en efectivo</dt><dd className="font-medium">{formatCurrencyBOB(payments.CASH ?? 0)}</dd></div>
+          <div><dt className="text-muted-foreground">Ventas con tarjeta</dt><dd className="font-medium">{formatCurrencyBOB(payments.CARD ?? 0)}</dd></div>
+          <div><dt className="text-muted-foreground">Ventas QR</dt><dd className="font-medium">{formatCurrencyBOB(payments.QR ?? 0)}</dd></div>
+          <div><dt className="text-muted-foreground">Ventas transferencia</dt><dd className="font-medium">{formatCurrencyBOB(payments.TRANSFER ?? 0)}</dd></div>
+          <div><dt className="text-muted-foreground">Ventas mixtas</dt><dd className="font-medium">{formatCurrencyBOB(payments.MIXED ?? 0)}</dd></div>
         </dl>
         <section aria-labelledby="sold-products-title" className="flex flex-col gap-3">
           <h3 id="sold-products-title" className="text-sm font-semibold">Productos vendidos</h3>

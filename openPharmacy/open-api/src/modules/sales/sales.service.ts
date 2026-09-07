@@ -70,6 +70,7 @@ export class SalesService {
           productId: string;
           productName: string;
           lotId: string;
+          lotNumber: string;
           quantity: number;
           unitPrice: number;
           lineTotal: number;
@@ -90,6 +91,7 @@ export class SalesService {
               productId: item.productId,
               productName: product.commercial_name,
               lotId: lot.lotId,
+              lotNumber: lot.lotNumber,
               quantity: lot.deductedQty,
               unitPrice,
               lineTotal,
@@ -110,6 +112,18 @@ export class SalesService {
         const cashReceived = money(dto.cashReceived ?? 0);
         if (dto.paymentMethod === 'CASH' && cashReceived < total)
           throw new CashShortException();
+        let secondaryMethod: Sale['secondary_method'] = null;
+        if (dto.paymentMethod === 'MIXED') {
+          if (total <= 0 || cashReceived <= 0 || cashReceived >= total) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'INVALID_MIXED_SPLIT',
+              message:
+                'Mixed payment requires 0 < cashReceived < total; the remainder is charged to the secondary method',
+            });
+          }
+          secondaryMethod = dto.secondaryMethod ?? 'CARD';
+        }
         const changeGiven =
           dto.paymentMethod === 'CASH' ? money(cashReceived - total) : 0;
         const receiptNumber = await this.sales.nextReceiptNumberTx(tx);
@@ -121,6 +135,7 @@ export class SalesService {
           discount,
           total,
           paymentMethod: dto.paymentMethod,
+          secondary_method: secondaryMethod,
           cash_received: cashReceived,
           change_given: changeGiven,
           status: 'COMPLETED',
@@ -198,6 +213,7 @@ export class SalesService {
         productId: item.product_id,
         productName: item.product.commercial_name,
         lotId: item.lot_id,
+        lotNumber: item.lot.lot_number,
         quantity: item.quantity,
         unitPrice: Number(item.unit_price),
         lineTotal: Number(item.line_total),
@@ -212,6 +228,7 @@ export class SalesService {
       productId: string;
       productName: string;
       lotId: string;
+      lotNumber: string;
       quantity: number;
       unitPrice: number;
       lineTotal: number;
@@ -227,6 +244,7 @@ export class SalesService {
       discount: Number(sale.discount),
       total: Number(sale.total),
       paymentMethod: sale.paymentMethod,
+      secondaryMethod: sale.secondary_method,
       cashReceived: Number(sale.cash_received),
       changeGiven: Number(sale.change_given),
       status: sale.status,
