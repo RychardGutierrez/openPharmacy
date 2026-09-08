@@ -42,4 +42,6 @@ export type AuditEvent =
   | 'SHIFT_REOPEN_REQUEST_REJECTED'
   // Sales events
   | 'SALE_COMPLETED'
-  | 'SALE_RX_MISSING';
+  | 'SALE_RX_MISSING'
+  | 'SALE_CANCELLED'
+  | 'RETURN_COMPLETED';

@@ -1,0 +1,285 @@
+### ─── Returns and cancellations — PMS-010 ────────────────────────────────────
+### Covers `POST /api/returns` and `POST /api/sales/:id/cancel`.
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Open this file with the REST Client extension.
+###   3. Run the login request, then walk through each scenario in order.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — log in as a pharmacist (returns) and an admin (cancellations)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login with admin ─────────────────────────────────────
+
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login with cashier ─────────────────────────────────────
+
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store tokens for later requests ─────────────────────────────────────
+
+@pharmToken = {{loginPharmacist.response.body.accessToken}}
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@cashierToken = {{loginCashier.response.body.accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 1. Look up the original sale (replace the id with one you got from POST
+###    /api/sales or from the database seed). The response gives you the
+###    `saleItems[]` needed for the return body below.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/sales/c54b44d5-21b0-4102-923f-115aa3942e56
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 2. PARTIAL RETURN — a pharmacist returns part of a sale.
+###    Expect: 201, stock restored to the original lot, one RETURN movement
+###    per affected lot, one RETURN_COMPLETED audit row.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "saleId": "045e2de3-d745-4049-9b2b-d1baf658de3f",
+  "reason": "Customer returned unopened product",
+  "returnType": "PARTIAL",
+  "items": [
+    {
+      "saleItemId": "bcefb5cb-a3a3-4cb0-95ce-7e5b8d401c57",
+      "quantity": 1
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 3. FULL RETURN — every line item is refunded and the sale flips to
+###    REFUNDED.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "saleId": "c54b44d5-21b0-4102-923f-115aa3942e56",
+  "reason": "Customer changed mind",
+  "returnType": "FULL",
+  "items": [
+    {
+      "saleItemId": "10acfeb4-2fd6-494a-a108-fb854dce3089",
+      "quantity": 2
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 4. REJECTED — controlled substance (PSYCHOTROPIC or NARCOTIC).
+###    Expect: 403 CONTROLLED_PRODUCT, no stock change, no return record.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "saleId": "107abaa7-d5bf-4cb0-9187-1efcd4778208",
+  "reason": "Customer return",
+  "returnType": "PARTIAL",
+  "items": [
+    {
+      "saleItemId": "b09d942b-e103-4938-a073-6bf85e9e0f3b",
+      "quantity": 1
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 5. REJECTED — over-return (requesting more than the remaining refundable
+###    quantity). Expect: 400 RETURN_QUANTITY_EXCEEDED.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "saleId": "c7572ff8-fe83-4407-8256-72f276751087",
+  "reason": "Mistake",
+  "returnType": "PARTIAL",
+  "items": [
+    {
+      "saleItemId": "b4a4e242-2eae-4acb-bd09-e8d916ec86d1",
+      "quantity": 99
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 6. REJECTED — sale item does not belong to the supplied sale.
+###    Expect: 400 RETURN_SALE_ITEM_MISMATCH.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "saleId": "c7572ff8-fe83-4407-8256-72f276751087",
+  "reason": "Wrong line",
+  "returnType": "PARTIAL",
+  "items": [
+    {
+      "saleItemId": "b4a4e242-2eae-4acb-bd09-e8d916ec86d1",
+      "quantity": 1
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 7. REJECTED — cashier is not allowed to authorise a return.
+###    Expect: 403 from the RolesGuard.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/returns
+Authorization: Bearer {{cashierToken}}
+Content-Type: application/json
+
+{
+  "saleId": "46c3e44d-6dd1-4544-b1fa-7488507af7a0",
+  "reason": "Cashier attempt",
+  "returnType": "PARTIAL",
+  "items": [
+    {
+      "saleItemId": "9e0f0e6b-9010-4bf1-aa56-f74436a8c89b",
+      "quantity": 1
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 8. CANCEL — admin cancels a completed sale. Every sold quantity goes
+###    back to its original lot; the sale status flips to CANCELLED.
+###    Expect: 200, one CANCELLATION movement per lot, one SALE_CANCELLED
+###    audit row.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/cec32634-4cb0-4a1b-96b4-d206b7108bbd/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Duplicate sale recorded"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 9. REJECTED — cancelling a sale that already has a return.
+###    Expect: 409 SALE_HAS_RETURNS.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/8bb5de67-2e2f-4bcf-a092-4f2fa616a5ac/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Trying again"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 10. REJECTED — cancelling an already-cancelled sale.
+###     Expect: 409 SALE_ALREADY_CANCELLED.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/89ab7ada-2cf5-4271-83c4-89c6b2f402b5/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Already cancelled"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 11. REJECTED — cancelling a controlled-substance sale.
+###     Expect: 403 CONTROLLED_PRODUCT.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/ba179cff-144a-4941-abf0-4359a8151879/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Operational correction"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 12. REJECTED — cashier is not allowed to authorise a cancellation.
+###     Expect: 403 from the RolesGuard.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/f8be09a2-541a-4938-b2e0-badde83d7e8a/cancel
+Authorization: Bearer {{cashierToken}}
+Content-Type: application/json
+
+{
+  "reason": "Cashier attempt"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 13. REJECTED — missing reason.
+###     Expect: 400 from ValidationPipe.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/sales/f8be09a2-541a-4938-b2e0-badde83d7e8a/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+}

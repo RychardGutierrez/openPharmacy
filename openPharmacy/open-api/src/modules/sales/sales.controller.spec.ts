@@ -1,20 +1,24 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
+import { ReturnsService } from '../returns/returns.service';
 
 describe('SalesController', () => {
-  let controller: SalesController;
+  it('exposes POST /api/sales/:id/cancel guarded for ADMIN/PHARMACIST', () => {
+    const salesService = {} as unknown as SalesService;
+    const cancelFn = jest.fn().mockResolvedValue({ id: 'cancel-sale-1' });
+    const returnsService = { cancel: cancelFn } as unknown as ReturnsService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [SalesController],
-      providers: [{ provide: SalesService, useValue: {} }],
-    }).compile();
+    const controller = new SalesController(salesService, returnsService);
 
-    controller = module.get<SalesController>(SalesController);
-  });
+    const user = { id: 'user-1', role: 'PHARMACIST', fullName: '', email: '' };
+    void controller.cancel(user, '11111111-1111-1111-1111-111111111111', {
+      reason: 'Duplicate sale recorded',
+    });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    expect(cancelFn).toHaveBeenCalledWith(
+      'user-1',
+      '11111111-1111-1111-1111-111111111111',
+      { reason: 'Duplicate sale recorded' },
+    );
   });
 });

@@ -10,6 +10,8 @@ Related tickets:
 
 - [PMS-008-BE #23](https://github.com/RychardGutierrez/openPharmacy/issues/23) — Backend
 - [PMS-008-DB #24](https://github.com/RychardGutierrez/openPharmacy/issues/24) — Database
+- [PMS-010-BE #29](https://github.com/RychardGutierrez/openPharmacy/issues/29) — Sales returns and cancellations (backend)
+- [PMS-010-DB #30](https://github.com/RychardGutierrez/openPharmacy/issues/30) — Sales returns and cancellations (database)
 
 ## Domain rules
 
@@ -227,9 +229,31 @@ PostgreSQL sequence created in the PMS-008 migration:
 - `ConfigModule` — pharmacy header info for the receipt (`getPharmacyInfo`).
 - `AuditModule` — `AuditLogRepository` for in-transaction audit rows.
 
-`SalesModule` is imported by `AppModule`. It exports nothing yet; `ReturnsModule`
-(PMS-011) is expected to import `SalesService` later for return-eligibility
-checks.
+`SalesModule` is imported by `AppModule`. It exports `SalesRepository` so
+`ReturnsModule` (PMS-010) can read sales, lock sale rows, and update sale
+status during returns and cancellations. The cancellation endpoint
+(`POST /api/sales/:id/cancel`) lives on `SalesController` for path
+stability but delegates to `ReturnsService.cancel`.
+
+## Cancellation
+
+`POST /api/sales/:id/cancel` is a separate operation from a customer
+return. It is reserved for operational corrections — for example, the
+cashier typed the wrong receipt — and must be authorised by an
+`ADMIN` or `PHARMACIST` (see `ReturnsController` and the RolesGuard).
+
+- The sale must be `COMPLETED` (409 `SALE_ALREADY_CANCELLED` otherwise).
+- The sale must not already have a return (409 `SALE_HAS_RETURNS`
+  otherwise — resolve the return first).
+- Controlled-substance lines (`PSYCHOTROPIC`, `NARCOTIC`) are rejected at
+  the API layer (403 `CONTROLLED_PRODUCT`) regardless of UI state.
+- Inside one `SERIALIZABLE` transaction the service locks the sale row,
+  restores each sold quantity to its original lot, writes one
+  `CANCELLATION` inventory movement per lot, sets `sales.status` to
+  `CANCELLED`, and emits a single `SALE_CANCELLED` audit row.
+- Payment reversal is **out of scope** for this ticket. The API
+  acknowledges the operational cancellation but does not refund cash,
+  card, transfer, or QR payments.
 
 ## Real-time dashboard update
 
