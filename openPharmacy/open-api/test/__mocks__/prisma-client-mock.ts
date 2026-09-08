@@ -32,6 +32,7 @@ export type InventoryMovement = Record<string, unknown>;
 export type SaleItem = Record<string, unknown>;
 export type Sale = Record<string, unknown>;
 export type ReturnItem = Record<string, unknown>;
+export type Return = Record<string, unknown>;
 export type Shift = Record<string, unknown>;
 export type ShiftReopenRequest = Record<string, unknown>;
 
@@ -86,3 +87,19 @@ export const ProductCategory = {
 } as const;
 export type ProductCategory =
   (typeof ProductCategory)[keyof typeof ProductCategory];
+
+export const ReturnType = {
+  FULL: 'FULL',
+  PARTIAL: 'PARTIAL',
+} as const;
+export type ReturnType = (typeof ReturnType)[keyof typeof ReturnType];
+
+export const MovementType = {
+  ENTRY: 'ENTRY',
+  EXIT: 'EXIT',
+  ADJUSTMENT: 'ADJUSTMENT',
+  TRANSFER: 'TRANSFER',
+  RETURN: 'RETURN',
+  CANCELLATION: 'CANCELLATION',
+} as const;
+export type MovementType = (typeof MovementType)[keyof typeof MovementType];

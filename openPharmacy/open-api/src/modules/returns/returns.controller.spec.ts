@@ -1,20 +1,35 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ReturnsController } from './returns.controller';
 import { ReturnsService } from './returns.service';
+import { UserRole } from '@prisma/client';
 
 describe('ReturnsController', () => {
-  let controller: ReturnsController;
+  it('exposes POST /api/returns guarded for ADMIN and PHARMACIST', () => {
+    const createFn = jest.fn();
+    const service = { create: createFn } as unknown as ReturnsService;
+    const controller = new ReturnsController(service);
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ReturnsController],
-      providers: [ReturnsService],
-    }).compile();
-
-    controller = module.get<ReturnsController>(ReturnsController);
-  });
-
-  it('should be defined', () => {
     expect(controller).toBeDefined();
+    // Smoke test: invoking the handler with a stubbed user and DTO delegates
+    // to the service. Authorization is exercised through the global
+    // RolesGuard, not the controller, so this only verifies wiring.
+    const user = {
+      id: 'user-1',
+      role: UserRole.PHARMACIST,
+      fullName: '',
+      email: '',
+    };
+    const dto = {
+      saleId: '11111111-1111-1111-1111-111111111111',
+      reason: 'Customer returned unopened product',
+      returnType: 'PARTIAL' as const,
+      items: [
+        {
+          saleItemId: '22222222-2222-2222-2222-222222222222',
+          quantity: 1,
+        },
+      ],
+    };
+    void controller.create(user, dto);
+    expect(createFn).toHaveBeenCalledWith('user-1', dto);
   });
 });

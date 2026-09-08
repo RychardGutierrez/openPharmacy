@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Sale, SaleItem } from '@prisma/client';
+import { Prisma, Sale, SaleItem, SaleStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
@@ -43,7 +43,7 @@ export class SalesRepository {
   }
 
   findAll(page: number, pageSize: number) {
-    const where: Prisma.SaleWhereInput = { status: 'COMPLETED' };
+    const where: Prisma.SaleWhereInput = { status: SaleStatus.COMPLETED };
     return Promise.all([
       this.prisma.sale.findMany({
         where,
@@ -54,5 +54,64 @@ export class SalesRepository {
       }),
       this.prisma.sale.count({ where }),
     ]);
+  }
+
+  /**
+   * Look up the sale and its line items inside a transaction, including
+   * the product category. Used by the returns / cancellation flows to
+   * validate eligibility and check controlled-substance restrictions.
+   */
+  findByIdWithItemsTx(
+    tx: Prisma.TransactionClient,
+    saleId: string,
+  ): Promise<
+    | (Sale & {
+        saleItems: Array<
+          SaleItem & {
+            product: {
+              id: string;
+              category: import('@prisma/client').ProductCategory;
+              commercial_name: string;
+            };
+          }
+        >;
+      })
+    | null
+  > {
+    return tx.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        saleItems: { include: { product: true } },
+      },
+    });
+  }
+
+  /**
+   * Lock the sale row so two concurrent cancellations cannot race against
+   * each other or against a return targeting the same sale.
+   */
+  async lockByIdTx(
+    tx: Prisma.TransactionClient,
+    saleId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM pharmacy.sales WHERE id = ${saleId}::uuid FOR UPDATE`;
+  }
+
+  updateStatusTx(
+    tx: Prisma.TransactionClient,
+    saleId: string,
+    status: SaleStatus,
+  ): Promise<Sale> {
+    return tx.sale.update({
+      where: { id: saleId },
+      data: { status },
+    });
+  }
+
+  countReturnsBySaleTx(
+    tx: Prisma.TransactionClient,
+    saleId: string,
+  ): Promise<number> {
+    return tx.return.count({ where: { sale_id: saleId } });
   }
 }
