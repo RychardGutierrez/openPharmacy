@@ -70,6 +70,7 @@ describe('ReturnsService', () => {
       createItemTx: jest.fn(),
       lockSaleItemsTx: jest.fn(),
       sumBySaleItems: jest.fn(),
+      sumBySaleItemsRead: jest.fn(),
     };
     const movementsRepo = {
       restoreStockTx: jest.fn(),
@@ -78,6 +79,7 @@ describe('ReturnsService', () => {
     const salesRepo = {
       lockByIdTx: jest.fn(),
       findByIdWithItemsTx: jest.fn(),
+      findByReceiptNumber: jest.fn(),
       updateStatusTx: jest.fn(),
       countReturnsBySaleTx: jest.fn(),
     };
@@ -108,6 +110,7 @@ describe('ReturnsService', () => {
       user_id: 'user-1',
       reason: 'Customer return',
       returnType: 'PARTIAL',
+      source: 'RETURN',
       created_at: new Date(),
     });
     returnsRepo.createItemTx.mockResolvedValue({
@@ -313,6 +316,89 @@ describe('ReturnsService', () => {
     expect(auditCalls).toHaveLength(1);
   });
 
+  describe('getReturnableSale()', () => {
+    const returnableSale = {
+      id: 'sale-1',
+      receipt_number: '00000001',
+      status: SaleStatus.COMPLETED,
+      created_at: new Date('2026-01-01T00:00:00.000Z'),
+      subtotal: 50,
+      discount: 0,
+      total: 50,
+      paymentMethod: 'CASH',
+      cash_received: 60,
+      change_given: 10,
+      saleItems: [
+        {
+          id: 'sale-item-1',
+          sale_id: 'sale-1',
+          product_id: 'product-1',
+          lot_id: 'lot-1',
+          quantity: 4,
+          unit_price: 10,
+          line_total: 40,
+          product: {
+            id: 'product-1',
+            category: ProductCategory.OTC,
+            commercial_name: 'Paracetamol',
+          },
+          lot: { lot_number: 'LOT-A' },
+        },
+        {
+          id: 'sale-item-2',
+          sale_id: 'sale-1',
+          product_id: 'product-2',
+          lot_id: 'lot-2',
+          quantity: 1,
+          unit_price: 10,
+          line_total: 10,
+          product: {
+            id: 'product-2',
+            category: ProductCategory.OTC,
+            commercial_name: 'Ibuprofen',
+          },
+          lot: { lot_number: 'LOT-B' },
+        },
+      ],
+    };
+
+    it('returns real sale item ids, categories, lot numbers and already-returned quantities', async () => {
+      const { service, salesRepo, returnsRepo } = buildService();
+      salesRepo.findByReceiptNumber.mockResolvedValue(returnableSale);
+      returnsRepo.sumBySaleItemsRead.mockResolvedValue(
+        new Map([
+          ['sale-item-1', 1],
+          ['sale-item-2', 0],
+        ]),
+      );
+
+      const result = await service.getReturnableSale('00000001');
+
+      expect(salesRepo.findByReceiptNumber).toHaveBeenCalledWith('00000001');
+      expect(result.receiptNumber).toBe('00000001');
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        id: 'sale-item-1',
+        productName: 'Paracetamol',
+        productCategory: ProductCategory.OTC,
+        lotNumber: 'LOT-A',
+        quantity: 4,
+        unitPrice: 10,
+        alreadyReturnedQuantity: 1,
+      });
+      expect(result.items[1].alreadyReturnedQuantity).toBe(0);
+    });
+
+    it('throws NotFoundException when receipt number does not exist', async () => {
+      const { service, salesRepo } = buildService();
+      salesRepo.findByReceiptNumber.mockResolvedValue(null);
+
+      await expect(
+        service.getReturnableSale('00000099'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
   describe('cancel()', () => {
     it('refuses to cancel a sale that already has a return', async () => {
       const { service, salesRepo } = buildService();
@@ -356,8 +442,9 @@ describe('ReturnsService', () => {
       ).rejects.toBeInstanceOf(ControlledProductReturnException);
     });
 
-    it('writes CANCELLATION movements and marks the sale as CANCELLED', async () => {
-      const { service, movementsRepo, salesRepo, audit } = buildService();
+    it('writes CANCELLATION movements, persists a CANCELLATION return record, and marks the sale as CANCELLED', async () => {
+      const { service, movementsRepo, salesRepo, audit, returnsRepo } =
+        buildService();
       salesRepo.updateStatusTx.mockResolvedValue({
         id: 'sale-1',
         status: SaleStatus.CANCELLED,
@@ -371,6 +458,13 @@ describe('ReturnsService', () => {
         expect.anything(),
         'sale-1',
         SaleStatus.CANCELLED,
+      );
+      expect(returnsRepo.createTx).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          source: 'CANCELLATION',
+          returnType: 'FULL',
+        }),
       );
       expect(movementsRepo.createTx).toHaveBeenCalledWith(
         expect.anything(),
@@ -391,6 +485,8 @@ describe('ReturnsService', () => {
         expect.anything(),
         expect.objectContaining({ event: 'SALE_CANCELLED' }),
       );
+      expect(result.source).toBe('CANCELLATION');
+      expect(result.returnType).toBe('FULL');
       expect(result.items).toHaveLength(2);
     });
   });

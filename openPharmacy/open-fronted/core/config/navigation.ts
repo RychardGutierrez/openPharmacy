@@ -51,7 +51,7 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
           { title: "POS", href: "/sales/pos", icon: ShoppingCart, hiddenForRoles: ["ADMIN"] },
           { title: "Cash Register", href: "/sales/cash-register", icon: RotateCcw, hiddenForRoles: ["ADMIN"] },
-          { title: "Returns", href: "/sales/returns", icon: Repeat },
+          { title: "Returns", href: "/sales/returns", icon: Repeat, hiddenForRoles: ["CASHIER"] },
         ],
       },
       {
