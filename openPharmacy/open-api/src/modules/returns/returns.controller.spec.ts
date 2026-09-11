@@ -32,4 +32,29 @@ describe('ReturnsController', () => {
     void controller.create(user, dto);
     expect(createFn).toHaveBeenCalledWith('user-1', dto);
   });
+
+  it('exposes GET /api/returns/sale/:receiptNumber guarded for ADMIN and PHARMACIST', () => {
+    const getReturnableSaleFn = jest.fn();
+    const service = {
+      create: jest.fn(),
+      getReturnableSale: getReturnableSaleFn,
+    } as unknown as ReturnsService;
+    const controller = new ReturnsController(service);
+
+    void controller.getReturnableSale('00000001');
+    expect(getReturnableSaleFn).toHaveBeenCalledWith('00000001');
+  });
+
+  it('exposes GET /api/returns guarded for ADMIN and PHARMACIST', () => {
+    const findAllFn = jest.fn();
+    const service = {
+      create: jest.fn(),
+      getReturnableSale: jest.fn(),
+      findAll: findAllFn,
+    } as unknown as ReturnsService;
+    const controller = new ReturnsController(service);
+
+    void controller.findAll(1, 20);
+    expect(findAllFn).toHaveBeenCalledWith(1, 20);
+  });
 });

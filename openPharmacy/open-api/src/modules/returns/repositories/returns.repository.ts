@@ -51,6 +51,30 @@ export class ReturnsRepository {
   }
 
   /**
+   * Paginated list of return / cancellation records with enough context to
+   * render a summary view (receipt number, refund total, item count).
+   */
+  findAll(page: number, pageSize: number) {
+    return Promise.all([
+      this.prisma.return.findMany({
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { created_at: 'desc' },
+        include: {
+          sale: { select: { id: true, receipt_number: true } },
+          user: { select: { id: true, full_name: true } },
+          returnItems: {
+            include: {
+              saleItem: { select: { unit_price: true, quantity: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.return.count(),
+    ]);
+  }
+
+  /**
    * Aggregate the total quantity already returned for each sale item id.
    * Used during a return to compute the remaining refundable quantity.
    */
@@ -59,6 +83,25 @@ export class ReturnsRepository {
     saleItemIds: string[],
   ): Promise<Map<string, number>> {
     const rows = await tx.returnItem.groupBy({
+      by: ['sale_item_id'],
+      where: { sale_item_id: { in: saleItemIds } },
+      _sum: { quantity: true },
+    });
+    return new Map(
+      rows.map((row) => [row.sale_item_id, Number(row._sum.quantity ?? 0)]),
+    );
+  }
+
+  /**
+   * Read-only variant of `sumBySaleItems` for lookups that happen outside a
+   * transaction (e.g. the returns screen loading a sale by receipt number).
+   */
+  async sumBySaleItemsRead(
+    saleItemIds: string[],
+  ): Promise<Map<string, number>> {
+    if (saleItemIds.length === 0) return new Map();
+
+    const rows = await this.prisma.returnItem.groupBy({
       by: ['sale_item_id'],
       where: { sale_item_id: { in: saleItemIds } },
       _sum: { quantity: true },

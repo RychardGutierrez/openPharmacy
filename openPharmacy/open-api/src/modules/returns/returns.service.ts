@@ -1,8 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductCategory, SaleStatus } from '@prisma/client';
+import { Prisma, ProductCategory, ReturnSource, SaleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { CreateReturnDto } from './dto/create-return.dto';
+import { ReturnableSaleDto } from './dto/returnable-sale.dto';
+import {
+  ReturnListItemDto,
+  ReturnListResponseDto,
+} from './dto/return-list-item.dto';
 import {
   CancelSaleDto,
   ReturnResponseDto,
@@ -73,6 +78,84 @@ export class ReturnsService {
     private readonly sales: SalesRepository,
     private readonly audit: AuditLogRepository,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Sale lookup for returns / cancellation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Look up a sale by receipt number and return a shape that contains
+   * everything the returns/cancellation screen needs: real sale item ids,
+   * product categories, lot numbers, and already-returned quantities.
+   */
+  async getReturnableSale(receiptNumber: string): Promise<ReturnableSaleDto> {
+    const sale = await this.sales.findByReceiptNumber(receiptNumber);
+    if (!sale) {
+      throw new NotFoundException(`Sale ${receiptNumber} not found`);
+    }
+
+    const alreadyReturned = await this.returns.sumBySaleItemsRead(
+      sale.saleItems.map((item) => item.id),
+    );
+
+    return {
+      id: sale.id,
+      receiptNumber: sale.receipt_number,
+      status: sale.status,
+      createdAt: sale.created_at,
+      subtotal: Number(sale.subtotal),
+      discount: Number(sale.discount),
+      total: Number(sale.total),
+      paymentMethod: sale.paymentMethod,
+      cashReceived: Number(sale.cash_received),
+      changeGiven: Number(sale.change_given),
+      items: sale.saleItems.map((item) => ({
+        id: item.id,
+        productId: item.product_id,
+        productName: item.product.commercial_name,
+        productCategory: item.product.category,
+        lotId: item.lot_id,
+        lotNumber: item.lot.lot_number,
+        quantity: item.quantity,
+        unitPrice: Number(item.unit_price),
+        lineTotal: Number(item.line_total),
+        alreadyReturnedQuantity: alreadyReturned.get(item.id) ?? 0,
+      })),
+    };
+  }
+
+  /**
+   * Paginated list of return and cancellation records.
+   */
+  async findAll(
+    page: number,
+    pageSize: number,
+  ): Promise<ReturnListResponseDto> {
+    const [rows, total] = await this.returns.findAll(page, pageSize);
+    const totalPages = Math.ceil(total / pageSize) || 1;
+
+    const data: ReturnListItemDto[] = rows.map((row) => {
+      const totalRefund = row.returnItems.reduce((sum, item) => {
+        const unitPrice = Number(item.saleItem.unit_price);
+        return sum + unitPrice * item.quantity;
+      }, 0);
+
+      return {
+        id: row.id,
+        saleId: row.sale_id,
+        receiptNumber: row.sale.receipt_number,
+        userName: row.user.full_name ?? '',
+        reason: row.reason,
+        returnType: row.returnType,
+        source: row.source,
+        createdAt: row.created_at,
+        itemCount: row.returnItems.length,
+        totalRefund: Number(totalRefund.toFixed(2)),
+      };
+    });
+
+    return { data, total, page, pageSize, totalPages };
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Customer return
@@ -346,6 +429,7 @@ export class ReturnsService {
       user_id: userId,
       reason: dto.reason,
       returnType: dto.returnType,
+      source: ReturnSource.RETURN,
     });
 
     const responseItems: ReturnResponseItemDto[] = [];
@@ -388,6 +472,7 @@ export class ReturnsService {
       userId,
       reason: dto.reason,
       returnType: returnRecord.returnType,
+      source: returnRecord.source,
       createdAt: returnRecord.created_at,
       items: responseItems,
     };
@@ -478,12 +563,35 @@ export class ReturnsService {
     const saleItemIds = sale.saleItems.map((row) => row.id);
     await this.returns.lockSaleItemsTx(tx, saleItemIds);
 
+    const returnRecord = await this.returns.createTx(tx, {
+      sale_id: saleId,
+      user_id: userId,
+      reason: dto.reason,
+      returnType: 'FULL',
+      source: ReturnSource.CANCELLATION,
+    });
+
+    const createdReturnItems = await Promise.all(
+      sale.saleItems.map((saleItem) =>
+        this.returns.createItemTx(tx, {
+          return_id: returnRecord.id,
+          sale_item_id: saleItem.id,
+          lot_id: saleItem.lot_id,
+          quantity: saleItem.quantity,
+        }),
+      ),
+    );
+
+    const saleItemById = new Map(
+      sale.saleItems.map((item) => [item.id, item]),
+    );
+
     const restockPlan = this.buildRestockPlan(
       sale.saleItems,
       new Map(sale.saleItems.map((row) => [row.id, row.quantity])),
     );
 
-    const responseItems = await this.restoreLotsAndWriteCancellationMovements(
+    await this.restoreLotsAndWriteCancellationMovements(
       tx,
       userId,
       saleId,
@@ -507,13 +615,24 @@ export class ReturnsService {
     });
 
     return {
-      id: `cancel-${saleId}`,
+      id: returnRecord.id,
       saleId,
       userId,
       reason: dto.reason,
       returnType: 'FULL',
+      source: ReturnSource.CANCELLATION,
       createdAt: updated.created_at,
-      items: responseItems,
+      items: createdReturnItems.map((item) => {
+        const saleItem = saleItemById.get(item.sale_item_id)!;
+        return {
+          id: item.id,
+          saleItemId: item.sale_item_id,
+          productId: saleItem.product_id,
+          lotId: item.lot_id,
+          quantity: item.quantity,
+          lotNumber: '',
+        };
+      }),
     };
   }
 

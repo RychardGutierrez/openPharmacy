@@ -94,6 +94,12 @@ export const ReturnType = {
 } as const;
 export type ReturnType = (typeof ReturnType)[keyof typeof ReturnType];
 
+export const ReturnSource = {
+  RETURN: 'RETURN',
+  CANCELLATION: 'CANCELLATION',
+} as const;
+export type ReturnSource = (typeof ReturnSource)[keyof typeof ReturnSource];
+
 export const MovementType = {
   ENTRY: 'ENTRY',
   EXIT: 'EXIT',

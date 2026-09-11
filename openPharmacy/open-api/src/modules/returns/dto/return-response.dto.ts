@@ -1,4 +1,4 @@
-import { ReturnType } from '@prisma/client';
+import { ReturnSource, ReturnType } from '@prisma/client';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
@@ -33,6 +33,7 @@ export class ReturnResponseDto {
   userId!: string;
   reason!: string;
   returnType!: ReturnType;
+  source!: ReturnSource;
   createdAt!: Date;
   items!: ReturnResponseItemDto[];
 }

@@ -95,6 +95,13 @@ enum ReturnType {
   @@schema("pharmacy")
 }
 
+enum ReturnSource {
+  RETURN
+  CANCELLATION
+
+  @@schema("pharmacy")
+}
+
 // ─── Auth — Roles & Users ────────────────────────────────────────────────────
 
 model Role {
@@ -435,12 +442,13 @@ model SaleItem {
 // ─── Pharmacy — Returns ──────────────────────────────────────────────────────
 
 model Return {
-  id         String     @id @default(uuid()) @db.Uuid
-  sale_id    String     @map("sale_id") @db.Uuid
-  user_id    String     @map("user_id") @db.Uuid
+  id         String       @id @default(uuid()) @db.Uuid
+  sale_id    String       @map("sale_id") @db.Uuid
+  user_id    String       @map("user_id") @db.Uuid
   reason     String
-  returnType ReturnType @map("return_type")
-  created_at DateTime   @default(now()) @map("created_at")
+  returnType ReturnType   @map("return_type")
+  source     ReturnSource @default(RETURN) @map("source")
+  created_at DateTime     @default(now()) @map("created_at")
 
   sale        Sale         @relation(fields: [sale_id], references: [id])
   user        User         @relation(fields: [user_id], references: [id])
@@ -448,6 +456,7 @@ model Return {
 
   @@index([sale_id])
   @@index([user_id])
+  @@index([source])
   @@map("returns")
   @@schema("pharmacy")
 }
