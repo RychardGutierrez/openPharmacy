@@ -1,5 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductCategory, ReturnSource, SaleStatus } from '@prisma/client';
+import {
+  Prisma,
+  ProductCategory,
+  ReturnSource,
+  SaleStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { CreateReturnDto } from './dto/create-return.dto';
@@ -582,9 +587,7 @@ export class ReturnsService {
       ),
     );
 
-    const saleItemById = new Map(
-      sale.saleItems.map((item) => [item.id, item]),
-    );
+    const saleItemById = new Map(sale.saleItems.map((item) => [item.id, item]));
 
     const restockPlan = this.buildRestockPlan(
       sale.saleItems,

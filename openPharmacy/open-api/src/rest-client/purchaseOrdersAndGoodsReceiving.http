@@ -1,0 +1,401 @@
+### ─── Purchase orders and goods receiving ──────────────────────────────────────
+### Covers `POST /api/purchase-orders`, `GET /api/purchase-orders`,
+### `GET /api/purchase-orders/:id`, `PATCH /api/purchase-orders/:id/submit`,
+### and `PATCH /api/purchase-orders/:id/receive`.
+###
+### All routes require a Bearer access token. Only `ADMIN` and
+### `PHARMACIST` can authorise purchase orders and goods receiving.
+###
+### Purchase-order lifecycle:
+###   PENDING  -- submit  -->  ORDERED  -- receive  -->  PARTIAL  -- receive  -->  RECEIVED
+###                                                                -- cancel  -->  CANCELLED
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Send the "LOGIN as pharmacist" request below.
+###   3. Get a supplier id (seeded or POST /api/suppliers once that endpoint is
+###      implemented).
+###   4. Get a product id (GET /api/products).
+###   5. Walk through the create -> submit -> receive flow.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — log in as a pharmacist (purchase orders + goods receiving) and a
+### cashier (used to demonstrate that the cashier role is rejected).
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Login as a Admin ─────────────────────────────────────
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as a Cashier ─────────────────────────────────────
+
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Store tokens for later requests ─────────────────────────────────────
+
+@pharmToken = {{loginPharmacist.response.body.accessToken}}
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@cashierToken = {{loginCashier.response.body.accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DISCOVERY — look up suppliers and product ids to fill the bodies below.
+### Replace SUPPLIER_UUID and PRODUCT_UUID with real values.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+
+
+GET {{base}}/products?page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 1. CREATE PURCHASE ORDER — pharmacist drafts a new PO.
+###    Status: PENDING. The order is NOT sent to the supplier yet.
+###    Expect: 201 with the PO id, supplierId, orderDate, and orderItems[].
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/purchase-orders
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "eb75855b-5e00-4f82-904d-eb315d726869",
+  "orderDate": "2026-09-08",
+  "items": [
+    {
+      "productId": "90ab34af-aee1-4f9e-bddd-dadc7e2299e5",
+      "qtyOrdered": 100,
+      "unitCost": 8.50
+    },
+    {
+      "productId": "aa7be08b-2038-4666-a1fe-1269abf76160",
+      "qtyOrdered": 50,
+      "unitCost": 11.00
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 2. LIST PURCHASE ORDERS — paginated, optional status / supplier filters.
+###    Expect: 200 with { data, total, page, pageSize, totalPages }.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/purchase-orders?page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+
+### ── Filter by status (PENDING | ORDERED | PARTIAL | RECEIVED | CANCELLED)
+
+GET {{base}}/purchase-orders?status=PENDING&page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+
+### ── Filter by supplier
+
+GET {{base}}/purchase-orders?supplierId=eb75855b-5e00-4f82-904d-eb315d726869&page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 3. GET PURCHASE ORDER BY ID — full detail with line items.
+###    Expect: 200 with supplier, user, orderItems[] (each with orderItemId).
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 4. SUBMIT PURCHASE ORDER — PENDING -> ORDERED.
+###    The order is now committed to the supplier and ready for receiving.
+###    Expect: 200 with status = ORDERED.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/submit
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 5. RECEIVE GOODS — full receipt in one go.
+###    The order flips to RECEIVED. Each received line creates a lot (or
+###    increments an existing lot with the same product_id + lot_number),
+###    bumps the lot's current_qty, and writes an ENTRY inventory_movement
+###    plus a LOT_CREATED / STOCK_DEDUCTED_FEFO audit row.
+###    Expect: 200 with status = RECEIVED and the freshly created lot ids.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0001",
+  "invoiceDate": "2026-09-08",
+  "items": [
+    {
+      "orderItemId": "28fad171-2dc4-46ad-9dc3-848d721fd53b",
+      "qtyReceived": 100,
+      "lotNumber": "PAR-2027-C",
+      "expiryDate": "2028-06-30",
+      "unitCost": 8.50
+    },
+    {
+      "orderItemId": "3dd58240-f5bf-41a9-b535-fa10789770e1",
+      "qtyReceived": 50,
+      "lotNumber": "IBU-2027-002",
+      "expiryDate": "2028-03-20",
+      "unitCost": 11.00
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 6. PARTIAL RECEIVE — first shipment covers half the qty.
+###    The order flips to PARTIAL. A second receive call (with the remaining
+###    qty) flips it to RECEIVED.
+###    Expect: 200 with status = PARTIAL.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0002",
+  "invoiceDate": "2026-09-08",
+  "items": [
+    {
+      "orderItemId": "28fad171-2dc4-46ad-9dc3-848d721fd53b",
+      "qtyReceived": 50,
+      "lotNumber": "PAR-2027-D",
+      "expiryDate": "2028-06-30",
+      "unitCost": 8.50
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 7. COMPLETE PARTIAL — second shipment clears the remaining qty.
+###    Expect: 200 with status = RECEIVED.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0003",
+  "invoiceDate": "2026-09-15",
+  "items": [
+    {
+      "orderItemId": "28fad171-2dc4-46ad-9dc3-848d721fd53b",
+      "qtyReceived": 50,
+      "lotNumber": "PAR-2027-E",
+      "expiryDate": "2028-12-31",
+      "unitCost": 8.60
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 8. NEGATIVE — over-receive (qtyReceived > remaining qty).
+###    Expect: 400 PO_OVERRECEIPT.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0004",
+  "invoiceDate": "2026-09-15",
+  "items": [
+    {
+      "orderItemId": "14cfc0cd-8262-45d5-97fc-fc43cb08d734",
+      "qtyReceived": 9999,
+      "lotNumber": "PAR-2027-F",
+      "expiryDate": "2028-12-31",
+      "unitCost": 8.60
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 9. NEGATIVE — receiving against a PENDING (not yet submitted) PO.
+###    Expect: 409 — only ORDERED or PARTIAL orders can be received.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0005",
+  "invoiceDate": "2026-09-15",
+  "items": [
+    {
+      "orderItemId": "28fad171-2dc4-46ad-9dc3-848d721fd53b",
+      "qtyReceived": 10,
+      "lotNumber": "PAR-2027-G",
+      "expiryDate": "2028-12-31",
+      "unitCost": 8.60
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 10. NEGATIVE — receiving an unknown orderItemId.
+###     Expect: 404.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/PO_UUID/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "invoiceNumber": "INV-2026-0006",
+  "invoiceDate": "2026-09-15",
+  "items": [
+    {
+      "orderItemId": "00000000-0000-0000-0000-000000000000",
+      "qtyReceived": 1,
+      "lotNumber": "PAR-2027-H",
+      "expiryDate": "2028-12-31",
+      "unitCost": 8.60
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 11. NEGATIVE — missing required field.
+###     Expect: 400 from ValidationPipe.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/PO_UUID/receive
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "items": []
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 12. NEGATIVE — creating a PO with no items.
+###     Expect: 400 from ValidationPipe (items must not be empty).
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/purchase-orders
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "SUPPLIER_UUID",
+  "orderDate": "2026-09-08",
+  "items": []
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 13. NEGATIVE — unit cost below the 0.01 floor.
+###     Expect: 400 from ValidationPipe.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/purchase-orders
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "SUPPLIER_UUID",
+  "orderDate": "2026-09-08",
+  "items": [
+    {
+      "productId": "PRODUCT_UUID",
+      "qtyOrdered": 10,
+      "unitCost": 0
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 14. NEGATIVE — cashier is not allowed to authorise a PO.
+###     Expect: 403 from the RolesGuard.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/purchase-orders
+Authorization: Bearer {{cashierToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "SUPPLIER_UUID",
+  "orderDate": "2026-09-08",
+  "items": [
+    {
+      "productId": "PRODUCT_UUID",
+      "qtyOrdered": 10,
+      "unitCost": 8.50
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 15. NEGATIVE — get an unknown PO id.
+###     Expect: 404.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/purchase-orders/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 16. POST-RECEIVE CHECK — the lot endpoint should now expose the new lot
+###     with current_qty = qtyReceived. Replace LOT_UUID with the value
+###     returned by the receive call above.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/lots/335ef432-7f6e-4f86-9373-e6d0e3973ff1
+Authorization: Bearer {{pharmToken}}

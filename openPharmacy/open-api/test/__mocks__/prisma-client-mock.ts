@@ -35,6 +35,11 @@ export type ReturnItem = Record<string, unknown>;
 export type Return = Record<string, unknown>;
 export type Shift = Record<string, unknown>;
 export type ShiftReopenRequest = Record<string, unknown>;
+export type PurchaseOrder = Record<string, unknown>;
+export type OrderItem = Record<string, unknown>;
+export type PurchaseReceiving = Record<string, unknown>;
+export type PurchaseReceivingItem = Record<string, unknown>;
+export type Supplier = Record<string, unknown>;
 
 export type Prisma = {
   TransactionClient: Record<string, any>;
@@ -107,5 +112,16 @@ export const MovementType = {
   TRANSFER: 'TRANSFER',
   RETURN: 'RETURN',
   CANCELLATION: 'CANCELLATION',
+  PURCHASE: 'PURCHASE',
 } as const;
 export type MovementType = (typeof MovementType)[keyof typeof MovementType];
+
+export const PurchaseOrderStatus = {
+  PENDING: 'PENDING',
+  ORDERED: 'ORDERED',
+  PARTIAL: 'PARTIAL',
+  RECEIVED: 'RECEIVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+export type PurchaseOrderStatus =
+  (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus];
