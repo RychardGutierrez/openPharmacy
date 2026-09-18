@@ -1,45 +1,107 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
+  HttpCode,
+  HttpStatus,
   Param,
-  Delete,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { UserRole } from '@prisma/client';
+import type { Request } from 'express';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import * as Auth from '../auth/interfaces/jwt-payload.interface';
+import type { RequestMetadata } from '../users/users.service';
 import { PurchaseOrdersService } from './purchase-orders.service';
-import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
-import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
+import * as CreateDto from './dto/create-purchase-order.dto';
+import * as ReceiveDto from './dto/receive-purchase-order.dto';
+import { PurchaseOrderListQueryDto } from './dto/purchase-order-list-query.dto';
 
+const extractMetadata = (request: Request): RequestMetadata => ({
+  ip:
+    (request.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]
+      ?.trim() ??
+    request.ip ??
+    request.socket?.remoteAddress ??
+    null,
+  userAgent: request.headers['user-agent'] ?? null,
+});
+
+@ApiTags('purchase-orders')
+@ApiBearerAuth()
+@Roles(UserRole.ADMIN, UserRole.PHARMACIST)
 @Controller('purchase-orders')
 export class PurchaseOrdersController {
   constructor(private readonly purchaseOrdersService: PurchaseOrdersService) {}
 
   @Post()
-  create(@Body() createPurchaseOrderDto: CreatePurchaseOrderDto) {
-    return this.purchaseOrdersService.create(createPurchaseOrderDto);
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ medium: { limit: 30, ttl: 60000 } })
+  @ApiOperation({ summary: 'Create a purchase order draft' })
+  create(
+    @Body() dto: CreateDto.CreatePurchaseOrderDto,
+    @CurrentUser() user: Auth.AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.purchaseOrdersService.create(
+      user.id,
+      dto,
+      extractMetadata(request),
+    );
   }
 
   @Get()
-  findAll() {
-    return this.purchaseOrdersService.findAll();
+  @ApiOperation({ summary: 'List purchase orders' })
+  findAll(@Query() query: PurchaseOrderListQueryDto) {
+    return this.purchaseOrdersService.findAll({
+      status: query.status,
+      supplierId: query.supplierId,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 20,
+    });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.purchaseOrdersService.findOne(+id);
+  @ApiOperation({ summary: 'Get a purchase order by id' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.purchaseOrdersService.findOne(id);
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updatePurchaseOrderDto: UpdatePurchaseOrderDto,
+  @Patch(':id/submit')
+  @ApiOperation({ summary: 'Submit a purchase order (PENDING -> ORDERED)' })
+  submit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: Auth.AuthenticatedUser,
+    @Req() request: Request,
   ) {
-    return this.purchaseOrdersService.update(+id, updatePurchaseOrderDto);
+    return this.purchaseOrdersService.submit(
+      user.id,
+      id,
+      extractMetadata(request),
+    );
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.purchaseOrdersService.remove(+id);
+  @Patch(':id/receive')
+  @ApiOperation({ summary: 'Receive goods against a purchase order' })
+  receive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReceiveDto.ReceivePurchaseOrderDto,
+    @CurrentUser() user: Auth.AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.purchaseOrdersService.receive(
+      user.id,
+      id,
+      dto,
+      extractMetadata(request),
+    );
   }
 }

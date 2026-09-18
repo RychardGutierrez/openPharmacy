@@ -280,6 +280,57 @@ async function main() {
     console.log('✓ Lots created');
   }
 
+  // ─── Suppliers ───────────────────────────────────────────────────────────
+  const suppliers = [
+    {
+      name: 'Distribuidora FarmaSur',
+      nit: '1023456789001',
+      address: 'Av. Las Americas #234',
+      city: 'La Paz',
+      contact_person: 'Roberto Mamani',
+      phone: '+591 2 2223344',
+      email: 'ventas@farmasur.bo',
+      payment_terms: 'Net 30',
+    },
+    {
+      name: 'Laboratorios Bagó Bolivia',
+      nit: '1023456789002',
+      address: 'Calle Comercio #56',
+      city: 'Santa Cruz',
+      contact_person: 'Patricia Vargas',
+      phone: '+591 3 3334455',
+      email: 'pedidos@bago.bo',
+      payment_terms: 'Net 45',
+    },
+    {
+      name: 'Importadora Medifarma',
+      nit: '1023456789003',
+      address: 'Av. Ballivián #789',
+      city: 'Cochabamba',
+      contact_person: 'Luis Condori',
+      phone: '+591 4 4445566',
+      email: 'contacto@medifarma.bo',
+      payment_terms: 'Net 15',
+    },
+  ];
+
+  for (const supplier of suppliers) {
+    await prisma.supplier.upsert({
+      where: { nit: supplier.nit },
+      update: {
+        name: supplier.name,
+        address: supplier.address,
+        city: supplier.city,
+        contact_person: supplier.contact_person,
+        phone: supplier.phone,
+        email: supplier.email,
+        payment_terms: supplier.payment_terms,
+      },
+      create: supplier,
+    });
+  }
+  console.log('✓ Suppliers created');
+
   // ─── Config (receipt header for POS thermal printing) ─────────────────────
   const configEntries = [
     { key: 'PHARMACY_NAME', value: 'OpenPharmacy' },
@@ -303,6 +354,10 @@ async function main() {
   console.log('  admin@openpharmacy.com / password123 (ADMIN)');
   console.log('  pharmacist@openpharmacy.com / password123 (PHARMACIST)');
   console.log('  cashier@openpharmacy.com / password123 (CASHIER)');
+  console.log('Suppliers (NIT):');
+  console.log('  1023456789001 — Distribuidora FarmaSur');
+  console.log('  1023456789002 — Laboratorios Bagó Bolivia');
+  console.log('  1023456789003 — Importadora Medifarma');
   console.log('─────────────────────────────────────────────');
 }
 

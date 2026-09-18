@@ -1,6 +1,7 @@
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 import { ReturnsService } from '../returns/returns.service';
+import { UserRole } from '@prisma/client';
 
 describe('SalesController', () => {
   it('exposes POST /api/sales/:id/cancel guarded for ADMIN/PHARMACIST', () => {
@@ -10,7 +11,12 @@ describe('SalesController', () => {
 
     const controller = new SalesController(salesService, returnsService);
 
-    const user = { id: 'user-1', role: 'PHARMACIST', fullName: '', email: '' };
+    const user = {
+      id: 'user-1',
+      role: UserRole.PHARMACIST,
+      fullName: '',
+      email: '',
+    };
     void controller.cancel(user, '11111111-1111-1111-1111-111111111111', {
       reason: 'Duplicate sale recorded',
     });
