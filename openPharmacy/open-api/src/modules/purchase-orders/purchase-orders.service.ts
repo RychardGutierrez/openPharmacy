@@ -8,7 +8,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { LastSupplierCostQueryDto } from './dto/last-supplier-cost-query.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { RequestMetadata } from '../users/users.service';
 
 export interface PurchaseOrderLineResponse {
@@ -24,7 +26,10 @@ export interface PurchaseOrderResponse {
   id: string;
   supplierId: string;
   supplierName: string;
+  supplierNit: string;
   userId: string;
+  userName: string;
+  userRole: string;
   status: PurchaseOrderStatus;
   orderDate: Date;
   items: PurchaseOrderLineResponse[];
@@ -49,6 +54,13 @@ export interface PurchaseOrderReceivingResponse {
   status: PurchaseOrderStatus;
   lots: ReceivingLotResponse[];
   createdAt: Date;
+}
+
+export interface LastSupplierCostResponse {
+  supplierId: string;
+  productId: string;
+  unitCost: number;
+  invoiceDate: Date;
 }
 
 @Injectable()
@@ -158,6 +170,103 @@ export class PurchaseOrdersService {
     if (!fullOrder)
       throw new NotFoundException(`Purchase order ${id} not found`);
     return this.toOrderResponse(fullOrder, fullOrder.orderItems);
+  }
+
+  /**
+   * Update a `PENDING` purchase order. Replaces the line-item list and
+   * optionally changes the supplier, order date, or reason. Rejected with
+   * `400 PURCHASE_ORDER_NOT_PENDING` once the order has been submitted.
+   */
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdatePurchaseOrderDto,
+    meta?: RequestMetadata,
+  ): Promise<PurchaseOrderResponse> {
+    const productIds = [...new Set(dto.items.map((i) => i.productId))];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, deleted_at: null, active: true },
+      select: { id: true },
+    });
+    if (products.length !== productIds.length) {
+      const found = new Set(products.map((p) => p.id));
+      const missing = productIds.filter((p) => !found.has(p));
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'PRODUCT_INACTIVE',
+        message: `One or more products are missing, inactive, or deleted: ${missing.join(', ')}`,
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.purchaseOrders.lockByIdTx(tx, id);
+      const order = await this.purchaseOrders.findByIdWithItemsTx(tx, id);
+      if (!order) throw new NotFoundException(`Purchase order ${id} not found`);
+
+      if (order.status !== PurchaseOrderStatus.PENDING) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'PURCHASE_ORDER_NOT_PENDING',
+          message: `Only pending purchase orders can be edited. Current status: ${order.status}`,
+        });
+      }
+
+      await this.purchaseOrders.updateHeaderTx(tx, id, {
+        ...(dto.supplierId ? { supplier_id: dto.supplierId } : {}),
+        ...(dto.orderDate ? { order_date: new Date(dto.orderDate) } : {}),
+      });
+      await this.purchaseOrders.deleteItemsTx(tx, id);
+
+      await Promise.all(
+        dto.items.map((item) =>
+          this.purchaseOrders.createItemInTx(tx, {
+            order_id: id,
+            product_id: item.productId,
+            qty_ordered: item.qtyOrdered,
+            qty_received: 0,
+            unit_cost: item.unitCost,
+          }),
+        ),
+      );
+
+      await this.audit.createInTx(tx, {
+        userId,
+        event: 'PURCHASE_ORDER_UPDATED',
+        ip: meta?.ip ?? null,
+        userAgent: meta?.userAgent ?? null,
+        metadata: {
+          orderId: id,
+          itemCount: dto.items.length,
+          reason: dto.reason ?? null,
+        },
+      });
+    });
+
+    const fullOrder = await this.purchaseOrders.findByIdWithItems(id);
+    if (!fullOrder)
+      throw new NotFoundException(`Purchase order ${id} not found`);
+    return this.toOrderResponse(fullOrder, fullOrder.orderItems);
+  }
+
+  /**
+   * Look up the most recent unit cost paid to a given supplier for a given
+   * product. Used by the product picker to pre-fill the next line cost.
+   * Returns `null` when no history exists.
+   */
+  async findLastSupplierCost(
+    query: LastSupplierCostQueryDto,
+  ): Promise<LastSupplierCostResponse | null> {
+    const result = await this.purchaseOrders.findLastSupplierCost(
+      query.supplierId,
+      query.productId,
+    );
+    if (!result) return null;
+    return {
+      supplierId: query.supplierId,
+      productId: query.productId,
+      unitCost: result.unitCost,
+      invoiceDate: result.invoiceDate,
+    };
   }
 
   async receive(
@@ -331,6 +440,7 @@ export class PurchaseOrdersService {
   async findAll(query: {
     status?: PurchaseOrderStatus;
     supplierId?: string;
+    q?: string;
     page: number;
     pageSize: number;
   }): Promise<{
@@ -500,7 +610,8 @@ export class PurchaseOrdersService {
       status: PurchaseOrderStatus;
       order_date: Date;
       created_at: Date;
-      supplier: { name: string };
+      supplier: { name: string; nit: string };
+      user: { full_name: string; roleName: string };
     },
     items: {
       id: string;
@@ -515,7 +626,10 @@ export class PurchaseOrdersService {
       id: order.id,
       supplierId: order.supplier_id,
       supplierName: order.supplier.name,
+      supplierNit: order.supplier?.nit ?? "",
       userId: order.user_id,
+      userName: order.user?.full_name ?? "",
+      userRole: order.user?.roleName ?? "",
       status: order.status,
       orderDate: order.order_date,
       items: items.map((item) => ({

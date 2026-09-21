@@ -21,8 +21,10 @@ import * as Auth from '../auth/interfaces/jwt-payload.interface';
 import type { RequestMetadata } from '../users/users.service';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import * as CreateDto from './dto/create-purchase-order.dto';
+import { LastSupplierCostQueryDto } from './dto/last-supplier-cost-query.dto';
 import * as ReceiveDto from './dto/receive-purchase-order.dto';
 import { PurchaseOrderListQueryDto } from './dto/purchase-order-list-query.dto';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 
 const extractMetadata = (request: Request): RequestMetadata => ({
   ip:
@@ -64,15 +66,40 @@ export class PurchaseOrdersController {
     return this.purchaseOrdersService.findAll({
       status: query.status,
       supplierId: query.supplierId,
+      q: query.q?.trim() || undefined,
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 20,
     });
+  }
+
+  @Get('last-cost')
+  @ApiOperation({
+    summary: 'Last unit cost paid to a supplier for a product',
+  })
+  lastCost(@Query() query: LastSupplierCostQueryDto) {
+    return this.purchaseOrdersService.findLastSupplierCost(query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a purchase order by id' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.purchaseOrdersService.findOne(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Edit a PENDING purchase order' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePurchaseOrderDto,
+    @CurrentUser() user: Auth.AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.purchaseOrdersService.update(
+      user.id,
+      id,
+      dto,
+      extractMetadata(request),
+    );
   }
 
   @Patch(':id/submit')

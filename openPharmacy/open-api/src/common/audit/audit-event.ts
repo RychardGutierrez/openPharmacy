@@ -48,4 +48,5 @@ export type AuditEvent =
   // Purchase-order events
   | 'PURCHASE_ORDER_CREATED'
   | 'PURCHASE_ORDER_SUBMITTED'
+  | 'PURCHASE_ORDER_UPDATED'
   | 'PURCHASE_ORDER_RECEIVED';

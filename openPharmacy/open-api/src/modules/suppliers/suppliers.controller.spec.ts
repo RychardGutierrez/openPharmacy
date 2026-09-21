@@ -1,20 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { SuppliersController } from './suppliers.controller';
 import { SuppliersService } from './suppliers.service';
 
 describe('SuppliersController', () => {
-  let controller: SuppliersController;
+  it('exposes /api/suppliers CRUD endpoints', () => {
+    const service = {
+      findAll: jest.fn().mockReturnValue([]),
+      findAllPaginated: jest.fn().mockReturnValue({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    } as unknown as SuppliersService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [SuppliersController],
-      providers: [SuppliersService],
-    }).compile();
-
-    controller = module.get<SuppliersController>(SuppliersController);
-  });
-
-  it('should be defined', () => {
+    const controller = new SuppliersController(service);
     expect(controller).toBeDefined();
+
+    controller.findAll();
+    expect(service.findAll).toHaveBeenCalled();
   });
 });

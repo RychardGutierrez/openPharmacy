@@ -179,7 +179,19 @@
   margin: 0;
 }
 
+/* Letter-paper document for official records (purchase orders, reports, etc.).
+   Activated when the document carries both `print-letter` and `print-report`. */
+@page letter {
+  size: letter;
+  margin: 18mm 18mm 22mm 18mm;
+}
+
 .print-pos-receipt { display: none; }
+
+.print-letter,
+.print-letter * {
+  color: #000 !important;
+}
 
 @media print {
   body * { visibility: hidden !important; }
@@ -190,6 +202,70 @@
   .print-report h2 { margin-top: 7px !important; }
   .print-report p { display: flex !important; justify-content: space-between !important; gap: 4px !important; margin: 1px 0 !important; white-space: pre-wrap !important; }
   .print-report hr { border: 0 !important; border-top: 1px dashed #888 !important; margin: 7px 0 !important; }
+
+  /* Letter-paper official documents. Override the default 72mm @page rule
+     by also tagging the document with `print-letter`; the selector below
+     wins because it is more specific than the bare `.print-report`. */
+  .print-letter.print-report,
+  .print-letter.print-report * {
+    visibility: visible !important;
+    color: #000 !important;
+  }
+  .print-letter.print-report {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+    max-width: 7.5in !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+    font: 11pt/1.45 "Times New Roman", Georgia, serif !important;
+    page: letter !important;
+  }
+  .print-letter.print-report h1,
+  .print-letter.print-report h2,
+  .print-letter.print-report h3 {
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif !important;
+    color: #000 !important;
+  }
+  .print-letter.print-report h1 { font-size: 22pt !important; font-weight: 700 !important; margin: 0 0 4pt !important; }
+  .print-letter.print-report h2 { font-size: 13pt !important; font-weight: 600 !important; margin: 14pt 0 6pt !important; border-bottom: 1px solid #000 !important; padding-bottom: 3pt !important; }
+  .print-letter.print-report h3 { font-size: 11pt !important; font-weight: 600 !important; margin: 10pt 0 4pt !important; }
+  .print-letter.print-report p,
+  .print-letter.print-report dd,
+  .print-letter.print-report td,
+  .print-letter.print-report th {
+    font-size: 11pt !important;
+    color: #000 !important;
+  }
+  .print-letter.print-report dt {
+    font-size: 9pt !important;
+    color: #000 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+  }
+  .print-letter.print-report table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 6pt 0 !important;
+  }
+  .print-letter.print-report th,
+  .print-letter.print-report td {
+    border: 1px solid #000 !important;
+    padding: 5pt 8pt !important;
+    text-align: left !important;
+    vertical-align: top !important;
+  }
+  .print-letter.print-report thead th {
+    background: #eee !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 9.5pt !important;
+  }
+  .print-letter.print-report .text-right { text-align: right !important; }
+  .print-letter.print-report .font-mono { font-family: "Courier New", monospace !important; }
 
   .print-pos-receipt, .print-pos-receipt * { visibility: visible !important; }
   .print-pos-receipt { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; z-index: 99999 !important; width: 72mm !important; padding: 3mm 4mm !important; color: #000 !important; background: #fff !important; font: 9px/1.4 "Anonymous Pro", "Courier New", monospace !important; }

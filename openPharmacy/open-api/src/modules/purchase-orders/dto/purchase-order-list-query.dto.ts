@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PurchaseOrderStatus } from '@prisma/client';
 
@@ -13,6 +22,15 @@ export class PurchaseOrderListQueryDto {
   @IsOptional()
   @IsUUID('4')
   supplierId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Free-text search across order id, supplier name, NIT, or contact',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
 
   @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
   @IsOptional()
