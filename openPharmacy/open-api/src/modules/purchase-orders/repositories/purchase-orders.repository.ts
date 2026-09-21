@@ -97,12 +97,36 @@ export class PurchaseOrdersRepository {
   findAll(query: {
     status?: PurchaseOrderStatus;
     supplierId?: string;
+    /** Free-text search across order id, supplier name, and supplier NIT. */
+    q?: string;
     page: number;
     pageSize: number;
   }): Promise<[PurchaseOrderWithItems[], number]> {
     const where: Prisma.PurchaseOrderWhereInput = {};
     if (query.status) where.status = query.status;
     if (query.supplierId) where.supplier_id = query.supplierId;
+
+    const trimmed = query.q?.trim();
+    if (trimmed) {
+      // Order ids are UUIDs. Prisma's UUID filter only accepts `equals`,
+      // so a UUID-shaped query matches by exact id; everything else
+      // falls back to the supplier field searches.
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          trimmed,
+        );
+      const supplierFilters: Prisma.SupplierWhereInput[] = [
+        { name: { contains: trimmed, mode: 'insensitive' } },
+        { nit: { contains: trimmed, mode: 'insensitive' } },
+        { contact_person: { contains: trimmed, mode: 'insensitive' } },
+      ];
+      const supplierMatch: Prisma.PurchaseOrderWhereInput = {
+        supplier: { OR: supplierFilters },
+      };
+      where.OR = isUuid
+        ? [{ id: { equals: trimmed.toLowerCase() } }, supplierMatch]
+        : [supplierMatch];
+    }
 
     return Promise.all([
       this.prisma.purchaseOrder.findMany({
@@ -149,5 +173,59 @@ export class PurchaseOrdersRepository {
         orderItems: { include: { product: true } },
       },
     });
+  }
+
+  /**
+   * Find the most recent unit cost paid to the given supplier for the given
+   * product, joining through `purchase_receiving_items → purchase_receivings`.
+   *
+   * Returns the unit cost and the date it was paid, or `null` when the
+   * supplier/product pair has never been received before.
+   */
+  async findLastSupplierCost(
+    supplierId: string,
+    productId: string,
+  ): Promise<{ unitCost: number; invoiceDate: Date } | null> {
+    const item = await this.prisma.purchaseReceivingItem.findFirst({
+      where: {
+        orderItem: {
+          product_id: productId,
+          order: { supplier_id: supplierId },
+        },
+      },
+      orderBy: { receiving: { invoice_date: 'desc' } },
+      include: { receiving: { select: { invoice_date: true } } },
+    });
+    if (!item) return null;
+    return {
+      unitCost: Number(item.unit_cost),
+      invoiceDate: item.receiving.invoice_date,
+    };
+  }
+
+  /**
+   * Delete the line items of a purchase order inside the caller's transaction.
+   * Used by `update()` to replace the line list atomically.
+   */
+  deleteItemsTx(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<Prisma.BatchPayload> {
+    return tx.orderItem.deleteMany({ where: { order_id: orderId } });
+  }
+
+  createItemInTx(
+    tx: Prisma.TransactionClient,
+    data: Prisma.OrderItemUncheckedCreateInput,
+  ): Promise<Prisma.OrderItemGetPayload<Record<string, never>>> {
+    return tx.orderItem.create({ data });
+  }
+
+  updateHeaderTx(
+    tx: Prisma.TransactionClient,
+    id: string,
+    data: Prisma.PurchaseOrderUncheckedUpdateInput,
+  ): Promise<PurchaseOrder> {
+    return tx.purchaseOrder.update({ where: { id }, data });
   }
 }

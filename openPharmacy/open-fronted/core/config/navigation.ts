@@ -67,6 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         title: "Purchasing",
         icon: FileText,
+        hiddenForRoles: ["CASHIER"],
         items: [
           { title: "Orders", href: "/purchasing/orders", icon: FileText },
           { title: "Suppliers", href: "/purchasing/suppliers", icon: Truck },

@@ -399,3 +399,51 @@ Authorization: Bearer {{pharmToken}}
 
 GET {{base}}/lots/335ef432-7f6e-4f86-9373-e6d0e3973ff1
 Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 17. UPDATE DRAFT — edit a PENDING purchase order.
+###     Used to fix supplier, date, or quantities before submitting.
+###     Expect: 200 with the updated PO. After submission this returns 400
+###     PURCHASE_ORDER_NOT_PENDING.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/purchase-orders/14cfc0cd-8262-45d5-97fc-fc43cb08d734
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "reason": "Ajustamos las cantidades antes de enviar",
+  "items": [
+    {
+      "orderItemId": "28fad171-2dc4-46ad-9dc3-848d721fd53b",
+      "productId": "90ab34af-aee1-4f9e-bddd-dadc7e2299e5",
+      "qtyOrdered": 80,
+      "unitCost": 8.40
+    },
+    {
+      "orderItemId": "3dd58240-f5bf-41a9-b535-fa10789770e1",
+      "productId": "aa7be08b-2038-4666-a1fe-1269abf76160",
+      "qtyOrdered": 40,
+      "unitCost": 11.20
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 18. LAST SUPPLIER COST — most recent unit cost paid to a supplier for a
+###     product. Used by the product picker to pre-fill the next line.
+###     Returns null when the supplier/product pair has no history.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/purchase-orders/last-cost?supplierId=eb75855b-5e00-4f82-904d-eb315d726869&productId=90ab34af-aee1-4f9e-bddd-dadc7e2299e5
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 19. SUPPLIERS LIST — paginated, search-backed lookup.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers/search?q=Farma&page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
