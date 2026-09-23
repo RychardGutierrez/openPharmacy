@@ -6,7 +6,6 @@ import {
   purchaseOrderListSchema,
   purchaseOrderSchema,
   receivingResponseSchema,
-  supplierSchema,
   type CreatePurchaseOrderPayload,
   type LastSupplierCost,
   type PurchaseOrder,
@@ -14,7 +13,6 @@ import {
   type PurchaseOrderList,
   type ReceivePurchaseOrderPayload,
   type ReceivingResponse,
-  type Supplier,
   type UpdatePurchaseOrderPayload,
 } from "@/features/purchase-orders/types"
 import {
@@ -200,10 +198,6 @@ export function receivePurchaseOrder(
     { method: "PATCH", body: JSON.stringify(payload) },
     receivingResponseSchema,
   )
-}
-
-export function listSuppliers(): Promise<Supplier[]> {
-  return request("/suppliers", { method: "GET" }, z.array(supplierSchema))
 }
 
 export function getLastSupplierCost(
