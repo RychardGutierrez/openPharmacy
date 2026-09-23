@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseOrderStatus } from '@prisma/client';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
+import { SuppliersRepository } from '../suppliers/repositories/suppliers.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
@@ -20,6 +21,10 @@ const mockPrisma = {
 
 const mockAudit = {
   createInTx: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockSuppliers = {
+  findById: jest.fn().mockResolvedValue({ id: 'supplier-1', active: true }),
 };
 
 const mockRepository = {
@@ -45,6 +50,7 @@ describe('PurchaseOrdersService', () => {
         PurchaseOrdersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PurchaseOrdersRepository, useValue: mockRepository },
+        { provide: SuppliersRepository, useValue: mockSuppliers },
         { provide: AuditLogRepository, useValue: mockAudit },
       ],
     }).compile();
@@ -106,6 +112,36 @@ describe('PurchaseOrdersService', () => {
       expect(mockRepository.createTx).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ status: PurchaseOrderStatus.PENDING }),
+      );
+    });
+
+    it('rejects a purchase order for a deactivated supplier', async () => {
+      mockSuppliers.findById.mockResolvedValueOnce({
+        id: 'supplier-1',
+        active: false,
+      });
+      const dto: CreatePurchaseOrderDto = {
+        supplierId: 'supplier-1',
+        orderDate: '2026-09-11',
+        items: [{ productId: 'product-1', qtyOrdered: 100, unitCost: 2.5 }],
+      };
+
+      await expect(service.create('user-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockRepository.createTx).not.toHaveBeenCalled();
+    });
+
+    it('rejects a purchase order for an unknown supplier', async () => {
+      mockSuppliers.findById.mockResolvedValueOnce(null);
+      const dto: CreatePurchaseOrderDto = {
+        supplierId: 'supplier-1',
+        orderDate: '2026-09-11',
+        items: [{ productId: 'product-1', qtyOrdered: 100, unitCost: 2.5 }],
+      };
+
+      await expect(service.create('user-1', dto)).rejects.toThrow(
+        BadRequestException,
       );
     });
   });

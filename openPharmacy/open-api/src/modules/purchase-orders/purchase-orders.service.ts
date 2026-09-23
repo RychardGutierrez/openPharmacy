@@ -6,6 +6,7 @@ import {
 import { Prisma, PurchaseOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
+import { SuppliersRepository } from '../suppliers/repositories/suppliers.repository';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { LastSupplierCostQueryDto } from './dto/last-supplier-cost-query.dto';
@@ -68,6 +69,7 @@ export class PurchaseOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly purchaseOrders: PurchaseOrdersRepository,
+    private readonly suppliers: SuppliersRepository,
     private readonly audit: AuditLogRepository,
   ) {}
 
@@ -76,6 +78,7 @@ export class PurchaseOrdersService {
     dto: CreatePurchaseOrderDto,
     meta?: RequestMetadata,
   ): Promise<PurchaseOrderResponse> {
+    await this.assertActiveSupplier(dto.supplierId);
     const orderDate = new Date(dto.orderDate);
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -183,6 +186,9 @@ export class PurchaseOrdersService {
     dto: UpdatePurchaseOrderDto,
     meta?: RequestMetadata,
   ): Promise<PurchaseOrderResponse> {
+    if (dto.supplierId) {
+      await this.assertActiveSupplier(dto.supplierId);
+    }
     const productIds = [...new Set(dto.items.map((i) => i.productId))];
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds }, deleted_at: null, active: true },
@@ -602,6 +608,24 @@ export class PurchaseOrdersService {
     }
   }
 
+  private async assertActiveSupplier(supplierId: string): Promise<void> {
+    const supplier = await this.suppliers.findById(supplierId);
+    if (!supplier) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'SUPPLIER_NOT_FOUND',
+        message: `Supplier ${supplierId} does not exist`,
+      });
+    }
+    if (!supplier.active) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'SUPPLIER_INACTIVE',
+        message: `Supplier ${supplier.name} is deactivated and cannot receive new purchase orders`,
+      });
+    }
+  }
+
   private toOrderResponse(
     order: {
       id: string;
@@ -626,10 +650,10 @@ export class PurchaseOrdersService {
       id: order.id,
       supplierId: order.supplier_id,
       supplierName: order.supplier.name,
-      supplierNit: order.supplier?.nit ?? "",
+      supplierNit: order.supplier?.nit ?? '',
       userId: order.user_id,
-      userName: order.user?.full_name ?? "",
-      userRole: order.user?.roleName ?? "",
+      userName: order.user?.full_name ?? '',
+      userRole: order.user?.roleName ?? '',
       status: order.status,
       orderDate: order.order_date,
       items: items.map((item) => ({

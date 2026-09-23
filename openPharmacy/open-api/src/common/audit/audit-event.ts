@@ -45,6 +45,11 @@ export type AuditEvent =
   | 'SALE_RX_MISSING'
   | 'SALE_CANCELLED'
   | 'RETURN_COMPLETED'
+  // Supplier-management events
+  | 'SUPPLIER_CREATED'
+  | 'SUPPLIER_UPDATED'
+  | 'SUPPLIER_DEACTIVATED'
+  | 'SUPPLIER_ACTIVATED'
   // Purchase-order events
   | 'PURCHASE_ORDER_CREATED'
   | 'PURCHASE_ORDER_SUBMITTED'

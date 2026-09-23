@@ -1,7 +1,4 @@
-import {
-  ApiProperty,
-  ApiPropertyOptional,
-} from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -33,7 +30,10 @@ export class UpdatePurchaseOrderItemDto {
   @Type(() => Number)
   qtyOrdered!: number;
 
-  @ApiProperty({ description: 'Unit cost agreed on the PO line', minimum: 0.01 })
+  @ApiProperty({
+    description: 'Unit cost agreed on the PO line',
+    minimum: 0.01,
+  })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   @Max(99999999.99)
