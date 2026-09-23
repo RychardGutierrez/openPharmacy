@@ -36,19 +36,7 @@ const optionalDateString = z
     message: "Fecha inválida",
   })
 
-export const supplierSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  nit: z.string(),
-  address: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
-  contactPerson: z.string().nullable().optional(),
-  email: z.email().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  paymentTerms: z.string().nullable().optional(),
-  active: z.boolean().default(true),
-})
-export type Supplier = z.infer<typeof supplierSchema>
+export { supplierSchema, type Supplier } from "@/features/suppliers/types"
 
 export const purchaseOrderLineSchema = z.object({
   id: z.string(),

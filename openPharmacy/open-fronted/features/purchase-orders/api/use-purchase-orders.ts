@@ -9,11 +9,12 @@ import {
   getLastSupplierCost,
   getPurchaseOrder,
   listPurchaseOrders,
-  listSuppliers,
   receivePurchaseOrder,
   submitPurchaseOrder,
   updatePurchaseOrder,
 } from "@/features/purchase-orders/api/purchase-orders-api"
+import { useSuppliers as useSuppliersBase } from "@/features/suppliers/api/use-suppliers"
+import type { Supplier } from "@/features/suppliers/types"
 import { PURCHASE_ORDER_ERROR_MESSAGES } from "@/features/purchase-orders/api/messages"
 import type {
   CreatePurchaseOrderPayload,
@@ -36,11 +37,11 @@ export const purchaseOrdersKeys = {
 }
 
 export function useSuppliers() {
-  return useQuery({
-    queryKey: purchaseOrdersKeys.suppliers(),
-    queryFn: listSuppliers,
-    staleTime: 5 * 60 * 1000,
-  })
+  const query = useSuppliersBase({ active: true, page: 1, pageSize: 1000 })
+  return {
+    ...query,
+    data: query.data?.data,
+  } as Omit<typeof query, "data"> & { data: Supplier[] | undefined }
 }
 
 export function usePurchaseOrders(

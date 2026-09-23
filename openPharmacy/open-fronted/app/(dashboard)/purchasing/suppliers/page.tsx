@@ -1,5 +1,5 @@
 import { RoleGate } from "@/core/guards/role-guard"
-import { SuppliersPageClient } from "@/features/purchase-orders/components/suppliers-page-client"
+import { SuppliersPageClient } from "@/features/suppliers/components/suppliers-page-client"
 
 export default function SuppliersPage() {
   return (

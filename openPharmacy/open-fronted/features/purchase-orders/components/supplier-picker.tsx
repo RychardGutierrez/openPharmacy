@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { LoaderCircle, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -72,10 +72,6 @@ export function SupplierPicker({
     setHighlighted(0)
   }, open)
 
-  useEffect(() => {
-    setHighlighted(0)
-  }, [results])
-
   // Keep the dropdown width in sync with the input so it always matches
   // even when the layout reflows (sidebar collapse, responsive resize).
   useEffect(() => {
@@ -138,9 +134,13 @@ export function SupplierPicker({
           value={displayText}
           onChange={(event) => {
             setSearch(event.target.value)
+            setHighlighted(0)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setHighlighted(0)
+            setOpen(true)
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault()

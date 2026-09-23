@@ -82,16 +82,29 @@ export class CreateSupplierDto {
   active?: boolean;
 }
 
+const parseBooleanParam = (value: unknown): boolean | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === 'true') return true;
+    if (lowered === 'false') return false;
+  }
+  return undefined;
+};
+
 export class SuppliersListQueryDto {
   @ApiPropertyOptional({ description: 'Search by name, NIT, or contact' })
   @IsOptional()
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by active status' })
+  @ApiPropertyOptional({
+    description: 'Filter by active status (true|false)',
+  })
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseBooleanParam(value))
   active?: boolean;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })

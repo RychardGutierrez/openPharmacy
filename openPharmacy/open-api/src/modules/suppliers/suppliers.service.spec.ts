@@ -75,6 +75,22 @@ describe('SuppliersService', () => {
     });
   });
 
+  it('findAllPaginated accepts false as an active filter', async () => {
+    repo.findAllPaginated.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+      totalPages: 0,
+    });
+
+    await service.findAllPaginated({ active: false });
+
+    expect(repo.findAllPaginated).toHaveBeenCalledWith(
+      expect.objectContaining({ active: false }),
+    );
+  });
+
   it('findOne throws 404 when the supplier does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
