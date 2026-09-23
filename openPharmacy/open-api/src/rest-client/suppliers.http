@@ -1,0 +1,282 @@
+### ─── Supplier management endpoints (PMS-011) ──────────────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+### Covers `POST /api/suppliers`, `GET /api/suppliers`,
+### `GET /api/suppliers/search`, `GET /api/suppliers/:id`,
+### `PATCH /api/suppliers/:id`, `PATCH /api/suppliers/:id/deactivate`,
+### and `PATCH /api/suppliers/:id/activate`.
+###
+### Roles: only ADMIN and PHARMACIST may use supplier endpoints.
+### CASHIER requests are rejected with 403.
+###
+### Soft-delete policy:
+###   Suppliers are NEVER physically deleted. `deactivate` flips `active=false`
+###   so historical purchase_orders keep a valid reference. There is no DELETE
+###   route. Reactivate a supplier with the `activate` route (or PATCH with
+###   `active: true`).
+###
+### NIT rule:
+###   The NIT is a tax id stored as DIGITS ONLY. Any non-digit character is
+###   stripped before validation/persistence ("123-456-789" → "123456789").
+###   It is globally unique: reusing an existing NIT returns 409 DUPLICATE_NIT,
+###   even for a deactivated supplier.
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Send the "LOGIN as pharmacist" and "LOGIN as admin" requests below.
+###   3. Walk through the create → search → deactivate → activate flow.
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — log in as a pharmacist, an admin, and a cashier (used to prove the
+### cashier role is rejected).
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as Admin ──────────────────────────────────────────────────────────
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as Cashier ────────────────────────────────────────────────────────
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Store tokens for later requests ─────────────────────────────────────────
+@pharmToken = {{loginPharmacist.response.body.accessToken}}
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@cashierToken = {{loginCashier.response.body.accessToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 1. CREATE SUPPLIER — pharmacist creates a new supplier.
+###    Expect: 201 with the created supplier (active=true).
+###    NOTE the formatted NIT "900-456-789": it is stored as "900456789".
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name createSupplier
+POST {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "name": "Distribuidora Farmacéutica Nacional",
+  "nit": "900-456-789",
+  "address": "Av. Juan Pablo II 123",
+  "city": "La Paz",
+  "contact_person": "Ana Lopez",
+  "phone": "+591 70012345",
+  "email": "ventas@dfn.example.com",
+  "payment_terms": "Net 30"
+}
+
+### ── The id of the supplier we just created, reused below ────────────────────
+@supplierId = {{createSupplier.response.body.id}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 2. LIST ACTIVE SUPPLIERS — the lightweight dropdown endpoint.
+###    Returns only active suppliers, sorted by name.
+###    Expect: 200 + [ { id, name, nit, active: true, ... }, ... ]
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 3. SEARCH SUPPLIERS — paginated, filterable admin list.
+###    Query params: q (name / nit / contact), active, page, pageSize (max 200).
+###    Expect: 200 + { data, total, page, pageSize, totalPages }.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers/search?q=Farma&page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+### ── Include deactivated suppliers in the search ─────────────────────────────
+GET {{base}}/suppliers/search?active=false&page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 4. GET SUPPLIER BY ID — includes deactivated suppliers.
+###    Expect: 200 + supplier.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers/{{supplierId}}
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 5. UPDATE SUPPLIER — partial update.
+###    Expect: 200 + updated supplier.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/suppliers/{{supplierId}}
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "phone": "+591 71111111",
+  "payment_terms": "Net 45"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 6. DEACTIVATE SUPPLIER — soft delete (active=false).
+###    Historical purchase orders are preserved.
+###    Expect: 200 + supplier with active=false.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/suppliers/{{supplierId}}/deactivate
+Authorization: Bearer {{adminToken}}
+
+### ── It now disappears from the active dropdown list ─────────────────────────
+GET {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+
+### ── ...but is still retrievable by id ───────────────────────────────────────
+GET {{base}}/suppliers/{{supplierId}}
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 7. ACTIVATE SUPPLIER — restore a deactivated supplier.
+###    Expect: 200 + supplier with active=true.
+### ═══════════════════════════════════════════════════════════════════════════
+
+PATCH {{base}}/suppliers/{{supplierId}}/activate
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 8. NEGATIVE — duplicate NIT returns 409 DUPLICATE_NIT.
+###     Re-uses the same digits-only NIT as request #1 above.
+###     Expect: 409 with code "DUPLICATE_NIT".
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "name": "Duplicate NIT Attempt",
+  "nit": "900456789"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 9. NEGATIVE — a NIT with no digits is rejected.
+###     "abc-def" normalizes to an empty string, which fails validation.
+###     Expect: 400 from ValidationPipe (nit must contain at least one digit).
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "name": "No Digits Supplier",
+  "nit": "abc-def"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 10. NEGATIVE — a cashier cannot manage suppliers.
+###     Expect: 403 from the RolesGuard.
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/suppliers
+Authorization: Bearer {{cashierToken}}
+Content-Type: application/json
+
+{
+  "name": "Cashier Attempt",
+  "nit": "900999000"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 11. NEGATIVE — get an unknown supplier id.
+###     Expect: 404.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 12. PURCHASE-ORDER INTEGRATION — reuse the active-supplier dropdown, then
+###     draft a PO against a supplier returned by GET /api/suppliers.
+###     Replace SUPPLIER_UUID / PRODUCT_UUID with real values from the list
+###     endpoints. Deactivated suppliers are NOT selectable here.
+###     Expect: 201 PENDING purchase order.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/suppliers
+Authorization: Bearer {{pharmToken}}
+
+###
+POST {{base}}/purchase-orders
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "SUPPLIER_UUID",
+  "orderDate": "2026-09-20",
+  "items": [
+    {
+      "productId": "PRODUCT_UUID",
+      "qtyOrdered": 50,
+      "unitCost": 8.50
+    }
+  ]
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### 13. NEGATIVE — a PO against a deactivated supplier is rejected.
+###     First deactivate a supplier (request #6), then try to order from it.
+###     Expect: 400 with code "SUPPLIER_INACTIVE".
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/purchase-orders
+Authorization: Bearer {{pharmToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "{{supplierId}}",
+  "orderDate": "2026-09-20",
+  "items": [
+    {
+      "productId": "PRODUCT_UUID",
+      "qtyOrdered": 10,
+      "unitCost": 8.50
+    }
+  ]
+}

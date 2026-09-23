@@ -1,15 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
+
+/**
+ * Strip every non-digit character and surrounding whitespace so the NIT is
+ * always persisted in a canonical, digits-only form. Accepts input such as
+ * `"123-456-789"`, `" 900123456 "` or `"NIT 900-1"` and reduces it to the bare
+ * number.
+ */
+export const normalizeNit = (value: unknown): string =>
+  typeof value === 'string' ? value.replace(/\D+/g, '') : '';
 
 export class CreateSupplierDto {
   @ApiProperty({ description: 'Supplier legal name' })
@@ -17,8 +28,15 @@ export class CreateSupplierDto {
   @MaxLength(255)
   name!: string;
 
-  @ApiProperty({ description: 'Supplier tax id (NIT)' })
+  @ApiProperty({
+    description:
+      'Supplier tax id (NIT). Digits only; non-numeric input is stripped.',
+    example: '900123456',
+  })
+  @Transform(({ value }) => normalizeNit(value))
   @IsString()
+  @IsNotEmpty({ message: 'nit is required' })
+  @Matches(/^\d+$/, { message: 'nit must contain at least one digit' })
   @MaxLength(50)
   nit!: string;
 

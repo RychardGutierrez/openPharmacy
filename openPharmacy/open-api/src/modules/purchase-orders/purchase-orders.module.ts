@@ -3,9 +3,10 @@ import { PurchaseOrdersService } from './purchase-orders.service';
 import { PurchaseOrdersController } from './purchase-orders.controller';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
 import { AuditModule } from '../../common/audit/audit.module';
+import { SuppliersModule } from '../suppliers/suppliers.module';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, SuppliersModule],
   controllers: [PurchaseOrdersController],
   providers: [PurchaseOrdersService, PurchaseOrdersRepository],
   exports: [PurchaseOrdersService],
