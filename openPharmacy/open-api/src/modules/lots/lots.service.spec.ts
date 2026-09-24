@@ -5,6 +5,7 @@ import { Lot, Product, ProductCategory } from '@prisma/client';
 import { LotsService } from './lots.service';
 import { LotsRepository } from './repositories/lots.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LotNotFoundException } from './exceptions/lot-not-found.exception';
 import { DuplicateLotNumberException } from './exceptions/duplicate-lot-number.exception';
@@ -70,6 +71,7 @@ describe('LotsService', () => {
   let prisma: jest.Mocked<PrismaService>;
   let eventEmitter: jest.Mocked<EventEmitter2>;
   let audit: jest.Mocked<AuditLogRepository>;
+  let movements: jest.Mocked<InventoryMovementsRepository>;
 
   beforeEach(async () => {
     lots = {
@@ -100,6 +102,10 @@ describe('LotsService', () => {
       create: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<AuditLogRepository>;
 
+    movements = {
+      createTx: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<InventoryMovementsRepository>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LotsService,
@@ -107,6 +113,7 @@ describe('LotsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: AuditLogRepository, useValue: audit },
+        { provide: InventoryMovementsRepository, useValue: movements },
       ],
     }).compile();
 

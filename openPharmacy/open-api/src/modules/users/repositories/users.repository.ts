@@ -328,6 +328,34 @@ export class UsersRepository {
   }
 
   /**
+   * Lightweight lookup for dropdowns / filters. Returns active and inactive
+   * (non-deleted) users matching name, email or CI. Never returns sensitive
+   * fields.
+   */
+  async lookup(
+    q: string | undefined,
+    limit: number,
+  ): Promise<Array<Pick<User, 'id' | 'full_name' | 'email'>>> {
+    const where: Prisma.UserWhereInput = { deleted_at: null };
+
+    if (q && q.trim().length > 0) {
+      const term = q.trim();
+      where.OR = [
+        { full_name: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { ci: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    return this.prisma.user.findMany({
+      where,
+      select: { id: true, full_name: true, email: true },
+      orderBy: { full_name: 'asc' },
+      take: limit,
+    });
+  }
+
+  /**
    * Count active users with a given role.
    */
   countActiveByRole(role: UserRole): Promise<number> {

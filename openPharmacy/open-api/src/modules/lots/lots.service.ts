@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { Prisma, Lot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { LotsRepository } from './repositories/lots.repository';
 import { CreateLotDto } from './dto/create-lot.dto';
 import { UpdateLotDto } from './dto/update-lot.dto';
@@ -33,6 +34,7 @@ export class LotsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditLogRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly movements: InventoryMovementsRepository,
   ) {}
 
   async create(
@@ -67,6 +69,16 @@ export class LotsService {
         void_reason: null,
       });
 
+      await this.movements.createTx(tx, {
+        product_id: created.product_id,
+        lot_id: created.id,
+        user_id: userId ?? 'system',
+        movementType: 'PURCHASE',
+        quantity: created.initial_qty,
+        reason: 'Initial stock on lot creation',
+        approved_by: userId ?? null,
+      });
+
       await this.audit.createInTx(tx, {
         userId: userId ?? null,
         event: 'LOT_CREATED',
@@ -79,6 +91,18 @@ export class LotsService {
           expiryDate: created.expiry_date,
           initialQty: created.initial_qty,
           unitCost: created.unit_cost,
+        },
+      });
+
+      await this.audit.createInTx(tx, {
+        userId: userId ?? null,
+        event: 'LOT_INITIAL_STOCK_CREATED',
+        ip: meta?.ip ?? null,
+        userAgent: meta?.userAgent ?? null,
+        metadata: {
+          lotId: created.id,
+          productId: created.product_id,
+          quantity: created.initial_qty,
         },
       });
 

@@ -61,7 +61,7 @@ export const NAV_SECTIONS: NavSection[] = [
           { title: "Products", href: "/inventory/products", icon: Package },
           { title: "Lotes", href: "/inventory/lots", icon: Package2 },
           { title: "Vencimientos", href: "/inventory/lotsExpiry", icon: CalendarClock },
-          { title: "Movements", href: "/inventory/movements", icon: ArrowLeftRight },
+          { title: "Movimientos", href: "/inventory/movements", icon: ArrowLeftRight },
         ],
       },
       {
@@ -104,7 +104,7 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     title: "Vencimientos",
     subtitle: "Lotes próximos a vencer y lotes vigentes",
   },
-  "/inventory/movements": { title: "Movements", subtitle: "Track stock movements" },
+  "/inventory/movements": { title: "Movimientos", subtitle: "Registra movimientos de stock" },
   "/purchasing/orders": { title: "Purchase Orders", subtitle: "Manage purchase orders" },
   "/purchasing/suppliers": { title: "Suppliers", subtitle: "Manage supplier information" },
   "/reports": { title: "Reports", subtitle: "View system reports" },

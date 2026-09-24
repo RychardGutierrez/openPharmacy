@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { Search, X } from "lucide-react"
+
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { useProduct } from "@/features/products/api/use-product"
@@ -110,16 +111,10 @@ export function ProductPicker({
               <X className="size-4" aria-hidden="true" />
             </Button>
           ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleTriggerSearch}
-              className="absolute right-0 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Buscar producto"
-            >
-              <Search className="size-4" aria-hidden="true" />
-            </Button>
+            <Search
+              className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
           )}
         </div>
 

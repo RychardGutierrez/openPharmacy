@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FefoService } from '../lots/fefo.service';
 import { SalesRepository } from './repositories/sales.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { ConfigService } from '../config/config.service';
 import { EmptyCartException } from './exceptions/empty-cart.exception';
 
@@ -29,6 +30,7 @@ describe('SalesService', () => {
     findAll: jest.fn(),
   };
   const audit = { createInTx: jest.fn() };
+  const movements = { createManyTx: jest.fn().mockResolvedValue(undefined) };
   const config = { getPharmacyInfo: jest.fn() };
   const events = { emitAsync: jest.fn() };
 
@@ -84,6 +86,7 @@ describe('SalesService', () => {
       audit as unknown as AuditLogRepository,
       config as unknown as ConfigService,
       events as unknown as EventEmitter2,
+      movements as unknown as InventoryMovementsRepository,
     );
   });
 

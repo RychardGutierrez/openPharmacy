@@ -19,7 +19,10 @@ import {
   ReturnResponseItemDto,
 } from './dto/return-response.dto';
 import { ReturnsRepository } from './repositories/returns.repository';
-import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
+import {
+  InventoryMovementsRepository,
+  CreateMovementInput,
+} from '../inventory-movements/repositories/inventory-movements.repository';
 import { SalesRepository } from '../sales/repositories/sales.repository';
 import {
   ControlledProductReturnException,
@@ -460,15 +463,16 @@ export class ReturnsService {
     }
 
     for (const plan of restockPlan) {
-      await this.movements.restoreStockTx(tx, plan.lotId, plan.quantity);
-      await this.movements.createTx(tx, {
+      const movementInput: CreateMovementInput = {
         product_id: plan.productId,
         lot_id: plan.lotId,
         user_id: userId,
         movementType: 'RETURN',
         quantity: plan.quantity,
         reason: `RETURN-${returnRecord.id}`,
-      });
+      };
+      await this.movements.createTx(tx, movementInput);
+      await this.movements.incrementStockTx(tx, plan.lotId, plan.quantity);
     }
 
     return {
@@ -695,7 +699,6 @@ export class ReturnsService {
   ): Promise<ReturnResponseItemDto[]> {
     const responseItems: ReturnResponseItemDto[] = [];
     for (const plan of restockPlan) {
-      await this.movements.restoreStockTx(tx, plan.lotId, plan.quantity);
       await this.movements.createTx(tx, {
         product_id: plan.productId,
         lot_id: plan.lotId,
@@ -704,6 +707,7 @@ export class ReturnsService {
         quantity: plan.quantity,
         reason: `CANCEL-${saleId}`,
       });
+      await this.movements.incrementStockTx(tx, plan.lotId, plan.quantity);
       responseItems.push({
         id: `cancel-${plan.lotId}`,
         saleItemId: '',

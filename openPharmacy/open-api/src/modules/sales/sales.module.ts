@@ -7,11 +7,13 @@ import { ConfigModule } from '../config/config.module';
 import { AuditModule } from '../../common/audit/audit.module';
 import { SalesRepository } from './repositories/sales.repository';
 import { ReturnsModule } from '../returns/returns.module';
+import { InventoryMovementsModule } from '../inventory-movements/inventory-movements.module';
 
 @Module({
   imports: [
     ShiftsModule,
     LotsModule,
+    InventoryMovementsModule,
     ConfigModule,
     AuditModule,
     forwardRef(() => ReturnsModule),

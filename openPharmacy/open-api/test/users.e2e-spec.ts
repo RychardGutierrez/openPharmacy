@@ -56,6 +56,7 @@ describeDb('UsersController (e2e)', () => {
       select: { id: true },
     });
     for (const { id } of existingTestUsers) {
+      await prisma.inventoryMovement.deleteMany({ where: { user_id: id } });
       await prisma.auditLog.deleteMany({ where: { user_id: id } });
       await prisma.refreshToken.deleteMany({ where: { user_id: id } });
       await prisma.user.deleteMany({ where: { id } });
@@ -86,6 +87,7 @@ describeDb('UsersController (e2e)', () => {
   afterAll(async () => {
     if (prisma) {
       for (const id of createdUserIds) {
+        await prisma.inventoryMovement.deleteMany({ where: { user_id: id } });
         await prisma.auditLog.deleteMany({ where: { user_id: id } });
         await prisma.refreshToken.deleteMany({ where: { user_id: id } });
         await prisma.user.deleteMany({ where: { id } });

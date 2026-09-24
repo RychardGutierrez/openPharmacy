@@ -18,18 +18,20 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { UserLookupQueryDto } from './dto/user-lookup-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserLookupResponseDto } from './dto/user-lookup-response.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
-@Roles(UserRole.ADMIN)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.ADMIN)
   @Throttle({
     long: { limit: 10, ttl: 60000 },
   })
@@ -39,11 +41,19 @@ export class UsersController {
   }
 
   @Get()
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'List users with pagination and filters' })
   findAll(
     @Query() query: UserQueryDto,
   ): Promise<PaginatedResponseDto<UserResponseDto>> {
     return this.usersService.findAll(query);
+  }
+
+  @Get('lookup')
+  @Roles(UserRole.ADMIN, UserRole.PHARMACIST)
+  @ApiOperation({ summary: 'Lightweight user lookup for filters/dropdowns' })
+  lookup(@Query() query: UserLookupQueryDto): Promise<UserLookupResponseDto[]> {
+    return this.usersService.lookup(query);
   }
 
   @Get(':id')
@@ -53,6 +63,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a user' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -62,12 +73,14 @@ export class UsersController {
   }
 
   @Patch(':id/deactivate')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Soft-delete / deactivate a user' })
   deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
     return this.usersService.deactivate(id);
   }
 
   @Patch(':id/activate')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore / activate a deactivated user' })
   activate(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
     return this.usersService.activate(id);

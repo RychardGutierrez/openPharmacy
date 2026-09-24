@@ -113,8 +113,28 @@ export const MovementType = {
   RETURN: 'RETURN',
   CANCELLATION: 'CANCELLATION',
   PURCHASE: 'PURCHASE',
+  SALE: 'SALE',
+  DAMAGE: 'DAMAGE',
+  EXPIRED: 'EXPIRED',
+  THEFT_LOSS: 'THEFT_LOSS',
+  MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
 } as const;
 export type MovementType = (typeof MovementType)[keyof typeof MovementType];
+
+export const AdjustmentDirection = {
+  INCREASE: 'INCREASE',
+  DECREASE: 'DECREASE',
+} as const;
+export type AdjustmentDirection =
+  (typeof AdjustmentDirection)[keyof typeof AdjustmentDirection];
+
+export const AdjustmentStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+export type AdjustmentStatus =
+  (typeof AdjustmentStatus)[keyof typeof AdjustmentStatus];
 
 export const PurchaseOrderStatus = {
   PENDING: 'PENDING',

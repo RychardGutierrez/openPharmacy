@@ -1,0 +1,307 @@
+### ─── Inventory Movements & Adjustments (PMS-006) ───────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+###
+### Quick start:
+###   1. Start the API:  npm start
+###   2. Send "Login as Pharmacist" and "Login as Admin" below.
+###   3. Get a product id and lot id (see DISCOVERY requests).
+###   4. Walk through request -> approve -> list movements.
+###
+### All routes require a Bearer access token and ADMIN or PHARMACIST role.
+### Only ADMIN can approve or reject an adjustment.
+###
+### Endpoints covered:
+###   POST   /inventory-movements/adjustments              Request a manual adjustment (pharmacist/admin)
+###   GET    /inventory-movements/adjustments              List adjustment requests
+###   GET    /inventory-movements/adjustments/:id          Get one adjustment request
+###   POST   /inventory-movements/adjustments/:id/approve  Approve & apply (ADMIN only)
+###   POST   /inventory-movements/adjustments/:id/reject   Reject (ADMIN only)
+###   GET    /inventory-movements                          List immutable movement ledger
+###   GET    /inventory-movements/:id                      Get one movement
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — log in as a pharmacist (requests adjustments) and an admin
+### (approves / rejects). A cashier token is included to show that
+### non-privileged roles are rejected.
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+
+### ── Login as Admin ───────────────────────────────────────────────────────
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as Cashier ─────────────────────────────────────────────────────
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Store tokens for later requests ─────────────────────────────────────
+
+@pharmToken = {{loginPharmacist.response.body.accessToken}}
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@cashierToken = {{loginCashier.response.body.accessToken}}
+
+
+### Variables to fill in from previous responses / seeded data:
+@productId = PRODUCT_UUID
+@lotId = LOT_UUID
+@adjustmentId = ADJUSTMENT_UUID
+@movementId = MOVEMENT_UUID
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DISCOVERY — look up product and lot ids to fill the bodies below.
+### Replace PRODUCT_UUID and LOT_UUID with real values.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/products?page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+GET {{base}}/lots?page=1&pageSize=20
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REQUEST A MANUAL ADJUSTMENT — increase stock
+### Expect: 201 (status PENDING, stock NOT yet changed)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name adjIncrease
+POST {{base}}/inventory-movements/adjustments
+Content-Type: application/json
+Authorization: Bearer {{pharmToken}}
+
+{
+  "productId": "{{productId}}",
+  "lotId": "{{lotId}}",
+  "quantity": 10,
+  "direction": "INCREASE",
+  "reason": "Physical count surplus"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REQUEST A MANUAL ADJUSTMENT — decrease stock
+### Expect: 201 (status PENDING)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name adjDecrease
+POST {{base}}/inventory-movements/adjustments
+Content-Type: application/json
+Authorization: Bearer {{pharmToken}}
+
+{
+  "productId": "{{productId}}",
+  "lotId": "{{lotId}}",
+  "quantity": 5,
+  "direction": "DECREASE",
+  "reason": "Damaged units removed from shelf"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VALIDATION — quantity must be >= 1
+### Expect: 400
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/inventory-movements/adjustments
+Content-Type: application/json
+Authorization: Bearer {{pharmToken}}
+
+{
+  "productId": "{{productId}}",
+  "lotId": "{{lotId}}",
+  "quantity": 0,
+  "direction": "INCREASE",
+  "reason": "Invalid quantity"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VALIDATION — direction must be INCREASE or DECREASE
+### Expect: 400
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/inventory-movements/adjustments
+Content-Type: application/json
+Authorization: Bearer {{pharmToken}}
+
+{
+  "productId": "{{productId}}",
+  "lotId": "{{lotId}}",
+  "quantity": 3,
+  "direction": "SIDEWAYS",
+  "reason": "Invalid direction"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FORBIDDEN — pharmacist cannot approve/reject, cashier has no access at all
+### Expect: 403
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/inventory-movements/adjustments/{{adjustmentId}}/approve
+Authorization: Bearer {{pharmToken}}
+
+POST {{base}}/inventory-movements/adjustments
+Content-Type: application/json
+Authorization: Bearer {{cashierToken}}
+
+{
+  "productId": "{{productId}}",
+  "lotId": "{{lotId}}",
+  "quantity": 5,
+  "direction": "INCREASE",
+  "reason": "Cashier has no role access"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST ADJUSTMENT REQUESTS (all)
+### Expect: 200 + paginated { data, total, page, pageSize, totalPages }
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name listAdjustments
+GET {{base}}/inventory-movements/adjustments?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FILTER ADJUSTMENTS — only PENDING for a given lot
+### status: PENDING | APPROVED | REJECTED
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements/adjustments?status=PENDING&lotId={{lotId}}
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET ONE ADJUSTMENT
+### Expect: 200, or 404 if id unknown
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements/adjustments/{{adjustmentId}}
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### APPROVE & APPLY A PENDING ADJUSTMENT (ADMIN only)
+### Locks the row, writes an immutable MANUAL_ADJUSTMENT movement and updates
+### lot stock in one serializable transaction.
+### Expect: 200 + { adjustment, movement }
+### 409 if already processed (ADJUSTMENT_ALREADY_PROCESSED)
+### 409 if approver == requester (ADJUSTMENT_SELF_APPROVAL)
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name approveAdjustment
+POST {{base}}/inventory-movements/adjustments/{{adjustmentId}}/approve
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### APPROVE A DECREASING ADJUSTMENT WITH INSUFFICIENT STOCK
+### Same endpoint — if DECREASE quantity > lot current stock the transaction
+### rolls back.
+### Expect: 409 (INSUFFICIENT_LOT_STOCK)
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/inventory-movements/adjustments/{{adjustmentId}}/approve
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REJECT A PENDING ADJUSTMENT (ADMIN only)
+### Expect: 200 + adjustment (status REJECTED, no movement written)
+### 409 if already processed
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name rejectAdjustment
+POST {{base}}/inventory-movements/adjustments/{{adjustmentId}}/reject
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST INVENTORY MOVEMENTS (immutable ledger)
+### Optional filters: productId, lotId, movementType, userId, page, pageSize
+### movementType: PURCHASE | SALE | RETURN | CANCELLATION | DAMAGE | EXPIRED |
+###               THEFT_LOSS | MANUAL_ADJUSTMENT | ENTRY | EXIT | ADJUSTMENT |
+###               TRANSFER
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name listMovements
+GET {{base}}/inventory-movements?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FILTER MOVEMENTS — by lot
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements?lotId={{lotId}}
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FILTER MOVEMENTS — by product and type
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements?productId={{productId}}&movementType=MANUAL_ADJUSTMENT
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FILTER MOVEMENTS — by user
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements?userId=USER_UUID&movementType=SALE
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET ONE MOVEMENT
+### Expect: 200, or 404 if id unknown
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/inventory-movements/{{movementId}}
+Authorization: Bearer {{pharmToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### END-TO-END WORKED EXAMPLE (PMS-006 happy path)
+### Adjust a lot DOWN by 4 units, then verify the ledger.
+###   1. Send "Login as Pharmacist" and "Login as Admin".
+###   2. Fill in @productId / @lotId with real values from DISCOVERY.
+###   3. Send "REQUEST A MANUAL ADJUSTMENT — decrease stock".
+###   4. Copy its response .body.id into @adjustmentId.
+###   5. Send "APPROVE & APPLY" (admin) → returns adjustment + movement.
+###   6. Send "FILTER MOVEMENTS — by lot" → new MANUAL_ADJUSTMENT row present.
+###   7. Check the lot: currentQty dropped by the adjustment quantity.
+### ═══════════════════════════════════════════════════════════════════════════

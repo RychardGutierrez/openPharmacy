@@ -69,6 +69,9 @@ describeDb('LotsController (e2e)', () => {
 
   afterAll(async () => {
     if (prisma) {
+      await prisma.inventoryMovement.deleteMany({
+        where: { lot_id: { in: createdLotIds } },
+      });
       for (const id of createdLotIds) {
         await prisma.lot.deleteMany({ where: { id } });
       }
@@ -220,7 +223,7 @@ describeDb('LotsController (e2e)', () => {
 
     const nearLot = await createLot(token, productId, {
       lotNumber: `NEAR-${Date.now()}`,
-      expiryDate: '2026-09-01',
+      expiryDate: '2027-06-01',
       initialQty: 20,
     });
     const farLot = await createLot(token, productId, {
@@ -259,12 +262,12 @@ describeDb('LotsController (e2e)', () => {
 
     const lotA = await createLot(token, productId, {
       lotNumber: `A-${Date.now()}`,
-      expiryDate: '2026-08-01',
+      expiryDate: '2027-05-01',
       initialQty: 10,
     });
     const lotB = await createLot(token, productId, {
       lotNumber: `B-${Date.now()}`,
-      expiryDate: '2026-09-01',
+      expiryDate: '2027-06-01',
       initialQty: 30,
     });
 
