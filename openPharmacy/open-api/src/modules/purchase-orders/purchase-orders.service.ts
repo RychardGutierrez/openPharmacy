@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { SuppliersRepository } from '../suppliers/repositories/suppliers.repository';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { LastSupplierCostQueryDto } from './dto/last-supplier-cost-query.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
@@ -71,6 +72,7 @@ export class PurchaseOrdersService {
     private readonly purchaseOrders: PurchaseOrdersRepository,
     private readonly suppliers: SuppliersRepository,
     private readonly audit: AuditLogRepository,
+    private readonly movements: InventoryMovementsRepository,
   ) {}
 
   async create(
@@ -378,15 +380,13 @@ export class PurchaseOrdersService {
         },
       });
 
-      await tx.inventoryMovement.create({
-        data: {
-          product_id: orderItem.product_id,
-          lot_id: lot.id,
-          user_id: userId,
-          movementType: 'PURCHASE',
-          quantity: item.qtyReceived,
-          reason: `PO-${id} / INV-${dto.invoiceNumber}`,
-        },
+      await this.movements.createTx(tx, {
+        product_id: orderItem.product_id,
+        lot_id: lot.id,
+        user_id: userId,
+        movementType: 'PURCHASE',
+        quantity: item.qtyReceived,
+        reason: `PO-${id} / INV-${dto.invoiceNumber}`,
       });
 
       const previous =

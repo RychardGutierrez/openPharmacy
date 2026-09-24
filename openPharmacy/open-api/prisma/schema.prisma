@@ -50,13 +50,45 @@ enum ProductCategory {
 }
 
 enum MovementType {
-  ENTRY
-  EXIT
-  ADJUSTMENT
-  TRANSFER
-  RETURN
-  CANCELLATION
+  /// Purchase / goods receipt.
   PURCHASE
+  /// Sale to customer.
+  SALE
+  /// Customer return.
+  RETURN
+  /// Cancellation / refund.
+  CANCELLATION
+  /// Stock destroyed because of damage.
+  DAMAGE
+  /// Stock removed because it expired.
+  EXPIRED
+  /// Stock lost due to theft or unaccounted loss.
+  THEFT_LOSS
+  /// Manual adjustment approved by an admin.
+  MANUAL_ADJUSTMENT
+  /// Legacy entry type. Retained for historical records.
+  ENTRY
+  /// Legacy exit type. Retained for historical records.
+  EXIT
+  /// Legacy adjustment type. Retained for historical records.
+  ADJUSTMENT
+  /// Legacy transfer type. Retained for historical records.
+  TRANSFER
+
+  @@schema("pharmacy")
+}
+
+enum AdjustmentDirection {
+  INCREASE
+  DECREASE
+
+  @@schema("pharmacy")
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 
   @@schema("pharmacy")
 }
@@ -133,20 +165,22 @@ model User {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  shifts              Shift[]
-  shiftReopenRequests ShiftReopenRequest[]  @relation("ShiftReopenRequester")
-  shiftReopenReviews  ShiftReopenRequest[]  @relation("ShiftReopenReviewer")
-  inventoryMovements  InventoryMovement[]   @relation("MovementUser")
-  approvedMovements   InventoryMovement[]   @relation("MovementApprovedBy")
-  purchaseOrders      PurchaseOrder[]
-  purchaseReceivings  PurchaseReceiving[]
-  sales               Sale[]
-  returns             Return[]
-  configUpdates       Config[]              @relation("ConfigUpdatedBy")
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
-  voidedLots          Lot[]                 @relation("LotVoidedBy")
-  productPriceHistory ProductPriceHistory[]
+  shifts               Shift[]
+  shiftReopenRequests  ShiftReopenRequest[]  @relation("ShiftReopenRequester")
+  shiftReopenReviews   ShiftReopenRequest[]  @relation("ShiftReopenReviewer")
+  inventoryMovements   InventoryMovement[]   @relation("MovementUser")
+  approvedMovements    InventoryMovement[]   @relation("MovementApprovedBy")
+  requestedAdjustments InventoryAdjustment[] @relation("AdjustmentRequestedBy")
+  approvedAdjustments  InventoryAdjustment[] @relation("AdjustmentApprovedBy")
+  purchaseOrders       PurchaseOrder[]
+  purchaseReceivings   PurchaseReceiving[]
+  sales                Sale[]
+  returns              Return[]
+  configUpdates        Config[]              @relation("ConfigUpdatedBy")
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
+  voidedLots           Lot[]                 @relation("LotVoidedBy")
+  productPriceHistory  ProductPriceHistory[]
 
   @@index([deleted_at])
   @@map("users")
@@ -252,11 +286,12 @@ model Product {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  lots               Lot[]
-  inventoryMovements InventoryMovement[]
-  orderItems         OrderItem[]
-  saleItems          SaleItem[]
-  priceHistory       ProductPriceHistory[]
+  lots                 Lot[]
+  inventoryMovements   InventoryMovement[]
+  inventoryAdjustments InventoryAdjustment[]
+  orderItems           OrderItem[]
+  saleItems            SaleItem[]
+  priceHistory         ProductPriceHistory[]
 
   @@index([deleted_at])
   @@index([category])
@@ -279,12 +314,13 @@ model Lot {
   void_reason String?   @map("void_reason")
   created_at  DateTime  @default(now()) @map("created_at")
 
-  product            Product             @relation(fields: [product_id], references: [id])
-  inventoryMovements InventoryMovement[]
-  saleItems          SaleItem[]
-  returnItems        ReturnItem[]
+  product                Product                 @relation(fields: [product_id], references: [id])
+  inventoryMovements     InventoryMovement[]
+  inventoryAdjustments   InventoryAdjustment[]
+  returnItems            ReturnItem[]
   purchaseReceivingItems PurchaseReceivingItem[]
-  voidedBy           User?               @relation("LotVoidedBy", fields: [voided_by], references: [id])
+  voidedBy               User?                   @relation("LotVoidedBy", fields: [voided_by], references: [id])
+  saleItems              SaleItem[]
 
   @@unique([product_id, lot_number])
   @@index([product_id])
@@ -318,6 +354,8 @@ model InventoryMovement {
   movementType MovementType @map("movement_type")
   quantity     Int
   reason       String?
+  /// Reference to the admin who approved the source adjustment, when the
+  /// movement originated from a manual adjustment request.
   approved_by  String?      @map("approved_by") @db.Uuid
   created_at   DateTime     @default(now()) @map("created_at")
 
@@ -329,7 +367,36 @@ model InventoryMovement {
   @@index([product_id])
   @@index([lot_id])
   @@index([user_id])
+  @@index([movementType])
   @@map("inventory_movements")
+  @@schema("pharmacy")
+}
+
+model InventoryAdjustment {
+  id           String              @id @default(uuid()) @db.Uuid
+  product_id   String              @map("product_id") @db.Uuid
+  lot_id       String              @map("lot_id") @db.Uuid
+  requested_by String              @map("requested_by") @db.Uuid
+  quantity     Int
+  direction    AdjustmentDirection @map("direction")
+  movementType MovementType        @map("movement_type")
+  reason       String
+  status       AdjustmentStatus    @default(PENDING)
+  approved_by  String?             @map("approved_by") @db.Uuid
+  approved_at  DateTime?           @map("approved_at")
+  created_at   DateTime            @default(now()) @map("created_at")
+
+  product   Product @relation(fields: [product_id], references: [id])
+  lot       Lot     @relation(fields: [lot_id], references: [id])
+  requester User    @relation("AdjustmentRequestedBy", fields: [requested_by], references: [id])
+  approver  User?   @relation("AdjustmentApprovedBy", fields: [approved_by], references: [id])
+
+  @@index([product_id])
+  @@index([lot_id])
+  @@index([requested_by])
+  @@index([status])
+  @@index([approved_by])
+  @@map("inventory_adjustments")
   @@schema("pharmacy")
 }
 
@@ -354,12 +421,12 @@ model Supplier {
 }
 
 model PurchaseOrder {
-  id             String              @id @default(uuid()) @db.Uuid
-  supplier_id    String              @map("supplier_id") @db.Uuid
-  user_id        String              @map("user_id") @db.Uuid
-  status         PurchaseOrderStatus @default(PENDING)
-  order_date     DateTime            @map("order_date") @db.Date
-  created_at     DateTime            @default(now()) @map("created_at")
+  id          String              @id @default(uuid()) @db.Uuid
+  supplier_id String              @map("supplier_id") @db.Uuid
+  user_id     String              @map("user_id") @db.Uuid
+  status      PurchaseOrderStatus @default(PENDING)
+  order_date  DateTime            @map("order_date") @db.Date
+  created_at  DateTime            @default(now()) @map("created_at")
 
   supplier   Supplier            @relation(fields: [supplier_id], references: [id])
   user       User                @relation(fields: [user_id], references: [id])
@@ -382,9 +449,9 @@ model OrderItem {
   lot_number   String?   @map("lot_number")
   expiry_date  DateTime? @map("expiry_date") @db.Date
 
-  order               PurchaseOrder           @relation(fields: [order_id], references: [id])
-  product             Product                 @relation(fields: [product_id], references: [id])
-  receivingItems      PurchaseReceivingItem[]
+  order          PurchaseOrder           @relation(fields: [order_id], references: [id])
+  product        Product                 @relation(fields: [product_id], references: [id])
+  receivingItems PurchaseReceivingItem[]
 
   @@index([order_id])
   @@index([product_id])
@@ -411,18 +478,18 @@ model PurchaseReceiving {
 }
 
 model PurchaseReceivingItem {
-  id            String    @id @default(uuid()) @db.Uuid
-  receiving_id  String    @map("receiving_id") @db.Uuid
-  order_item_id String    @map("order_item_id") @db.Uuid
-  qty_received  Int       @map("qty_received")
-  lot_number    String    @map("lot_number")
-  expiry_date   DateTime  @map("expiry_date") @db.Date
-  unit_cost     Decimal   @map("unit_cost") @db.Decimal(12, 2)
-  lot_id        String    @map("lot_id") @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
+  receiving_id  String   @map("receiving_id") @db.Uuid
+  order_item_id String   @map("order_item_id") @db.Uuid
+  qty_received  Int      @map("qty_received")
+  lot_number    String   @map("lot_number")
+  expiry_date   DateTime @map("expiry_date") @db.Date
+  unit_cost     Decimal  @map("unit_cost") @db.Decimal(12, 2)
+  lot_id        String   @map("lot_id") @db.Uuid
 
-  receiving  PurchaseReceiving @relation(fields: [receiving_id], references: [id])
-  orderItem  OrderItem         @relation(fields: [order_item_id], references: [id])
-  lot        Lot               @relation(fields: [lot_id], references: [id])
+  receiving PurchaseReceiving @relation(fields: [receiving_id], references: [id])
+  orderItem OrderItem         @relation(fields: [order_item_id], references: [id])
+  lot       Lot               @relation(fields: [lot_id], references: [id])
 
   @@index([receiving_id])
   @@index([order_item_id])

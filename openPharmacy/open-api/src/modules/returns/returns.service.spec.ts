@@ -73,8 +73,8 @@ describe('ReturnsService', () => {
       sumBySaleItemsRead: jest.fn(),
     };
     const movementsRepo = {
-      restoreStockTx: jest.fn(),
       createTx: jest.fn(),
+      incrementStockTx: jest.fn(),
     };
     const salesRepo = {
       lockByIdTx: jest.fn(),
@@ -120,7 +120,7 @@ describe('ReturnsService', () => {
       lot_id: 'lot-1',
       quantity: 1,
     });
-    movementsRepo.restoreStockTx.mockResolvedValue({});
+    movementsRepo.incrementStockTx.mockResolvedValue({});
     movementsRepo.createTx.mockResolvedValue({});
     prisma.lot.findMany.mockResolvedValue([
       { id: 'lot-1', lot_number: 'LOT-A' },
@@ -161,7 +161,7 @@ describe('ReturnsService', () => {
       items: [{ saleItemId: 'sale-item-1', quantity: 1 }],
     });
 
-    expect(movementsRepo.restoreStockTx).toHaveBeenCalledWith(
+    expect(movementsRepo.incrementStockTx).toHaveBeenCalledWith(
       expect.anything(),
       'lot-1',
       1,

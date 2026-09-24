@@ -16,7 +16,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { UserLookupQueryDto } from './dto/user-lookup-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserLookupResponseDto } from './dto/user-lookup-response.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
 import { UsersRepository } from './repositories/users.repository';
 import { LastAdminDeactivationException } from './exceptions/last-admin-deactivation.exception';
@@ -135,6 +137,15 @@ export class UsersService {
       pageSize,
       totalPages,
     };
+  }
+
+  async lookup(query: UserLookupQueryDto): Promise<UserLookupResponseDto[]> {
+    const users = await this.users.lookup(query.q, query.limit ?? 20);
+    return users.map((user) => ({
+      id: user.id,
+      fullName: user.full_name,
+      email: user.email,
+    }));
   }
 
   async findOne(id: string): Promise<UserResponseDto> {

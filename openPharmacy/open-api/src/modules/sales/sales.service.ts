@@ -14,6 +14,7 @@ import { ConfigService } from '../config/config.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { SaleResponseDto } from './dto/sale-response.dto';
 import { SalesRepository } from './repositories/sales.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { EmptyCartException } from './exceptions/empty-cart.exception';
 import { ProductInactiveException } from './exceptions/product-inactive.exception';
 import { CashShortException } from './exceptions/cash-short.exception';
@@ -35,6 +36,7 @@ export class SalesService {
     private readonly audit: AuditLogRepository,
     private readonly config: ConfigService,
     private readonly events: EventEmitter2,
+    private readonly movements: InventoryMovementsRepository,
   ) {}
 
   async create(userId: string, dto: CreateSaleDto): Promise<SaleResponseDto> {
@@ -140,6 +142,12 @@ export class SalesService {
           change_given: changeGiven,
           status: 'COMPLETED',
         });
+        const movementInputs: {
+          productId: string;
+          lotId: string;
+          quantity: number;
+        }[] = [];
+
         for (const line of lines) {
           await this.sales.createItemTx(tx, {
             sale_id: sale.id,
@@ -149,7 +157,24 @@ export class SalesService {
             unit_price: line.unitPrice,
             line_total: line.lineTotal,
           });
+          movementInputs.push({
+            productId: line.productId,
+            lotId: line.lotId,
+            quantity: line.quantity,
+          });
         }
+
+        await this.movements.createManyTx(
+          tx,
+          movementInputs.map((m) => ({
+            product_id: m.productId,
+            lot_id: m.lotId,
+            user_id: userId,
+            movementType: 'SALE' as const,
+            quantity: m.quantity,
+            reason: `Sale ${sale.receipt_number}`,
+          })),
+        );
 
         const missingRx = dto.items
           .filter((item) =>
@@ -167,6 +192,20 @@ export class SalesService {
             receiptNumber,
             total,
             itemCount: dto.items.length,
+          },
+        });
+
+        await this.audit.createInTx(tx, {
+          userId,
+          event: 'SALE_MOVEMENT_CREATED',
+          metadata: {
+            saleId: sale.id,
+            receiptNumber,
+            movements: movementInputs.map((m) => ({
+              productId: m.productId,
+              lotId: m.lotId,
+              quantity: m.quantity,
+            })),
           },
         });
         if (missingRx.length) {

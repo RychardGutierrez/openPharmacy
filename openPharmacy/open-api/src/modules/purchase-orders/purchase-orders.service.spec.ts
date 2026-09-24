@@ -5,6 +5,7 @@ import { PurchaseOrdersService } from './purchase-orders.service';
 import { PurchaseOrdersRepository } from './repositories/purchase-orders.repository';
 import { SuppliersRepository } from '../suppliers/repositories/suppliers.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
+import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
@@ -21,6 +22,10 @@ const mockPrisma = {
 
 const mockAudit = {
   createInTx: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockMovements = {
+  createTx: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockSuppliers = {
@@ -52,6 +57,7 @@ describe('PurchaseOrdersService', () => {
         { provide: PurchaseOrdersRepository, useValue: mockRepository },
         { provide: SuppliersRepository, useValue: mockSuppliers },
         { provide: AuditLogRepository, useValue: mockAudit },
+        { provide: InventoryMovementsRepository, useValue: mockMovements },
       ],
     }).compile();
 
@@ -239,6 +245,14 @@ describe('PurchaseOrdersService', () => {
         },
       };
 
+      mockMovements.createTx.mockImplementation(
+        async (_tx: unknown, input: { movementType: string }) =>
+          Promise.resolve({
+            id: 'movement-1',
+            movementType: input.movementType,
+          }),
+      );
+
       mockPrisma.$transaction.mockImplementation(
         async (fn: (tx: unknown) => Promise<unknown>) => fn(txMock),
       );
@@ -249,15 +263,10 @@ describe('PurchaseOrdersService', () => {
       expect(result.lots).toHaveLength(1);
       expect(result.lots[0].qtyReceived).toBe(100);
       expect(txMock.lot.create).toHaveBeenCalled();
-      const movementCalls = (
-        txMock.inventoryMovement.create as unknown as {
-          mock: { calls: Array<[unknown]> };
-        }
-      ).mock.calls;
-      const movementCall = movementCalls[0][0] as {
-        data: { movementType: string };
-      };
-      expect(movementCall.data.movementType).toBe('PURCHASE');
+      expect(mockMovements.createTx).toHaveBeenCalledWith(
+        txMock,
+        expect.objectContaining({ movementType: 'PURCHASE' }),
+      );
       expect(mockRepository.updateItemReceivedTx).toHaveBeenCalledWith(
         txMock,
         'item-1',
