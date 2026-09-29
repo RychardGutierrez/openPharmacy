@@ -16,7 +16,7 @@ describe('UserMailerListener', () => {
     } as unknown as jest.Mocked<MailerService>;
 
     config = {
-      get: jest.fn().mockReturnValue('http://localhost:4200'),
+      get: jest.fn().mockReturnValue('https://farmacia.example/'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -30,7 +30,7 @@ describe('UserMailerListener', () => {
     listener = module.get<UserMailerListener>(UserMailerListener);
   });
 
-  it('sends welcome email with change password link', async () => {
+  it('sends welcome email with a normalized (non-doubled-slash) change password link', async () => {
     const event = new UserCreatedEvent(
       'u-1',
       'test@example.com',
@@ -47,7 +47,7 @@ describe('UserMailerListener', () => {
       fullName: event.fullName,
       tempPassword: event.tempPassword,
       changePasswordUrl:
-        'http://localhost:4200/auth/change-password?token=token-123',
+        'https://farmacia.example/auth/change-password?token=token-123',
     });
   });
 

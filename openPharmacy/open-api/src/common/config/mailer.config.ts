@@ -27,7 +27,7 @@ export const mailerConfig = registerAs(
     pass: process.env.SMTP_PASS ?? '',
     secure: process.env.SMTP_SECURE === 'true',
     from: process.env.SMTP_FROM ?? 'noreply@openpharmacy.com',
-    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:4200',
+    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3001',
     ethereal: !process.env.SMTP_HOST,
   }),
 );
