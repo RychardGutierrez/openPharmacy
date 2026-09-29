@@ -1,0 +1,323 @@
+### ─── Exportable Reports (PMS-014) ──────────────────────────────────────────
+### Uses the REST Client extension (humao.rest-client).
+###
+### Quick start:
+###   1. Start the API:  npm start   (and the DB: npm run db:up)
+###   2. Send "Login as Admin" (and optionally "Login as Pharmacist") below.
+###   3. Send a "request" — small ranges come back as a FILE (200); big ones as
+###      a queued job (202). Then poll status and download.
+###
+### All authenticated routes require a Bearer access token and ADMIN or
+### PHARMACIST role. A cashier gets 403.
+###
+### Endpoints covered:
+###   POST  /reports                 Request a report (200 = inline file, 202 = queued)
+###   GET   /reports                 List report jobs (paged, filterable)
+###   GET   /reports/stream          SSE stream of YOUR report completions (admin sees all)
+###   GET   /reports/:id             Get one report job's status
+###   GET   /reports/:id/download    Download a completed file (needs Bearer — for the SPA)
+###   GET   /reports/d/:token        Download via the signed email link (NO auth header)
+###
+### reportType: SALES_SUMMARY | SALES_DETAIL | INVENTORY_MOVEMENTS | STOCK_SNAPSHOT |
+###             EXPIRY | PURCHASES | RETURNS
+### format:     XLSX | PDF
+### Optional filters: from, to (YYYY-MM-DD inclusive), timezone (IANA), productId,
+###             lotId, movementType, userId, supplierId, horizonDays (EXPIRY only)
+
+@host = http://localhost
+@port = 3000
+@base = {{host}}:{{port}}/api
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH — log in as admin (full access) and a cashier (to show 403).
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as Pharmacist ────────────────────────────────────────────────────
+# @name loginPharmacist
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "pharmacist@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Login as Cashier (should be denied) ────────────────────────────────────
+# @name loginCashier
+POST {{base}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cashier@openpharmacy.com",
+  "password": "password123"
+}
+
+### ── Store tokens for later requests ────────────────────────────────────────
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@pharmToken = {{loginPharmacist.response.body.accessToken}}
+@cashierToken = {{loginCashier.response.body.accessToken}}
+
+### Variables to fill in from previous responses:
+@jobId = REPORT_JOB_UUID
+@signedToken = PASTE_TOKEN_FROM_EMAIL_LINK
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### SYNC REPORT — small range returns the file directly.
+### Expect: 200 + application/vnd...sheet body (XLSX) and an
+###         X-Report-Job-Id header. REST Client shows it as a binary download.
+### (Whether a request is sync or async depends on the server's
+###  REPORT_SYNC_THRESHOLD vs the estimated row count, not on the client.)
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "SALES_SUMMARY",
+  "format": "XLSX",
+  "from": "2025-01-01",
+  "to": "2025-01-31",
+  "timezone": "America/La_Paz"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### SYNC REPORT — PDF variant.
+### Expect: 200 + application/pdf (requires a Chromium binary on the server;
+###         see REPORT_DOWNLOAD / puppeteer config).
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "SALES_SUMMARY",
+  "format": "PDF",
+  "from": "2025-05-01",
+  "to": "2025-05-31",
+  "timezone": "America/La_Paz"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### ASYNC REPORT — large range is queued.
+### Expect: 202 + { id, status: "QUEUED", ... }. When the worker finishes, the
+###         user is notified via SSE and email; then GET /reports/:id/download.
+### Copy .body.id into @jobId to follow up below.
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name requestLargeReport
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "INVENTORY_MOVEMENTS",
+  "format": "XLSX",
+  "from": "2025-01-01",
+  "to": "2025-01-31"
+}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### REQUEST EACH REPORT TYPE — filter bodies for exploration.
+### ═══════════════════════════════════════════════════════════════════════════
+
+### Sales detail (one row per sold line)
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "SALES_DETAIL", "format": "XLSX", "from": "2025-01-01", "to": "2025-01-31" }
+
+### Inventory movements, filtered by type
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "INVENTORY_MOVEMENTS",
+  "format": "XLSX",
+  "from": "2025-01-01",
+  "to": "2025-01-31",
+  "movementType": "SALE"
+}
+
+### Stock snapshot + valuation (a point-in-time report; dates/horizon ignored)
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "STOCK_SNAPSHOT", "format": "XLSX" }
+
+### Expiry report — lots expiring within 90 days (horizonDays is optional)
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "EXPIRY", "format": "XLSX", "horizonDays": 90 }
+
+### Purchases (POs + receipt progress), optionally by supplier
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "reportType": "PURCHASES",
+  "format": "XLSX",
+  "from": "2025-01-01",
+  "to": "2025-01-31",
+  "supplierId": "SUPPLIER_UUID"
+}
+
+### Returns & cancellations
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "RETURNS", "format": "XLSX", "from": "2025-01-01", "to": "2025-01-31" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VALIDATION — unknown report type. Expect: 400 (ValidationPipe @IsEnum).
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "MONTHLY_BOOST", "format": "XLSX" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VALIDATION — over-long date range (> REPORT_MAX_RANGE_DAYS, default 366).
+### Expect: 400 { code: "INVALID_REPORT_RANGE" }
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "SALES_SUMMARY", "format": "XLSX", "from": "2000-01-01", "to": "2025-01-01" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VALIDATION — extra property (forbidNonWhitelisted). Expect: 400
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reportType": "SALES_SUMMARY", "format": "XLSX", "evil": "payload" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### FORBIDDEN — a cashier has no report access. Expect: 403
+### ═══════════════════════════════════════════════════════════════════════════
+
+POST {{base}}/reports
+Content-Type: application/json
+Authorization: Bearer {{cashierToken}}
+
+{ "reportType": "SALES_SUMMARY", "format": "XLSX" }
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### UNAUTHORIZED — missing token. Expect: 401
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST REPORT JOBS (paged). Admins see every job; pharmacists see their own.
+### Optional filters: reportType, status, page, pageSize
+### status: QUEUED | PROCESSING | COMPLETED | FAILED
+### Expect: 200 + { data, total, page, pageSize, totalPages } (result_data never
+###         appears in the list projection).
+### ═══════════════════════════════════════════════════════════════════════════
+
+# @name listReports
+GET {{base}}/reports?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### LIST FILTERED — only COMPLETED sales reports
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports?reportType=SALES_SUMMARY&status=COMPLETED
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### GET ONE REPORT JOB STATUS
+### Expect: 200 + job DTO; 404 if unknown or if it belongs to another user.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports/{{jobId}}
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DOWNLOAD A COMPLETED REPORT (authenticated — this is what the SPA calls,
+### since it has the Bearer token in memory).
+### Expect: 200 + file bytes (Content-Disposition: attachment)
+###         410 Gone if the job is not COMPLETED or the file has expired.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports/{{jobId}}/download
+Authorization: Bearer {{adminToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### DOWNLOAD VIA THE SIGNED EMAIL LINK (public — no Authorization header).
+### The :token is the `<uuid>.<expiryEpochMs>.<hmac>` string embedded in the
+### report email's "Descargar mi reporte" link. Paste one here to replay it.
+### This route works from any machine (host comes from REPORT_DOWNLOAD_BASE_URL)
+### and needs no session token; a tampered/expired token returns 404.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports/d/{{signedToken}}
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### SSE STREAM — push notifications for report completions (2nd channel).
+### The server filters events to your own jobs (admins receive all).
+### Expect: 200 text/event-stream; keep the request open and complete a QUEUED
+###         report to see a `report.completed` / `report.failed` event.
+### ═══════════════════════════════════════════════════════════════════════════
+
+GET {{base}}/reports/stream
+Authorization: Bearer {{adminToken}}
+Accept: text/event-stream
+
+
+### ═══════════════════════════════════════════════════════════════════════════
+### END-TO-END WORKED EXAMPLE (PMS-014 async happy path)
+###   1. Send "Login as Admin".
+###   2. Send "ASYNC REPORT — large range" → copy .body.id into @jobId.
+###   3. Poll "GET ONE REPORT JOB STATUS" until status = COMPLETED
+###      (the in-process worker drains the queue; watch the SSE stream too).
+###   4. Send "DOWNLOAD A COMPLETED REPORT" → you get the xlsx bytes.
+###   5. Check your inbox: the "Descargar mi reporte" link contains the signed
+###      token — paste it into @signedToken and use the public download route
+###      to confirm it works with NO Authorization header.
+### ═══════════════════════════════════════════════════════════════════════════

@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '../../../common/mailer/mailer.service';
+import {
+  isLocalUrl,
+  normalizeBaseUrl,
+} from '../../../common/config/public-url.util';
 import { UserCreatedEvent } from '../events/user-created.event';
 
 /**
@@ -22,11 +26,18 @@ export class UserMailerListener {
 
   @OnEvent('user.created')
   async handleUserCreated(event: UserCreatedEvent): Promise<void> {
-    const frontendUrl = this.config.get<string>(
-      'mailer.frontendUrl',
-      'http://localhost:4200',
+    // `mailer.frontendUrl` is already normalized + production-guarded by config;
+    // this is a last-mile safety net so a local value in a non-prod env is loud.
+    const base = normalizeBaseUrl(
+      this.config.get<string>('mailer.frontendUrl'),
+      'http://localhost:3001',
     );
-    const changePasswordUrl = `${frontendUrl}/auth/change-password?token=${encodeURIComponent(event.changePasswordToken)}`;
+    if (isLocalUrl(base)) {
+      this.logger.warn(
+        `Welcome link will point at "${base}" (a local URL) — set FRONTEND_URL to the public app origin.`,
+      );
+    }
+    const changePasswordUrl = `${base}/auth/change-password?token=${encodeURIComponent(event.changePasswordToken)}`;
 
     try {
       await this.mailer.sendWelcome({

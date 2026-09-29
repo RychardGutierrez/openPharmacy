@@ -59,6 +59,7 @@ describeDb('UsersController (e2e)', () => {
       await prisma.inventoryMovement.deleteMany({ where: { user_id: id } });
       await prisma.auditLog.deleteMany({ where: { user_id: id } });
       await prisma.refreshToken.deleteMany({ where: { user_id: id } });
+      await prisma.reportJob.deleteMany({ where: { requested_by: id } });
       await prisma.user.deleteMany({ where: { id } });
     }
     sendWelcome = jest.fn().mockResolvedValue(undefined);
@@ -90,6 +91,7 @@ describeDb('UsersController (e2e)', () => {
         await prisma.inventoryMovement.deleteMany({ where: { user_id: id } });
         await prisma.auditLog.deleteMany({ where: { user_id: id } });
         await prisma.refreshToken.deleteMany({ where: { user_id: id } });
+        await prisma.reportJob.deleteMany({ where: { requested_by: id } });
         await prisma.user.deleteMany({ where: { id } });
       }
       await prisma.$disconnect();

@@ -61,4 +61,9 @@ export type AuditEvent =
   | 'INVENTORY_ADJUSTMENT_REJECTED'
   // Stock integrity events
   | 'LOT_INITIAL_STOCK_CREATED'
-  | 'SALE_MOVEMENT_CREATED';
+  | 'SALE_MOVEMENT_CREATED'
+  // Reporting / export events
+  | 'REPORT_REQUESTED'
+  | 'REPORT_GENERATED'
+  | 'REPORT_FAILED'
+  | 'REPORT_DOWNLOADED';

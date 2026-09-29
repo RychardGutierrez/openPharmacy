@@ -27,6 +27,7 @@ import {
   authConfig,
   throttleConfig,
   mailerConfig,
+  reportsConfig,
 } from './common/config/configuration';
 import { validationSchema } from './common/config/validation.schema';
 
@@ -35,7 +36,13 @@ import { validationSchema } from './common/config/validation.schema';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, authConfig, throttleConfig, mailerConfig],
+      load: [
+        appConfig,
+        authConfig,
+        throttleConfig,
+        mailerConfig,
+        reportsConfig,
+      ],
       validationSchema,
       validationOptions: { abortEarly: true, allowUnknown: true },
     }),

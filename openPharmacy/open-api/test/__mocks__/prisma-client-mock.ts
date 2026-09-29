@@ -40,6 +40,7 @@ export type OrderItem = Record<string, unknown>;
 export type PurchaseReceiving = Record<string, unknown>;
 export type PurchaseReceivingItem = Record<string, unknown>;
 export type Supplier = Record<string, unknown>;
+export type ReportJob = Record<string, unknown>;
 
 export type Prisma = {
   TransactionClient: Record<string, any>;
@@ -145,3 +146,29 @@ export const PurchaseOrderStatus = {
 } as const;
 export type PurchaseOrderStatus =
   (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus];
+
+export const ReportType = {
+  SALES_SUMMARY: 'SALES_SUMMARY',
+  SALES_DETAIL: 'SALES_DETAIL',
+  INVENTORY_MOVEMENTS: 'INVENTORY_MOVEMENTS',
+  STOCK_SNAPSHOT: 'STOCK_SNAPSHOT',
+  EXPIRY: 'EXPIRY',
+  PURCHASES: 'PURCHASES',
+  RETURNS: 'RETURNS',
+} as const;
+export type ReportType = (typeof ReportType)[keyof typeof ReportType];
+
+export const ReportFormat = {
+  XLSX: 'XLSX',
+  PDF: 'PDF',
+} as const;
+export type ReportFormat = (typeof ReportFormat)[keyof typeof ReportFormat];
+
+export const ReportJobStatus = {
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+} as const;
+export type ReportJobStatus =
+  (typeof ReportJobStatus)[keyof typeof ReportJobStatus];
