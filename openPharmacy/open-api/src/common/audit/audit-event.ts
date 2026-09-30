@@ -16,7 +16,8 @@ export type AuditEvent =
   | 'LOGIN_LOCKED'
   | 'REFRESH_SUCCESS'
   | 'REFRESH_FAIL'
-  | 'LOGOUT'
+   | 'LOGOUT'
+  | 'PASSWORD_CHANGED'
   // User-management events
   | 'USER_CREATED'
   | 'USER_UPDATED'

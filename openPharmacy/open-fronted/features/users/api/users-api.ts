@@ -117,3 +117,32 @@ export function deactivateUser(id: string): Promise<User> {
 export function activateUser(id: string): Promise<User> {
   return request(`/users/${id}/activate`, { method: "PATCH" }, userSchema)
 }
+
+export function getMyProfile(): Promise<User> {
+  return request("/users/me", { method: "GET" }, userSchema)
+}
+
+export function updateMyProfile(values: { fullName: string }): Promise<User> {
+  return request("/users/me", { method: "PATCH", body: JSON.stringify(values) }, userSchema)
+}
+
+export async function changeMyPassword(values: {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}): Promise<void> {
+  const accessToken = useAuthStore.getState().accessToken
+  const response = await fetch("/api/users/me/password", {
+    method: "PATCH",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(values),
+  })
+  if (!response.ok) {
+    const { code, message } = getErrorMessage(await parseErrorBody(response))
+    throw new UsersApiError(response.status, code, message)
+  }
+}

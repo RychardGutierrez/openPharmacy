@@ -20,6 +20,7 @@ interface AuthState {
   accessToken: string | null
   status: AuthStatus
   setSession: (response: AuthResponse) => void
+  setUser: (user: AuthUser) => void
   clearSession: () => void
 }
 
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       status: "authenticated",
     })
   },
+  setUser: (user) => set({ user }),
   clearSession: () => {
     clearSessionCookie()
     set({ user: null, accessToken: null, status: "unauthenticated" })

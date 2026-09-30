@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   Query,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -22,6 +23,16 @@ import { UserLookupQueryDto } from './dto/user-lookup-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserLookupResponseDto } from './dto/user-lookup-response.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import type { Request } from 'express';
+
+const extractMetadata = (request: Request) => ({
+  ip: (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? request.ip ?? null,
+  userAgent: request.headers['user-agent'] ?? null,
+});
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -54,6 +65,34 @@ export class UsersController {
   @ApiOperation({ summary: 'Lightweight user lookup for filters/dropdowns' })
   lookup(@Query() query: UserLookupQueryDto): Promise<UserLookupResponseDto[]> {
     return this.usersService.lookup(query);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get the authenticated user profile' })
+  me(@CurrentUser() user: AuthenticatedUser): Promise<UserResponseDto> {
+    return this.usersService.findOne(user.id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update the authenticated user profile' })
+  updateMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProfileDto,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateProfile(user.id, dto, extractMetadata(request));
+  }
+
+  @Patch('me/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ long: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Change the authenticated user password' })
+  async changeMyPassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.usersService.changePassword(user.id, dto, extractMetadata(request));
   }
 
   @Get(':id')
