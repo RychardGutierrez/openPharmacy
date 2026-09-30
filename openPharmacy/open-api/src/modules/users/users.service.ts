@@ -3,11 +3,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { hash } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { plainToInstance } from 'class-transformer';
 import { User, UserRole } from '@prisma/client';
@@ -22,6 +24,8 @@ import { UserLookupResponseDto } from './dto/user-lookup-response.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
 import { UsersRepository } from './repositories/users.repository';
 import { LastAdminDeactivationException } from './exceptions/last-admin-deactivation.exception';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 export interface RequestMetadata {
   ip: string | null;
@@ -158,6 +162,60 @@ export class UsersService {
       });
     }
     return this.toResponse(user);
+  }
+
+  async updateProfile(
+    id: string,
+    dto: UpdateProfileDto,
+    meta?: RequestMetadata,
+  ): Promise<UserResponseDto> {
+    const existing = await this.users.findById(id);
+    if (!existing) {
+      throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
+    }
+
+    const user = await this.users.update(id, { full_name: dto.fullName });
+    await this.audit.create({
+      userId: id,
+      event: 'USER_UPDATED',
+      ip: meta?.ip ?? null,
+      userAgent: meta?.userAgent ?? null,
+      metadata: { changedFields: ['fullName'], selfService: true },
+    });
+    return this.toResponse(user);
+  }
+
+  async changePassword(
+    id: string,
+    dto: ChangePasswordDto,
+    meta?: RequestMetadata,
+  ): Promise<void> {
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new UnprocessableEntityException({
+        code: 'PASSWORD_MISMATCH',
+        message: 'New password and confirmation do not match',
+      });
+    }
+
+    const user = await this.users.findById(id);
+    if (!user || !(await compare(dto.currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException({
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'Current password is incorrect',
+      });
+    }
+
+    await this.users.updatePassword(id, await hash(dto.newPassword, this.bcryptSaltRounds), new Date());
+    await this.prisma.refreshToken.updateMany({
+      where: { user_id: id, revoked_at: null },
+      data: { revoked_at: new Date() },
+    });
+    await this.audit.create({
+      userId: id,
+      event: 'PASSWORD_CHANGED',
+      ip: meta?.ip ?? null,
+      userAgent: meta?.userAgent ?? null,
+    });
   }
 
   async update(

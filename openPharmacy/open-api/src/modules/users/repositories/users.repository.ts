@@ -108,6 +108,13 @@ export class UsersRepository {
     });
   }
 
+  updatePassword(id: string, passwordHash: string, now: Date): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash, password_changed_at: now },
+    });
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // User-management helpers
   // ──────────────────────────────────────────────────────────────────────────

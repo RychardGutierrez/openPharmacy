@@ -13,6 +13,7 @@ import {
   Users,
   MapPin,
   Settings,
+  UserCircle,
   RotateCcw,
   Repeat,
   ShieldCheck,
@@ -88,6 +89,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "System",
     items: [
+      { title: "My profile", href: "/profile", icon: UserCircle },
       { title: "Configuración", href: "/settings", icon: Settings, requiredRole: "ADMIN" },
     ],
   },
@@ -113,6 +115,7 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/sedes": { title: "Sedes", subtitle: "Manage locations" },
   "/admin/reopen-requests": { title: "Reopen Requests", subtitle: "Review shift reopening requests" },
   "/settings": { title: "Configuración", subtitle: "Configuración del sistema" },
+  "/profile": { title: "My profile", subtitle: "Manage your account" },
 }
 
 export function getPageInfo(pathname: string): { title: string; subtitle: string } {
