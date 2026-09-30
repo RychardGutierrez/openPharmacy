@@ -93,7 +93,7 @@ export interface CreateSalePayload {
   prescriptionProductIds?: string[]
 }
 
-export const RECEIPT_NOTA_FISCAL_FOOTER = "THIS DOCUMENT IS NOT A NOTA FISCAL"
+export const RECEIPT_NOTA_FISCAL_FOOTER = "ESTE DOCUMENTO NO ES UNA NOTA FISCAL"
 
 export function isPrescriptionCategory(category: string): boolean {
   return (

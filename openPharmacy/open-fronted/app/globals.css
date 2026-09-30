@@ -274,6 +274,7 @@
   .print-pos-receipt .receipt-muted { color: #444 !important; }
   .print-pos-receipt .receipt-dashed { border: 0 !important; border-top: 1px dashed #000 !important; margin: 4px 0 !important; }
   .print-pos-receipt .receipt-item { margin: 2px 0 !important; }
+  .print-pos-receipt .receipt-logo { display: block !important; max-width: 100% !important; max-height: 72px !important; margin: 0 auto 4px !important; object-fit: contain !important; }
   .print-pos-receipt .receipt-item p { margin: 0 !important; }
   .print-pos-receipt p { display: flex !important; justify-content: space-between !important; gap: 4px !important; margin: 1px 0 !important; white-space: pre-wrap !important; }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { formatReceiptDate } from "@/features/pos/lib/receipt-format"
+import { useRuntimeConfiguration } from "@/features/configuration/api/use-configuration"
 import {
   RETURN_SOURCE_LABELS,
   type ReturnableSale,
@@ -13,6 +14,9 @@ export interface ReturnReceiptProps {
 }
 
 export function ReturnReceipt({ returnData, sale }: ReturnReceiptProps) {
+  const runtime = useRuntimeConfiguration()
+  const pharmacy = runtime.data?.pharmacy ?? {}
+  const footer = runtime.data?.receipt.RECEIPT_FOOTER || "Documento no válido como nota fiscal"
   const returnedItems = returnData.items.map((item) => {
     const saleItem = sale.items.find(
       (line) => line.id === item.saleItemId || line.lotId === item.lotId,
@@ -35,9 +39,11 @@ export function ReturnReceipt({ returnData, sale }: ReturnReceiptProps) {
       className="print-pos-receipt"
       aria-hidden="true"
     >
-      <h1 className="receipt-center receipt-bold">
+      <h1 className="receipt-center receipt-bold">{pharmacy.PHARMACY_NAME || "OpenPharmacy"}</h1>
+      {pharmacy.PHARMACY_ADDRESS ? <p className="receipt-center">{pharmacy.PHARMACY_ADDRESS}</p> : null}
+      <h2 className="receipt-center receipt-bold">
         {RETURN_SOURCE_LABELS[returnData.source].toUpperCase()}
-      </h1>
+      </h2>
       <p className="receipt-center">Venta original: {sale.receiptNumber}</p>
       <p className="receipt-center">
         Fecha: {formatReceiptDate(returnData.createdAt)}
@@ -70,7 +76,7 @@ export function ReturnReceipt({ returnData, sale }: ReturnReceiptProps) {
       </p>
       <p className="receipt-center">{returnData.reason}</p>
       <p className="receipt-center receipt-muted">
-        Documento no válido como nota fiscal
+        {footer}
       </p>
     </div>
   )

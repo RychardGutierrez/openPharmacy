@@ -8,11 +8,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { NavMain } from "@/core/components/nav-main"
+import { useRuntimeConfiguration } from "@/features/configuration/api/use-configuration"
 import { NavUser } from "@/core/components/nav-user"
 import { PillIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-function SidebarBrand() {
+function SidebarBrand({ pharmacyName }: { pharmacyName: string }) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
 
@@ -30,7 +31,7 @@ function SidebarBrand() {
       {!collapsed && (
         <div className="flex min-w-0 flex-col leading-tight">
           <span className="truncate font-serif text-sm font-semibold tracking-tight">
-            OpenPharmacy
+            {pharmacyName}
           </span>
           <span className="truncate text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Management OS
@@ -42,10 +43,13 @@ function SidebarBrand() {
 }
 
 export function AppSidebar() {
+  const runtime = useRuntimeConfiguration()
+  const pharmacyName = runtime.data?.pharmacy.PHARMACY_NAME || "OpenPharmacy"
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <SidebarBrand />
+          <SidebarBrand pharmacyName={pharmacyName} />
         <SidebarSeparator className="mx-0" />
       </SidebarHeader>
       <SidebarContent className="gap-2 py-2">

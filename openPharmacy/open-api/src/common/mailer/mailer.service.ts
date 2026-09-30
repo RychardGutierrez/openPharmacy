@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService as NestMailerService } from '@nestjs-modules/mailer';
+import { ConfigService as PharmacyConfigService } from '../../modules/config/config.service';
+import { createTransport } from 'nodemailer';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import Handlebars from 'handlebars';
 
 export interface WelcomeMailPayload {
   email: string;
@@ -56,10 +62,13 @@ function reportTypeLabelEs(reportType: string): string {
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
 
-  constructor(private readonly mailer: NestMailerService) {}
+  constructor(
+    private readonly mailer: NestMailerService,
+    private readonly pharmacyConfig?: PharmacyConfigService,
+  ) {}
 
   async sendWelcome(payload: WelcomeMailPayload): Promise<void> {
-    await this.mailer.sendMail({
+    await this.send({
       to: payload.email,
       subject: 'Welcome to openPharmacy',
       template: 'welcome',
@@ -72,7 +81,7 @@ export class MailerService {
   }
 
   async sendPasswordReset(payload: PasswordResetPayload): Promise<void> {
-    await this.mailer.sendMail({
+    await this.send({
       to: payload.email,
       subject: 'Reset your openPharmacy password',
       template: 'reset-password',
@@ -85,7 +94,7 @@ export class MailerService {
 
   async sendReportReady(payload: ReportReadyPayload): Promise<void> {
     const label = reportTypeLabelEs(payload.reportType);
-    await this.mailer.sendMail({
+    await this.send({
       to: payload.email,
       subject: `Su reporte de ${label} está listo`,
       html: this.reportReadyHtml(payload, label),
@@ -95,7 +104,7 @@ export class MailerService {
 
   async sendReportFailed(payload: ReportFailedPayload): Promise<void> {
     const label = reportTypeLabelEs(payload.reportType);
-    await this.mailer.sendMail({
+    await this.send({
       to: payload.email,
       subject: `No se pudo generar su reporte de ${label}`,
       html: this.reportFailedHtml(payload, label),
@@ -116,5 +125,44 @@ export class MailerService {
 <p>No fue posible generar su reporte de <strong>${label}</strong>.</p>
 <p>Motivo: ${p.reason}</p>
 <p>Por favor inténtelo de nuevo o contacte a un administrador si el problema persiste.</p>`;
+  }
+
+  private async send(message: {
+    to: string;
+    subject: string;
+    template?: string;
+    context?: Record<string, string>;
+    html?: string;
+  }): Promise<void> {
+    const settings = await this.pharmacyConfig?.getSmtpSettings();
+    if (!settings) {
+      await this.mailer.sendMail(message);
+      return;
+    }
+
+    const html = message.html ?? (message.template
+      ? await this.renderTemplate(message.template, message.context ?? {})
+      : undefined);
+    const transport = createTransport({
+      host: settings.host,
+      port: settings.port,
+      secure: settings.secure,
+      auth: { user: settings.user, pass: settings.pass },
+    });
+    await transport.sendMail({
+      from: settings.from,
+      to: message.to,
+      subject: message.subject,
+      html,
+    });
+  }
+
+  private async renderTemplate(name: string, context: Record<string, string>): Promise<string> {
+    const candidates = [
+      join(process.cwd(), 'src', 'common', 'mailer', 'templates', `${name}.hbs`),
+      join(process.cwd(), 'dist', 'common', 'mailer', 'templates', `${name}.hbs`),
+    ];
+    const path = candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+    return Handlebars.compile(await readFile(path, 'utf8'))(context);
   }
 }

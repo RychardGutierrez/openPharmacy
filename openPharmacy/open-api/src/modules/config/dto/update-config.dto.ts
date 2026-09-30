@@ -1,4 +1,6 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateConfigDto } from './create-config.dto';
+import { IsDefined } from 'class-validator';
 
-export class UpdateConfigDto extends PartialType(CreateConfigDto) {}
+export class UpdateConfigDto {
+  @IsDefined()
+  value!: unknown;
+}

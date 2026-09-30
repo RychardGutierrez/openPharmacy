@@ -88,7 +88,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: "System",
     items: [
-      { title: "Settings", href: "/settings", icon: Settings },
+      { title: "Configuración", href: "/settings", icon: Settings, requiredRole: "ADMIN" },
     ],
   },
 ]
@@ -112,7 +112,7 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/users": { title: "Users", subtitle: "Manage system users" },
   "/sedes": { title: "Sedes", subtitle: "Manage locations" },
   "/admin/reopen-requests": { title: "Reopen Requests", subtitle: "Review shift reopening requests" },
-  "/settings": { title: "Settings", subtitle: "System configuration" },
+  "/settings": { title: "Configuración", subtitle: "Configuración del sistema" },
 }
 
 export function getPageInfo(pathname: string): { title: string; subtitle: string } {
