@@ -1,58 +1,109 @@
+import { Controller, Get, MessageEvent, Query, Sse } from '@nestjs/common';
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Sse,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { Inject } from '@nestjs/common';
-import { Subject } from 'rxjs';
-import { DASHBOARD_EVENTS } from './dashboard-events.token';
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Observable, from, merge } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { DashboardService } from './dashboard.service';
-import { CreateDashboardDto } from './dto/create-dashboard.dto';
-import { UpdateDashboardDto } from './dto/update-dashboard.dto';
+import {
+  DashboardQueryDto,
+  ExpiringQueryDto,
+  LowStockQueryDto,
+  RecentSalesQueryDto,
+  SalesTrendQueryDto,
+  UnitsSoldQueryDto,
+} from './dto/dashboard-query.dto';
+import {
+  DashboardExpiringResponseDto,
+  DashboardLowStockResponseDto,
+  DashboardRecentSalesResponseDto,
+  DashboardSalesTrendResponseDto,
+  DashboardUnitsSoldResponseDto,
+  KpiSummaryDto,
+} from './dto/dashboard-response.dto';
 
+@ApiTags('dashboard')
+@ApiBearerAuth()
+@Roles(UserRole.ADMIN, UserRole.PHARMACIST, UserRole.CASHIER)
 @Controller('dashboard')
 export class DashboardController {
-  constructor(
-    private readonly dashboardService: DashboardService,
-    @Inject(DASHBOARD_EVENTS) private readonly events: Subject<MessageEvent>,
-  ) {}
+  constructor(private readonly dashboard: DashboardService) {}
+
+  @Get('kpis')
+  @ApiOperation({ summary: 'Get dashboard KPI aggregates' })
+  @ApiResponse({ status: 200, type: KpiSummaryDto })
+  getKpis(
+    @Query() query: DashboardQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<KpiSummaryDto> {
+    return this.dashboard.getKpis(query, user);
+  }
+
+  @Get('low-stock')
+  @ApiOperation({ summary: 'List products at or below minimum stock' })
+  @ApiResponse({ status: 200, type: DashboardLowStockResponseDto })
+  getLowStock(
+    @Query() query: LowStockQueryDto,
+  ): Promise<DashboardLowStockResponseDto> {
+    return this.dashboard.getLowStock(query);
+  }
+
+  @Get('expiring')
+  @ApiOperation({ summary: 'List lots expiring within the selected horizon' })
+  @ApiResponse({ status: 200, type: DashboardExpiringResponseDto })
+  getExpiring(
+    @Query() query: ExpiringQueryDto,
+  ): Promise<DashboardExpiringResponseDto> {
+    return this.dashboard.getExpiring(query);
+  }
+
+  @Get('recent-sales')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List recent completed sales' })
+  @ApiResponse({ status: 200, type: DashboardRecentSalesResponseDto })
+  getRecentSales(
+    @Query() query: RecentSalesQueryDto,
+  ): Promise<DashboardRecentSalesResponseDto> {
+    return this.dashboard.getRecentSales(query);
+  }
+
+  @Get('sales-trend')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get hourly or daily sales trend' })
+  @ApiResponse({ status: 200, type: DashboardSalesTrendResponseDto })
+  getSalesTrend(
+    @Query() query: SalesTrendQueryDto,
+  ): Promise<DashboardSalesTrendResponseDto> {
+    return this.dashboard.getSalesTrend(query);
+  }
+
+  @Get('units-sold')
+  @ApiOperation({ summary: 'List products by units sold' })
+  @ApiResponse({ status: 200, type: DashboardUnitsSoldResponseDto })
+  getUnitsSold(
+    @Query() query: UnitsSoldQueryDto,
+  ): Promise<DashboardUnitsSoldResponseDto> {
+    return this.dashboard.getUnitsSold(query);
+  }
 
   @Sse('stream')
-  stream(): Observable<MessageEvent> {
-    return this.events.asObservable();
-  }
+  @ApiOperation({ summary: 'Stream dashboard sale and alert events' })
+  stream(@CurrentUser() user: AuthenticatedUser): Observable<MessageEvent> {
+    const initial = from(this.dashboard.getInitialStreamEvent(user));
+    const live = this.dashboard.eventsFor(user);
 
-  @Post()
-  create(@Body() createDashboardDto: CreateDashboardDto) {
-    return this.dashboardService.create(createDashboardDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.dashboardService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.dashboardService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateDashboardDto: UpdateDashboardDto,
-  ) {
-    return this.dashboardService.update(+id, updateDashboardDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.dashboardService.remove(+id);
+    return merge(initial, live).pipe(
+      map((event) => ({
+        type: event.type,
+        data: JSON.stringify(event.data),
+      })),
+    );
   }
 }
