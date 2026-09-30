@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   UnprocessableEntityException,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { plainToInstance } from 'class-transformer';
@@ -30,6 +31,7 @@ import { PriceBelowFloorException } from './exceptions/price-below-floor.excepti
 import { ProductNotFoundException } from './exceptions/product-not-found.exception';
 import { ProductsRepository } from './repositories/products.repository';
 import { RequestMetadata } from '../users/users.service';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class ProductsService {
@@ -40,6 +42,7 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly audit: AuditLogRepository,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async create(
@@ -117,6 +120,7 @@ export class ProductsService {
   ): Promise<Map<string, ProductStockSummaryDto>> {
     const summaries = new Map<string, ProductStockSummaryDto>();
     if (productIds.length === 0) return summaries;
+    const expiryWarningDays = await (this.config?.getNumber('EXPIRY_WARNING_DAYS', 60) ?? 60);
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
@@ -141,7 +145,7 @@ export class ProductsService {
         availableQty: row._sum.current_qty ?? 0,
         earliestExpiry: earliest,
         daysUntilExpiry: days,
-        expiringSoon: days !== null && days <= 60,
+         expiringSoon: days !== null && days <= expiryWarningDays,
       });
     }
     return summaries;

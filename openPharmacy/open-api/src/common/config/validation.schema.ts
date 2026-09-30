@@ -7,6 +7,8 @@ export const validationSchema = Joi.object({
   PORT: Joi.number().default(3000),
   CORS_ORIGIN: Joi.string().default('http://localhost:3001'),
   COOKIE_SECRET: Joi.string().min(8).required(),
+  CONFIG_ENCRYPTION_KEY: Joi.string().allow('').default(''),
+  UPLOAD_DIR: Joi.string().default('./uploads'),
 
   BCRYPT_SALT_ROUNDS: Joi.number().integer().min(4).max(15).default(12),
 

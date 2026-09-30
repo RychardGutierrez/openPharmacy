@@ -1,13 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LotExpiryAlertEvent } from '../../modules/lots/events/lot-expiry-alert.event';
 import { LotsService } from '../../modules/lots/lots.service';
 import { ExpiryDashboardLotDto } from '../../modules/lots/dto/expiry-dashboard-response.dto';
+import { ConfigService } from '../config/config.service';
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const RED_DAYS = 30;
-const ORANGE_DAYS = 90;
 
 @Injectable()
 export class AlertsService {
@@ -18,6 +18,7 @@ export class AlertsService {
   constructor(
     private readonly lotsService: LotsService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   /**
@@ -43,10 +44,11 @@ export class AlertsService {
     this.lastScanAt = now;
 
     const dashboard = await this.lotsService.getExpiryDashboard();
+    const expiryWarningDays = await (this.config?.getNumber('EXPIRY_WARNING_DAYS', 60) ?? 60);
     const alerts: LotExpiryAlertEvent[] = [];
 
     for (const lot of [...dashboard.red.lots, ...dashboard.orange.lots]) {
-      if (this.isNewlyCrossed(lot, windowStart, now)) {
+      if (this.isNewlyCrossed(lot, windowStart, now, expiryWarningDays)) {
         const key = `${lot.id}:${lot.status}`;
         if (this.emittedKeys.has(key)) continue;
         this.emittedKeys.add(key);
@@ -88,8 +90,11 @@ export class AlertsService {
     lot: ExpiryDashboardLotDto,
     windowStart: number,
     now: number,
+    expiryWarningDays: number,
   ): boolean {
-    const thresholdDays = lot.status === 'RED' ? RED_DAYS : ORANGE_DAYS;
+    const thresholdDays = lot.status === 'RED'
+      ? 30
+      : expiryWarningDays;
     const expiry = new Date(lot.expiryDate);
     expiry.setUTCHours(0, 0, 0, 0);
 

@@ -6,6 +6,7 @@ import { createTestAccount } from 'nodemailer';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { MailerService } from './mailer.service';
+import { ConfigModule as PharmacyConfigModule } from '../../modules/config/config.module';
 
 export interface EtherealAccount {
   user: string;
@@ -50,6 +51,7 @@ function resolveTemplateDir(): string {
 
 @Module({
   imports: [
+    PharmacyConfigModule,
     NestMailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -220,8 +220,12 @@ export class SalesService {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
-    const pharmacy = await this.config.getPharmacyInfo();
-    const response = this.toResponse(result.sale, result.lines, pharmacy);
+    const receiptSettings = this.config.getReceiptSettings?.() ?? Promise.resolve({});
+    const [pharmacy, receipt] = await Promise.all([
+      this.config.getPharmacyInfo(),
+      receiptSettings,
+    ]);
+    const response = this.toResponse(result.sale, result.lines, { ...pharmacy, ...receipt });
     void this.events.emitAsync('sale.created', {
       saleId: response.id,
       receiptNumber: response.receiptNumber,
@@ -257,7 +261,10 @@ export class SalesService {
         unitPrice: Number(item.unit_price),
         lineTotal: Number(item.line_total),
       })),
-      await this.config.getPharmacyInfo(),
+      {
+        ...(await this.config.getPharmacyInfo()),
+        ...(await (this.config.getReceiptSettings?.() ?? Promise.resolve({}))),
+      },
     );
   }
 

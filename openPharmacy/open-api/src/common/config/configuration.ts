@@ -1,5 +1,6 @@
 import { stripInvisible } from '../util/invisible-chars';
 import { isLocalUrl, normalizeBaseUrl } from './public-url.util';
+import { join } from 'path';
 
 export type AppConfig = ReturnType<typeof appConfig>;
 
@@ -10,6 +11,8 @@ export const appConfig = () => ({
     corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3001',
     cookieSecret: process.env.COOKIE_SECRET ?? 'change-me',
     bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? '12', 10),
+    configEncryptionKey: process.env.CONFIG_ENCRYPTION_KEY ?? '',
+    uploadDir: process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads'),
   },
 });
 

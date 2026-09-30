@@ -15,6 +15,8 @@ interface ThermalReceiptProps {
 
 export function ThermalReceipt({ receipt }: ThermalReceiptProps) {
   const name = receipt.pharmacy.PHARMACY_NAME ?? "OpenPharmacy"
+  const logoPath = receipt.pharmacy.RECEIPT_LOGO_PATH
+  const footer = receipt.pharmacy.RECEIPT_FOOTER
 
   return (
     <div
@@ -22,6 +24,7 @@ export function ThermalReceipt({ receipt }: ThermalReceiptProps) {
       className="print-pos-receipt"
       aria-hidden="true"
     >
+      {logoPath ? <img src={`/api/config/logo/${encodeURIComponent(logoPath)}`} alt="" className="receipt-logo" /> : null}
       <h1 className="receipt-center receipt-bold">{name}</h1>
       {receipt.pharmacy.PHARMACY_ADDRESS && (
         <p className="receipt-center">{receipt.pharmacy.PHARMACY_ADDRESS}</p>
@@ -95,7 +98,7 @@ export function ThermalReceipt({ receipt }: ThermalReceiptProps) {
       </p>
       <hr className="receipt-dashed" />
       <p className="receipt-center receipt-bold">
-        {RECEIPT_NOTA_FISCAL_FOOTER}
+        {footer || RECEIPT_NOTA_FISCAL_FOOTER}
       </p>
       <p className="receipt-center">¡Gracias por su compra!</p>
     </div>

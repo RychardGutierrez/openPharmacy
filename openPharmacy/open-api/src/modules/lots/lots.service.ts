@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { plainToInstance } from 'class-transformer';
 import { Prisma, Lot } from '@prisma/client';
@@ -24,6 +24,7 @@ import { LotHasStockException } from './exceptions/lot-has-stock.exception';
 import { ExpiryStatus } from './events/lot-expiry-alert.event';
 import { computeMarginAlert, MarginAlert } from './utils/margin-alert';
 import { RequestMetadata } from '../users/users.service';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class LotsService {
@@ -35,6 +36,7 @@ export class LotsService {
     private readonly audit: AuditLogRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly movements: InventoryMovementsRepository,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async create(
@@ -155,9 +157,10 @@ export class LotsService {
   async getExpiryDashboard(): Promise<ExpiryDashboardResponseDto> {
     const lots = await this.lots.findAllActiveLots();
     const generatedAt = new Date();
+    const expiryWarningDays = await (this.config?.getNumber('EXPIRY_WARNING_DAYS', 60) ?? 60);
 
     const classified = lots.map((lot) => {
-      const status = this.classifyExpiry(lot.expiry_date);
+      const status = this.classifyExpiry(lot.expiry_date, expiryWarningDays);
       return {
         lot,
         status,
@@ -385,10 +388,10 @@ export class LotsService {
     return this.toResponse(voided);
   }
 
-  classifyExpiry(expiryDate: Date): ExpiryStatus {
+  classifyExpiry(expiryDate: Date, expiryWarningDays = 60): ExpiryStatus {
     const days = this.daysUntilExpiry(expiryDate);
     if (days <= 30) return 'RED';
-    if (days <= 60) return 'ORANGE';
+    if (days <= expiryWarningDays) return 'ORANGE';
     return 'GREEN';
   }
 

@@ -66,4 +66,6 @@ export type AuditEvent =
   | 'REPORT_REQUESTED'
   | 'REPORT_GENERATED'
   | 'REPORT_FAILED'
-  | 'REPORT_DOWNLOADED';
+  | 'REPORT_DOWNLOADED'
+  // Configuration events
+  | 'CONFIG_UPDATED';
