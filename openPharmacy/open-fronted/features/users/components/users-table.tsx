@@ -37,7 +37,7 @@ export function UsersTable({ data, onEdit, onToggleStatus }: UsersTableProps) {
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: "fullName",
-      header: "Name",
+      header: "Nombre",
       cell: ({ row }) => (
         <span className="font-medium">{row.original.fullName}</span>
       ),
@@ -53,19 +53,19 @@ export function UsersTable({ data, onEdit, onToggleStatus }: UsersTableProps) {
     },
     {
       accessorKey: "role",
-      header: "Role",
+      header: "Rol",
       cell: ({ row }) => <RoleBadge role={row.original.role} />,
     },
     {
       accessorKey: "active",
-      header: "Status",
+      header: "Estado",
       cell: ({ row }) => (
-        <StatusBadge active={row.original.active} activeLabel="Active" inactiveLabel="Inactive" />
+        <StatusBadge active={row.original.active} activeLabel="Activo" inactiveLabel="Inactivo" />
       ),
     },
     {
       id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
+        header: () => <span className="sr-only">Acciones</span>,
       cell: ({ row }) => {
         const user = row.original
         return (

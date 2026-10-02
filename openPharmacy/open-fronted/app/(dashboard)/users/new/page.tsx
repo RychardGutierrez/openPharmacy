@@ -5,7 +5,7 @@ import { NewUserPageClient } from "@/app/(dashboard)/users/new/new-user-page-cli
 
 export const metadata: Metadata = {
   title: "New user | OpenPharmacy",
-  description: "Create a new system user.",
+  description: "Crea un nuevo usuario del sistema.",
 }
 
 export default function NewUserPage() {

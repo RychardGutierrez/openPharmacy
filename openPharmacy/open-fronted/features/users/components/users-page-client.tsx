@@ -75,24 +75,24 @@ export function UsersPageClient() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Usuarios</h1>
           <p className="text-sm text-muted-foreground">
-            Manage system users and their roles.
+            Gestiona los usuarios y roles del sistema.
           </p>
         </div>
         <Button onClick={onNew} className="sm:w-auto">
           <Plus aria-hidden="true" />
-          New user
+          Nuevo usuario
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Team</CardTitle>
+          <CardTitle>Equipo</CardTitle>
           <CardDescription>
             {isLoading || isFetching
-              ? "Loading users…"
-              : `${data?.total ?? 0} user${data?.total === 1 ? "" : "s"}`}
+              ? "Cargando usuarios…"
+              : `${data?.total ?? 0} usuario${data?.total === 1 ? "" : "s"}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

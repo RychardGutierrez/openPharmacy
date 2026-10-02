@@ -42,7 +42,7 @@ export function UserDeactivateDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {isActive ? "Deactivate user" : "Activate user"}
+            {isActive ? "Desactivar usuario" : "Activar usuario"}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isActive
@@ -51,7 +51,7 @@ export function UserDeactivateDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             disabled={isPending}
             onClick={(event) => {
@@ -62,10 +62,10 @@ export function UserDeactivateDialog({
             {isPending ? (
               <>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
-                <span>Working…</span>
+                <span>Procesando…</span>
               </>
             ) : (
-              <span>{isActive ? "Deactivate" : "Activate"}</span>
+              <span>{isActive ? "Desactivar" : "Activar"}</span>
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -56,6 +56,35 @@ export class SalesRepository {
     ]);
   }
 
+  findAllForUser(
+    userId: string,
+    page: number,
+    pageSize: number,
+    from?: Date,
+    to?: Date,
+  ) {
+    const where: Prisma.SaleWhereInput = {
+      status: SaleStatus.COMPLETED,
+      user_id: userId,
+    };
+    if (from || to) {
+      where.created_at = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lt: to } : {}),
+      };
+    }
+    return Promise.all([
+      this.prisma.sale.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { saleItems: { include: { product: true, lot: true } } },
+      }),
+      this.prisma.sale.count({ where }),
+    ]);
+  }
+
   /**
    * Look up the sale and its line items inside a transaction, including
    * the product category. Used by the returns / cancellation flows to

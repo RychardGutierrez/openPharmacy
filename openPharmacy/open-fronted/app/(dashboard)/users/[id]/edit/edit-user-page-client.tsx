@@ -28,14 +28,14 @@ export function EditUserPageClient({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <p className="text-sm text-muted-foreground">Loading user…</p>
+      <p className="text-sm text-muted-foreground">Cargando usuario…</p>
     )
   }
 
   if (error || !user) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-destructive">Could not load this user.</p>
+        <p className="text-sm text-destructive">No se pudo cargar este usuario.</p>
         <Button
           variant="outline"
           className="w-fit"
@@ -62,14 +62,14 @@ export function EditUserPageClient({ id }: { id: string }) {
           variant="ghost"
           size="icon-sm"
           onClick={() => router.back()}
-          aria-label="Back"
+            aria-label="Volver"
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Edit user</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Editar usuario</h1>
           <p className="text-sm text-muted-foreground">
-            Update the user&apos;s details and role.
+            Actualiza los datos y el rol del usuario.
           </p>
         </div>
       </div>
@@ -85,7 +85,7 @@ export function EditUserPageClient({ id }: { id: string }) {
           <UserForm
             defaultValues={defaults}
             onSubmit={onSubmit}
-            submitLabel="Save changes"
+            submitLabel="Guardar cambios"
             isPending={update.isPending}
           />
         </CardContent>

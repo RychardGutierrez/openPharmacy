@@ -13,15 +13,15 @@ import { cn } from "@/lib/utils"
 const roleConfig: Record<UserRole, { icon: LucideIcon; description: string }> = {
   ADMIN: {
     icon: Pill,
-    description: "Full system access and user management.",
+    description: "Acceso completo al sistema y gestión de usuarios.",
   },
   PHARMACIST: {
     icon: Stethoscope,
-    description: "Manage prescriptions and inventory.",
+    description: "Gestiona recetas e inventario.",
   },
   CASHIER: {
     icon: Wallet,
-    description: "Process sales and returns.",
+    description: "Procesa ventas y devoluciones.",
   },
 }
 
@@ -40,7 +40,7 @@ export function RoleCardGroup({ value, onChange, name }: RoleCardGroupProps) {
   return (
     <div
       role="radiogroup"
-      aria-label="Role"
+      aria-label="Rol"
       className="grid grid-cols-1 gap-3 sm:grid-cols-3"
     >
       {USER_ROLES.map((role) => {

@@ -84,7 +84,11 @@ export const openShiftFormSchema = z.object({
 export type OpenShiftFormValues = z.infer<typeof openShiftFormSchema>
 
 export const closeShiftFormSchema = z.object({
-  closingCash: moneySchema,
+  closingCash: z
+    .string()
+    .trim()
+    .min(1, "Ingresa el efectivo contado")
+    .regex(/^\d+(?:[.,]\d{1,2})?$/, "Ingresa un importe válido, por ejemplo 125,50"),
 })
 export type CloseShiftFormValues = z.infer<typeof closeShiftFormSchema>
 

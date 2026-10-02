@@ -247,6 +247,34 @@ export class SalesService {
     };
   }
 
+  async findMine(
+    userId: string,
+    page = 1,
+    pageSize = 10,
+    from?: string,
+    to?: string,
+  ) {
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    if (fromDate && toDate && fromDate >= toDate) {
+      throw new BadRequestException('The start date must be before the end date');
+    }
+    const [data, total] = await this.sales.findAllForUser(
+      userId,
+      page,
+      pageSize,
+      fromDate,
+      toDate,
+    );
+    return {
+      data: await Promise.all(data.map((sale) => this.findOne(sale.id))),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
   async findOne(id: string): Promise<SaleResponseDto> {
     const sale = await this.sales.findOne(id);
     if (!sale) throw new NotFoundException('Sale not found');

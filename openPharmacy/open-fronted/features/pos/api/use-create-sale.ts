@@ -8,6 +8,7 @@ import { POS_ERROR_MESSAGES } from "@/features/pos/api/constants"
 import type { CreateSalePayload, SaleReceipt } from "@/features/pos/types"
 import { lotsKeys } from "@/features/lots/api/use-lots"
 import { shiftsKeys } from "@/features/shifts/api/use-shifts-keys"
+import { salesKeys } from "@/features/pos/api/use-sale"
 import { usePosStore } from "@/features/pos/store/pos-store"
 
 export function useCreateSale() {
@@ -20,6 +21,7 @@ export function useCreateSale() {
       finishSale(receipt)
       queryClient.invalidateQueries({ queryKey: lotsKeys.all })
       queryClient.invalidateQueries({ queryKey: shiftsKeys.all })
+      queryClient.invalidateQueries({ queryKey: salesKeys.all })
       toast.success(`Venta ${receipt.receiptNumber} registrada`)
     },
     onError: (error) => {

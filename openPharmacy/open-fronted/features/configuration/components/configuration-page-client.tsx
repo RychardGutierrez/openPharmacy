@@ -205,7 +205,7 @@ export function ConfigurationPageClient() {
                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload aria-hidden="true" />Elegir logo</Button>
               </div>
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => onLogoChange(event.target.files?.[0])} />
-              {logoPreview ? <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed bg-muted/30 p-4"><img src={logoPreview} alt="Selected receipt logo preview" className="max-h-24 max-w-full object-contain" /></div> : valuesLogo(form.getValues("RECEIPT_LOGO_PATH"))}
+              {logoPreview ? <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed bg-muted/30 p-4"><img src={logoPreview} alt="Vista previa del logo del recibo" className="max-h-24 max-w-full object-contain" /></div> : valuesLogo(form.getValues("RECEIPT_LOGO_PATH"))}
             </div>
           </SectionCard>
         </div>

@@ -83,7 +83,9 @@ export function getShiftSales(shiftId: string) {
 }
 
 export function closeShift(id: string, values: CloseShiftFormValues) {
-  return request(`/shifts/${id}/close`, { method: "PATCH", body: JSON.stringify(closeShiftFormSchema.parse(values)) }, shiftCloseResponseSchema)
+  const validated = closeShiftFormSchema.parse(values)
+  const closingCash = Number(validated.closingCash.replace(",", "."))
+  return request(`/shifts/${id}/close`, { method: "PATCH", body: JSON.stringify({ closingCash }) }, shiftCloseResponseSchema)
 }
 
 export function requestReopen(shiftId: string, values: ReopenRequestFormValues) {

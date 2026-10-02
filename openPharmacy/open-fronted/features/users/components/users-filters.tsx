@@ -48,7 +48,7 @@ export function UsersFilters({ value, onChange }: UsersFiltersProps) {
         />
         <Input
           type="search"
-          placeholder="Search by name, CI or email"
+          placeholder="Buscar por nombre, CI o correo electrónico"
           className="pl-8"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -65,10 +65,10 @@ export function UsersFilters({ value, onChange }: UsersFiltersProps) {
         }
       >
         <SelectTrigger className="sm:w-48">
-          <SelectValue placeholder="All roles" />
+          <SelectValue placeholder="Todos los roles" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All roles</SelectItem>
+          <SelectItem value={ALL}>Todos los roles</SelectItem>
           {USER_ROLES.map((role) => (
             <SelectItem key={role} value={role}>
               {USER_ROLE_LABELS[role]}
@@ -87,12 +87,12 @@ export function UsersFilters({ value, onChange }: UsersFiltersProps) {
         }
       >
         <SelectTrigger className="sm:w-48">
-          <SelectValue placeholder="All statuses" />
+          <SelectValue placeholder="Todos los estados" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
+          <SelectItem value={ALL}>Todos los estados</SelectItem>
+          <SelectItem value="active">Activo</SelectItem>
+          <SelectItem value="inactive">Inactivo</SelectItem>
         </SelectContent>
       </Select>
     </div>

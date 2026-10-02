@@ -2,7 +2,7 @@ import { ProfilePageClient } from "@/features/users/components/profile-page-clie
 
 export const metadata = {
   title: "My profile | OpenPharmacy",
-  description: "Manage your profile and password.",
+  description: "Gestiona tu perfil y contraseña.",
 }
 
 export default function ProfilePage() {

@@ -56,15 +56,15 @@ export function AppHeader() {
           <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search..."
+            placeholder="Buscar..."
             className="w-44 pl-8 pr-12 sm:w-56"
           />
         </div>
-        <Button variant="ghost" size="icon-sm" aria-label="Notifications" className="relative">
+         <Button variant="ghost" size="icon-sm" aria-label="Notificaciones" className="relative">
           <BellIcon />
           <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Settings">
+         <Button variant="ghost" size="icon-sm" aria-label="Configuración">
           <SettingsIcon />
         </Button>
       </div>

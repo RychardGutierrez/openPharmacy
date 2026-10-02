@@ -25,13 +25,14 @@ import {
   UserIcon,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/features/auth/store/auth-store"
 import { logout } from "@/features/auth/api/auth-api"
 
 const ROLE_BADGE: Record<string, string> = {
-  ADMIN: "Admin",
-  PHARMACIST: "Pharm.",
-  CASHIER: "Cashier",
+  ADMIN: "Administrador",
+  PHARMACIST: "Farmacéutico",
+  CASHIER: "Cajero",
 }
 
 function initials(name: string): string {
@@ -45,19 +46,20 @@ function initials(name: string): string {
 
 export function NavUser() {
   const { state } = useSidebar()
+  const router = useRouter()
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
 
-  const displayName = user?.fullName ?? "Guest"
+  const displayName = user?.fullName ?? "Invitado"
   const email = user?.email ?? ""
-  const role = user?.role ?? "GUEST"
+  const role = user?.role ?? "INVITADO"
 
-  async function handleLogout() {
-    await logout()
+  function handleLogout() {
+    // Do not make navigation depend on the API response. The local session is
+    // the state that controls the protected UI; server logout is best effort.
     clearSession()
-    // AuthGuard (wrapping all protected routes) detects the unauthenticated
-    // status and redirects to /login. We don't navigate here so the logout
-    // action works even if the menu item is unmounted mid-click.
+    router.replace("/login")
+    void logout()
   }
 
   return (
@@ -68,7 +70,7 @@ export function NavUser() {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                tooltip="Account"
+                 tooltip="Cuenta"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
                 <Avatar size="sm" className="size-7">
@@ -80,7 +82,7 @@ export function NavUser() {
                   <span className="truncate text-sm font-medium">{displayName}</span>
                   {state !== "collapsed" && (
                     <span className="truncate text-[11px] text-muted-foreground">
-                      {email || "Not signed in"}
+                       {email || "Sesión no iniciada"}
                     </span>
                   )}
                 </div>
@@ -106,15 +108,15 @@ export function NavUser() {
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
+                  <Link href="/profile">
                     <UserIcon />
-                    <span>Profile</span>
+                  <span>Perfil</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings">
                     <SettingsIcon />
-                    <span>Settings</span>
+                    <span>Configuración</span>
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
@@ -124,7 +126,7 @@ export function NavUser() {
                 onSelect={handleLogout}
               >
                 <LogOutIcon />
-                <span>Sign out</span>
+                <span>Cerrar sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

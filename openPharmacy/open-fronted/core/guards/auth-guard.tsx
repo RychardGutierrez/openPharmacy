@@ -29,7 +29,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div
         role="status"
-        aria-label="Loading session"
+        aria-label="Cargando sesión"
         className="flex min-h-svh items-center justify-center">
         <LoaderCircle
           className="size-6 animate-spin text-muted-foreground"

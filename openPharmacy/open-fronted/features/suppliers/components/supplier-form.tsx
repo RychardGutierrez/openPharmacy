@@ -47,7 +47,7 @@ function normalizeNit(value: string): string {
 export function SupplierForm({
   defaultValues,
   onSubmit,
-  submitLabel = "Save",
+  submitLabel = "Guardar",
   isPending = false,
   serverError,
 }: SupplierFormProps) {

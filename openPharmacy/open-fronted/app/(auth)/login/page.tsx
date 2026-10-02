@@ -6,7 +6,7 @@ import { LoginForm } from "@/features/auth/components/login-form"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export const metadata: Metadata = {
-  title: "Sign in",
+  title: "Iniciar sesión",
   robots: { index: false, follow: false },
 }
 
@@ -72,10 +72,10 @@ export default async function LoginPage({
           <Card className="border border-border/60 shadow-sm">
             <CardHeader className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight">
-                Sign in to your account
+                Inicia sesión en tu cuenta
               </h1>
               <p className="text-sm text-muted-foreground">
-                Enter your email and password to continue.
+                Ingresa tu correo electrónico y contraseña para continuar.
               </p>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">

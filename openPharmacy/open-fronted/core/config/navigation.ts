@@ -9,9 +9,7 @@ import {
   FileText,
   Truck,
   BarChart3,
-  Stethoscope,
   Users,
-  MapPin,
   Settings,
   UserCircle,
   RotateCcw,
@@ -43,79 +41,77 @@ export type NavSection = {
 
 export const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Navigation",
+    title: "Navegación",
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Panel", href: "/dashboard", icon: LayoutDashboard },
       {
-        title: "Sales",
+        title: "Ventas",
         icon: ShoppingCart,
         items: [
           { title: "POS", href: "/sales/pos", icon: ShoppingCart, hiddenForRoles: ["ADMIN"] },
-          { title: "Cash Register", href: "/sales/cash-register", icon: RotateCcw, hiddenForRoles: ["ADMIN"] },
-          { title: "Returns", href: "/sales/returns", icon: Repeat, hiddenForRoles: ["CASHIER"] },
+          { title: "Caja", href: "/sales/cash-register", icon: RotateCcw, hiddenForRoles: ["ADMIN"] },
+          { title: "Devoluciones", href: "/sales/returns", icon: Repeat, hiddenForRoles: ["CASHIER"] },
         ],
       },
       {
-        title: "Inventory",
+        title: "Inventario",
         icon: Package,
         items: [
-          { title: "Products", href: "/inventory/products", icon: Package },
+          { title: "Productos", href: "/inventory/products", icon: Package },
           { title: "Lotes", href: "/inventory/lots", icon: Package2 },
           { title: "Vencimientos", href: "/inventory/lotsExpiry", icon: CalendarClock },
           { title: "Movimientos", href: "/inventory/movements", icon: ArrowLeftRight },
         ],
       },
       {
-        title: "Purchasing",
+        title: "Compras",
         icon: FileText,
         hiddenForRoles: ["CASHIER"],
         items: [
-          { title: "Orders", href: "/purchasing/orders", icon: FileText },
-          { title: "Suppliers", href: "/purchasing/suppliers", icon: Truck },
+          { title: "Órdenes", href: "/purchasing/orders", icon: FileText },
+          { title: "Proveedores", href: "/purchasing/suppliers", icon: Truck },
         ],
       },
-      { title: "Reports", href: "/reports", icon: BarChart3 },
-      { title: "Doctors", href: "/doctors", icon: Stethoscope },
-      { title: "Users", href: "/users", icon: Users, requiredRole: "ADMIN" },
-      { title: "Sedes", href: "/sedes", icon: MapPin },
+      { title: "Reportes", href: "/reports", icon: BarChart3 },
+      { title: "Usuarios", href: "/users", icon: Users, requiredRole: "ADMIN" },
     ],
   },
   {
-    title: "Admin",
+    title: "Administración",
     items: [
-      { title: "Reopen Requests", href: "/admin/reopen-requests", icon: ShieldCheck, requiredRole: "ADMIN" },
+      { title: "Solicitudes de reapertura", href: "/admin/reopen-requests", icon: ShieldCheck, requiredRole: "ADMIN" },
     ],
   },
   {
-    title: "System",
+    title: "Sistema",
     items: [
-      { title: "My profile", href: "/profile", icon: UserCircle },
+      { title: "Mi perfil", href: "/profile", icon: UserCircle },
       { title: "Configuración", href: "/settings", icon: Settings, requiredRole: "ADMIN" },
     ],
   },
 ]
 
 const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard": { title: "Dashboard", subtitle: "Overview and quick actions" },
-  "/sales/pos": { title: "Point of Sale", subtitle: "Process sales transactions" },
-  "/sales/cash-register": { title: "Cash Register", subtitle: "Manage cash operations" },
-  "/sales/returns": { title: "Returns", subtitle: "Process product returns" },
-  "/inventory/products": { title: "Products", subtitle: "Manage inventory items" },
+  "/dashboard": { title: "Panel", subtitle: "Resumen y acciones rápidas" },
+  "/sales/pos": { title: "Punto de venta", subtitle: "Procesa las ventas" },
+  "/sales/cash-register": { title: "Caja", subtitle: "Gestiona las operaciones de caja" },
+  "/sales/returns": { title: "Devoluciones", subtitle: "Procesa las devoluciones" },
+  "/inventory/products": { title: "Productos", subtitle: "Gestiona los productos del inventario" },
   "/inventory/lots": { title: "Lotes", subtitle: "Todos los lotes del inventario" },
   "/inventory/lotsExpiry": {
     title: "Vencimientos",
     subtitle: "Lotes próximos a vencer y lotes vigentes",
   },
   "/inventory/movements": { title: "Movimientos", subtitle: "Registra movimientos de stock" },
-  "/purchasing/orders": { title: "Purchase Orders", subtitle: "Manage purchase orders" },
-  "/purchasing/suppliers": { title: "Suppliers", subtitle: "Manage supplier information" },
-  "/reports": { title: "Reports", subtitle: "View system reports" },
-  "/doctors": { title: "Doctors", subtitle: "Manage doctor records" },
-  "/users": { title: "Users", subtitle: "Manage system users" },
-  "/sedes": { title: "Sedes", subtitle: "Manage locations" },
-  "/admin/reopen-requests": { title: "Reopen Requests", subtitle: "Review shift reopening requests" },
+  "/purchasing/orders": { title: "Órdenes de compra", subtitle: "Gestiona las órdenes de compra" },
+  "/purchasing/suppliers": { title: "Proveedores", subtitle: "Gestiona la información de proveedores" },
+  "/reports": { title: "Reportes", subtitle: "Consulta los reportes del sistema" },
+  "/doctors": { title: "Médicos", subtitle: "Gestiona el directorio médico" },
+  "/users": { title: "Usuarios", subtitle: "Gestiona los usuarios del sistema" },
+  "/sedes": { title: "Sedes", subtitle: "Gestiona las sedes" },
+  "/admin/reopen-requests": { title: "Solicitudes de reapertura", subtitle: "Revisa las solicitudes de reapertura" },
   "/settings": { title: "Configuración", subtitle: "Configuración del sistema" },
-  "/profile": { title: "My profile", subtitle: "Manage your account" },
+  "/profile": { title: "Mi perfil", subtitle: "Gestiona tu cuenta" },
 }
 
 export function getPageInfo(pathname: string): { title: string; subtitle: string } {

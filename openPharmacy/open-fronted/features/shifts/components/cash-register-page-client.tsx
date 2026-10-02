@@ -53,7 +53,7 @@ export function CashRegisterPageClient() {
     return <Alert variant="destructive"><AlertCircle aria-hidden="true" /><AlertDescription>No se pudo verificar el estado del turno. <button type="button" className="font-medium underline" onClick={() => void currentQuery.refetch()}>Reintentar</button></AlertDescription></Alert>
   }
 
-  const handleClose = async (values: { closingCash: number }) => {
+  const handleClose = async (values: { closingCash: string }) => {
     if (!activeShift) return
     try {
       const result = await closeMutation.mutateAsync({ id: activeShift.id, values })

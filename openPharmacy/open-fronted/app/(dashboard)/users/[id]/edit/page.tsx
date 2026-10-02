@@ -5,7 +5,7 @@ import { EditUserPageClient } from "@/app/(dashboard)/users/[id]/edit/edit-user-
 
 export const metadata: Metadata = {
   title: "Edit user | OpenPharmacy",
-  description: "Update a system user.",
+  description: "Actualiza un usuario del sistema.",
 }
 
 export default async function EditUserPage({

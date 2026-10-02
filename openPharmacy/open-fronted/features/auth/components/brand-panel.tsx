@@ -2,48 +2,48 @@ import { Pill } from "lucide-react"
 
 const FEATURE_BULLETS = [
   {
-    title: "Point of Sale & Shifts",
-    description: "Sales, cash register, and returns in one workflow",
+     title: "Punto de venta y turnos",
+     description: "Ventas, caja y devoluciones en un solo flujo",
     modules: ["sales", "shifts", "returns"],
   },
   {
-    title: "Inventory & Lot Tracking",
-    description: "FEFO expiration control and real-time stock movements",
+     title: "Inventario y trazabilidad de lotes",
+     description: "Control de vencimientos FEFO y movimientos de stock en tiempo real",
     modules: ["products", "lots", "inventory-movements"],
   },
   {
-    title: "Purchasing & Suppliers",
-    description: "Purchase orders, receiving, and supplier database",
+     title: "Compras y proveedores",
+     description: "Órdenes de compra, recepción y base de proveedores",
     modules: ["purchase-orders", "suppliers"],
   },
   {
-    title: "Prescriptions & Doctors",
-    description: "Controlled-substance dispensing with doctor records",
+     title: "Recetas y médicos",
+     description: "Dispensación de sustancias controladas con registros médicos",
     modules: ["prescriptions", "doctors"],
   },
   {
-    title: "Multi-Branch (Sedes)",
-    description: "Operate multiple pharmacy locations from one account",
+     title: "Múltiples sedes",
+     description: "Opera varias ubicaciones de farmacia desde una cuenta",
     modules: ["sedes"],
   },
   {
-    title: "User & Role Management",
-    description: "Admin, Pharmacist, and Cashier with full audit trail",
+     title: "Usuarios y roles",
+     description: "Administradores, farmacéuticos y cajeros con trazabilidad completa",
     modules: ["auth", "users", "audit"],
   },
   {
-    title: "Reports & Billing",
-    description: "Compliance reports and invoice management",
+     title: "Reportes y facturación",
+     description: "Reportes de cumplimiento y gestión de facturas",
     modules: ["reports", "billing"],
   },
   {
-    title: "Real-Time Alerts (SSE)",
-    description: "Live notifications for low stock, expirations, and approvals",
+     title: "Alertas en tiempo real (SSE)",
+     description: "Notificaciones de stock bajo, vencimientos y aprobaciones",
     modules: ["alerts"],
   },
   {
-    title: "Secure Configuration",
-    description: "Centralized system settings with encrypted secrets",
+     title: "Configuración segura",
+     description: "Configuración centralizada con secretos cifrados",
     modules: ["config"],
   },
 ] as const
@@ -64,19 +64,19 @@ export function BrandPanel() {
             OpenPharmacy
           </span>
           <span className="text-xs text-background/60">
-            Pharmacy Management System
+            Sistema de gestión farmacéutica
           </span>
         </div>
       </div>
 
       <div className="max-w-md">
         <h2 className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 text-4xl leading-[1.1] font-semibold tracking-tight text-balance">
-          <span className="block">Complete Pharmaceutical</span>
-          <span className="block text-primary">Inventory Control</span>
+           <span className="block">Gestión farmacéutica</span>
+           <span className="block text-primary">integral</span>
         </h2>
         <p className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:fill-mode-both motion-safe:duration-700 mt-5 text-base leading-relaxed text-background/70 [animation-delay:150ms]">
-          Streamline your medicine inventory, process orders efficiently, and
-          track distributions with our comprehensive management system.
+           Organiza tu inventario de medicamentos, procesa órdenes de forma
+           eficiente y controla las distribuciones con nuestro sistema integral.
         </p>
 
         <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-4">
@@ -101,7 +101,7 @@ export function BrandPanel() {
 
       <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:fill-mode-both motion-safe:duration-700 flex items-center gap-2 [animation-delay:1500ms]">
         <span className="text-xs text-background/50">
-          OpenPharmacy · Multi-branch ready
+           OpenPharmacy · Preparado para múltiples sedes
         </span>
       </div>
     </aside>
