@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# openPharmacy Frontend
 
-## Getting Started
+Next.js 16 dashboard for the openPharmacy pharmacy management system. It
+provides protected workflows for sales, inventory, purchasing, shifts,
+reporting, administration, and the user profile.
 
-First, run the development server:
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The development server runs at `http://localhost:3001`. The API is expected at
+`http://localhost:3000`; override it with `API_URL` in `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+API_URL=http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The Next.js rewrite proxies browser requests from `/api/*` to the API, so the
+browser does not need direct cross-origin access.
 
-## Learn More
+## Commands
 
-To learn more about Next.js, take a look at the following resources:
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the development server on port 3001 |
+| `npm run build` | Create a production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Run ESLint |
+| `npx tsc --noEmit` | Typecheck without emitting files |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+app/                 Next.js App Router routes and layouts
+components/ui/       shadcn/ui primitives
+core/                guards, navigation, providers, shared shell
+features/<module>/   API calls, hooks, components, stores, types
+shared/              reusable hooks, constants, and utilities
+```
 
-## Deploy on Vercel
+Feature modules use:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- TanStack React Query for API/server state.
+- Zustand for in-memory session and focused client state.
+- React Hook Form and Zod v4 for form validation.
+- Same-origin `/api/*` calls with the access token in memory.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Authentication
+
+The access token is stored only in memory and attached to API requests as a
+Bearer token. The refresh token is an HttpOnly cookie managed by the backend.
+`AuthGuard` restores sessions on page load, while `proxy.ts` only performs a
+fast route redirect based on the `op_session` flag cookie.
+
+See [the auth feature documentation](features/auth/README.md) and the
+[project module catalog](../../MODULES.md).
+
+## Main Routes
+
+| Route | Purpose |
+|---|---|
+| `/dashboard` | KPIs and operational overview |
+| `/sales/pos` | Register sales |
+| `/sales/cash-register` | Manage cashier shifts |
+| `/inventory/products` | Product catalog |
+| `/inventory/lots` | Lots and stock |
+| `/purchasing/orders` | Purchase orders and receiving |
+| `/reports` | Report preview and exports |
+| `/users` | Admin user management |
+| `/profile` | Current user details and password |
+| `/settings` | Admin pharmacy configuration |
+
+## Development Notes
+
+- Keep API boundary validation in each feature's `types.ts` and API wrapper.
+- Invalidate related React Query keys after mutations.
+- Do not persist access tokens in localStorage, sessionStorage, or readable
+  cookies.
+- Preserve the existing feature-sliced structure when adding screens.

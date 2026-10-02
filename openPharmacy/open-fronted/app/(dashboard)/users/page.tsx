@@ -5,7 +5,7 @@ import { UsersPageClient } from "@/features/users/components/users-page-client"
 
 export const metadata: Metadata = {
   title: "Users | OpenPharmacy",
-  description: "Manage system users and their roles.",
+  description: "Gestiona los usuarios y roles del sistema.",
 }
 
 export default function UsersPage() {

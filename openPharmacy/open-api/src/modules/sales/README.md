@@ -52,8 +52,14 @@ All routes require a Bearer access token.
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
 | `POST` | `/api/sales` | CASHIER, PHARMACIST | Register a sale and deduct stock via FEFO |
-| `GET` | `/api/sales` | CASHIER, PHARMACIST | List completed sales (paginated) |
+| `GET` | `/api/sales` | CASHIER, PHARMACIST | List recent completed sales (fixed page size) |
+| `GET` | `/api/sales/mine?page=1&pageSize=10&from=<iso>&to=<iso>` | CASHIER, PHARMACIST | List the current user's completed sales |
+
+`/api/sales/mine` defaults to the latest 10 sales. `pageSize` accepts values
+from 1 to 50. Optional `from` and exclusive `to` ISO timestamps filter the
+sale creation time.
 | `GET` | `/api/sales/:id` | CASHIER, PHARMACIST | Get a sale receipt by id |
+| `POST` | `/api/sales/:id/cancel` | ADMIN, PHARMACIST | Cancel a completed sale through the returns workflow |
 
 ## Registering a sale
 
@@ -259,8 +265,8 @@ cashier typed the wrong receipt — and must be authorised by an
 
 - After a successful `COMMIT`, `SalesService` emits `sale.created` through the
   global `EventEmitter2`.
-- `DashboardModule` registers a `DashboardSaleListener` (`@OnEvent('sale.created')`)
-  that pushes the payload into a shared `Subject<MessageEvent>`.
+- `DashboardModule` registers `DashboardEventBusService`, which listens for
+  `sale.created` and publishes the payload to its shared event subject.
 - `DashboardController` exposes `GET /api/dashboard/stream` (`@Sse`) that
   streams those events to connected dashboard clients.
 - The emission happens strictly **after** commit, so subscribers only ever see

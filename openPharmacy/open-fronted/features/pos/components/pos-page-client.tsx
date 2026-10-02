@@ -18,6 +18,7 @@ import { PaymentDialog } from "@/features/pos/components/payment-dialog"
 import { PrescriptionGateDialog } from "@/features/pos/components/prescription-gate-dialog"
 import { ShiftGate } from "@/features/pos/components/shift-gate"
 import { ThermalReceipt } from "@/features/pos/components/thermal-receipt"
+import { SalesHistory } from "@/features/pos/components/sales-history"
 
 let didHydrate = false
 
@@ -30,6 +31,7 @@ export function PosPageClient() {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [rxDialogOpen, setRxDialogOpen] = useState(false)
   const [rxAcks, setRxAcks] = useState<string[]>([])
+  const [historySale, setHistorySale] = useState<SaleReceipt | null>(null)
 
   const { isLoading, isOpen } = useShiftGate()
   const { data: fetchedLastSale } = useSale(
@@ -52,7 +54,7 @@ export function PosPageClient() {
     [lines, rxAcks],
   )
 
-  const receiptToPrint: SaleReceipt | null = lastSale ?? fetchedLastSale ?? null
+  const receiptToPrint: SaleReceipt | null = historySale ?? lastSale ?? fetchedLastSale ?? null
   const reprint = useThermalPrint(lastSale)
 
   function handleCheckout() {
@@ -67,6 +69,11 @@ export function PosPageClient() {
     setRxAcks((current) => [...new Set([...current, ...ackedIds])])
     setRxDialogOpen(false)
     setPaymentOpen(true)
+  }
+
+  function handleHistoryReprint(sale: SaleReceipt) {
+    setHistorySale(sale)
+    window.setTimeout(() => window.print(), 0)
   }
 
   if (isLoading) {
@@ -88,6 +95,7 @@ export function PosPageClient() {
     <div className="grid min-h-0 gap-4 xl:grid-cols-[1.7fr_1fr]">
       <div className="flex min-w-0 flex-col gap-4">
         <ProductBrowser />
+        <SalesHistory onReprint={handleHistoryReprint} />
       </div>
 
       <div className="min-h-0 xl:sticky xl:top-0 xl:h-[calc(100vh-7rem)]">

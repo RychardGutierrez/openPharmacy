@@ -23,15 +23,15 @@ export function AccessDenied() {
           <div className="mb-2 grid size-12 place-items-center rounded-full bg-destructive/10 text-destructive">
             <ShieldOff className="size-6" aria-hidden="true" />
           </div>
-          <CardTitle className="text-xl">Access denied</CardTitle>
+          <CardTitle className="text-xl">Acceso denegado</CardTitle>
           <CardDescription>
-            You don&apos;t have permission to view this page. If you believe
-            this is a mistake, contact a system administrator.
+            No tienes permiso para ver esta página. Si crees que es un error,
+            contacta al administrador del sistema.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           <Button asChild>
-            <Link href="/dashboard">Back to dashboard</Link>
+            <Link href="/dashboard">Volver al panel</Link>
           </Button>
         </CardContent>
       </Card>

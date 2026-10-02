@@ -106,3 +106,26 @@ export function createSale(payload: CreateSalePayload): Promise<SaleReceipt> {
 export function getSale(id: string): Promise<SaleReceipt> {
   return request(`/sales/${id}`, { method: "GET" }, saleReceiptSchema)
 }
+
+export const salesHistorySchema = z.object({
+  data: z.array(saleReceiptSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+  totalPages: z.number(),
+})
+
+function localDateStart(date: string): Date {
+  return new Date(`${date}T00:00:00`)
+}
+
+export function getMySales(page = 1, pageSize = 10, fromDate?: string, toDate?: string) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (fromDate) params.set("from", localDateStart(fromDate).toISOString())
+  if (toDate) {
+    const end = localDateStart(toDate)
+    end.setDate(end.getDate() + 1)
+    params.set("to", end.toISOString())
+  }
+  return request(`/sales/mine?${params.toString()}`, { method: "GET" }, salesHistorySchema)
+}

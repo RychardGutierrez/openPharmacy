@@ -70,6 +70,8 @@ Related tickets:
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
 | `POST` | `/api/returns` | ADMIN, PHARMACIST | Register a customer return |
+| `GET` | `/api/returns` | ADMIN, PHARMACIST | List returns |
+| `GET` | `/api/returns/sale/:receiptNumber` | ADMIN, PHARMACIST | Find a sale eligible for return by receipt |
 | `POST` | `/api/sales/:id/cancel` | ADMIN, PHARMACIST | Cancel a completed sale |
 
 ### Register a return

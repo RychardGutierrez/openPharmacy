@@ -85,7 +85,7 @@ export function LoginForm({ from }: { from?: string }) {
         {loginMutation.isError ? (
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
-            <AlertTitle>Sign-in failed</AlertTitle>
+            <AlertTitle>Error al iniciar sesión</AlertTitle>
             <AlertDescription>
               {loginMutation.error.message}
             </AlertDescription>
@@ -97,7 +97,7 @@ export function LoginForm({ from }: { from?: string }) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Correo electrónico</FormLabel>
               <FormControl>
                 <div className="relative">
                   <FieldIcon>
@@ -106,7 +106,7 @@ export function LoginForm({ from }: { from?: string }) {
                   <Input
                     type="email"
                     autoComplete="email"
-                    placeholder="Enter your email"
+                    placeholder="Ingresa tu correo electrónico"
                     className={cn("h-11 pl-10", "text-sm")}
                     {...field}
                   />
@@ -123,7 +123,7 @@ export function LoginForm({ from }: { from?: string }) {
           render={({ field }) => (
             <FormItem>
               <div className="flex items-center justify-between">
-                <FormLabel>Password</FormLabel>
+                <FormLabel>Contraseña</FormLabel>
               </div>
               <FormControl>
                 <div className="relative">
@@ -133,7 +133,7 @@ export function LoginForm({ from }: { from?: string }) {
                   <Input
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
-                    placeholder="Enter your password"
+                    placeholder="Ingresa tu contraseña"
                     className={cn("h-11 pl-10 pr-11", "text-sm")}
                     {...field}
                   />
@@ -141,7 +141,7 @@ export function LoginForm({ from }: { from?: string }) {
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     aria-label={
-                      showPassword ? "Hide password" : "Show password"
+                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                     }
                     aria-pressed={showPassword}
                     className="absolute inset-y-0 right-0 flex items-center px-3.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
@@ -169,11 +169,11 @@ export function LoginForm({ from }: { from?: string }) {
                 className="animate-spin"
                 aria-hidden="true"
               />
-              <span>Signing in…</span>
+              <span>Iniciando sesión…</span>
             </>
           ) : (
             <>
-              <span>Sign In</span>
+              <span>Iniciar sesión</span>
               <ArrowRight className="size-4" aria-hidden="true" />
             </>
           )}

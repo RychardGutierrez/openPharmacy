@@ -19,8 +19,8 @@ export function ShiftCloseCard({ shift, cashierName, sales, onSubmit, isPending 
   onSubmit: (values: CloseShiftFormValues) => void | Promise<void>
   isPending?: boolean
 }) {
-  const form = useForm<CloseShiftFormValues>({ resolver: zodResolver(closeShiftFormSchema) as Resolver<CloseShiftFormValues>, defaultValues: { closingCash: 0 } })
-  const countedCash = Number(form.watch("closingCash") ?? 0)
+  const form = useForm<CloseShiftFormValues>({ resolver: zodResolver(closeShiftFormSchema) as Resolver<CloseShiftFormValues>, defaultValues: { closingCash: "" } })
+  const countedCash = parseDecimalInput(form.watch("closingCash") ?? "")
   const expectedCash = sales?.expectedCash ?? shift.openingCash
   const difference = countedCash - expectedCash
   const hasCount = Boolean(form.formState.dirtyFields.closingCash)
@@ -47,7 +47,7 @@ export function ShiftCloseCard({ shift, cashierName, sales, onSubmit, isPending 
             <FormField control={form.control} name="closingCash" render={({ field }) => (
               <FormItem>
                 <FormLabel>Efectivo contado (Bs)</FormLabel>
-                <FormControl><Input type="number" min="0" step="0.01" inputMode="decimal" {...field} value={Number(field.value ?? 0)} onChange={(event) => field.onChange(parseDecimalInput(event.target.value))} /></FormControl>
+                <FormControl><Input type="text" inputMode="decimal" placeholder="0,00" autoComplete="off" {...field} onChange={(event) => field.onChange(event.target.value.replace(/[^\d.,]/g, ""))} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

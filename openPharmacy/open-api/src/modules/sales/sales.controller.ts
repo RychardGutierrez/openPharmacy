@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -20,6 +21,7 @@ import {
   CancelSaleDto,
   ReturnResponseDto,
 } from '../returns/dto/return-response.dto';
+import { SalesQueryDto } from './dto/sales-query.dto';
 
 @ApiTags('sales')
 @ApiBearerAuth()
@@ -42,6 +44,21 @@ export class SalesController {
   @ApiOperation({ summary: 'List completed sales' })
   findAll() {
     return this.salesService.findAll();
+  }
+
+  @Get('mine')
+  @ApiOperation({ summary: 'List completed sales created by the current user' })
+  findMine(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SalesQueryDto,
+  ) {
+    return this.salesService.findMine(
+      user.id,
+      query.page,
+      query.pageSize,
+      query.from,
+      query.to,
+    );
   }
 
   @Get(':id')

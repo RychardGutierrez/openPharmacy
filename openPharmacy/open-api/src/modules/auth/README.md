@@ -107,15 +107,12 @@ src/modules/auth/
 │   └── audit.interceptor.ts      # per-controller timing/log
 │
 ├── repositories/
-│   ├── users.repository.ts       # findByEmail, findById, registerSuccessfulLogin,
-│   │                             # registerFailedAttempt, setPasswordChangedAt
-│   ├── audit-log.repository.ts   # create(record)
 │   └── refresh-token.repository.ts  # create / rotate / revoke (hashes jti with sha256)
 │
 ├── dto/
 │   ├── login.dto.ts              # { email: IsEmail + lower/trim, password: IsString 1-128 }
-│   ├── login-response.dto.ts     # { accessToken, refreshToken, expiresIn, user }
-│   ├── refresh-response.dto.ts   # same shape
+│   ├── login-response.dto.ts     # { accessToken, expiresIn, user }
+│   ├── refresh-response.dto.ts   # internal result includes refreshToken; controller sends it as a cookie
 │   └── user-response.dto.ts      # safe user projection
 │
 ├── interfaces/
@@ -181,7 +178,7 @@ Indexes on `user_id` and `expires_at`.
 |---|---|---|
 | `id` | `UUID PK` | |
 | `user_id` | `UUID? FK → users.id` | Nullable for unknown-email cases; `ON DELETE SET NULL` |
-| `event` | `TEXT` | `LOGIN_SUCCESS` \| `LOGIN_FAIL` \| `LOGIN_LOCKED` \| `REFRESH_SUCCESS` \| `REFRESH_FAIL` \| `LOGOUT` |
+| `event` | `TEXT` | `LOGIN_SUCCESS` \| `LOGIN_FAIL` \| `LOGIN_LOCKED` \| `REFRESH_SUCCESS` \| `REFRESH_FAIL` \| `LOGOUT` \| `PASSWORD_CHANGED` |
 | `ip` | `TEXT?` | From `x-forwarded-for` or socket |
 | `user_agent` | `TEXT?` | |
 | `metadata` | `JSONB?` | Free-form per-event context |

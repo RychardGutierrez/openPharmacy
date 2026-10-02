@@ -31,30 +31,30 @@ export function NewUserPageClient() {
           variant="ghost"
           size="icon-sm"
           onClick={() => router.back()}
-          aria-label="Back"
+           aria-label="Volver"
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New user</h1>
+           <h1 className="text-2xl font-semibold tracking-tight">Nuevo usuario</h1>
           <p className="text-sm text-muted-foreground">
-            Create a new system user. They will receive a temporary password by
-            email.
+             Crea un nuevo usuario del sistema. Recibirá una contraseña temporal
+             por correo electrónico.
           </p>
         </div>
       </div>
 
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Details</CardTitle>
+           <CardTitle>Datos del usuario</CardTitle>
           <CardDescription>
-            All fields are required unless marked optional.
+             Todos los campos son obligatorios, salvo los indicados como opcionales.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <UserForm
             onSubmit={onSubmit}
-            submitLabel="Create user"
+             submitLabel="Crear usuario"
             isPending={create.isPending}
           />
         </CardContent>

@@ -35,7 +35,7 @@ const EMPTY_DEFAULTS: UserFormValues = {
 export function UserForm({
   defaultValues,
   onSubmit,
-  submitLabel = "Save",
+  submitLabel = "Guardar",
   isPending = false,
 }: UserFormProps) {
   const form = useForm<UserFormValues>({
@@ -58,9 +58,9 @@ export function UserForm({
           name="fullName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full name</FormLabel>
+              <FormLabel>Nombre completo</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Maria Lopez" autoComplete="name" {...field} />
+                <Input placeholder="Ej. María López" autoComplete="name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -77,7 +77,7 @@ export function UserForm({
                 <FormControl>
                   <Input
                     inputMode="numeric"
-                    placeholder="6 to 12 digits"
+                    placeholder="De 6 a 12 dígitos"
                     autoComplete="off"
                     {...field}
                   />
@@ -92,11 +92,11 @@ export function UserForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Correo electrónico</FormLabel>
                 <FormControl>
                   <Input
                     type="email"
-                    placeholder="name@pharmacy.com"
+                    placeholder="nombre@farmacia.com"
                     autoComplete="email"
                     {...field}
                   />
@@ -112,7 +112,7 @@ export function UserForm({
           name="role"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Role</FormLabel>
+              <FormLabel>Rol</FormLabel>
               <FormControl>
                 <RoleCardGroup
                   value={field.value}
@@ -131,9 +131,9 @@ export function UserForm({
             name="regNumber"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Professional registration number</FormLabel>
+                <FormLabel>Número de registro profesional</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. CR-12345" autoComplete="off" {...field} />
+                <Input placeholder="Ej. CR-12345" autoComplete="off" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -146,7 +146,7 @@ export function UserForm({
             {isPending ? (
               <>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
-                <span>Saving…</span>
+                <span>Guardando…</span>
               </>
             ) : (
               <span>{submitLabel}</span>

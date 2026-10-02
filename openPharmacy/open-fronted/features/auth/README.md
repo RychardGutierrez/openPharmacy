@@ -26,7 +26,7 @@ features/auth/
 
 | Token | Storage | Lifetime | Scope |
 |-------|---------|----------|-------|
-| Access token | In-memory (Zustand) | ~15 min | Every API call via `Authorization: Bearer` |
+| Access token | In-memory (Zustand) | Configured by `JWT_ACCESS_TTL` (default 8h) | Every API call via `Authorization: Bearer` |
 | Refresh token | HttpOnly cookie | 7 days | `Path=/api/auth` only (invisible to JS) |
 | `op_session` flag | Regular cookie | 7 days | `Path=/` (readable by `proxy.ts`) |
 
