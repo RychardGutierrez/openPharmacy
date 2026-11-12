@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<notaFiscalComputarizadaCreditoDebito xsi:noNamespaceSchemaLocation="notaComputarizadaCreditoDebito.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <cabecera>
+        <nitEmisor>123456022</nitEmisor>
+        <razonSocialEmisor>EMPRESA MLMZ SRL</razonSocialEmisor>
+        <municipio>La Paz</municipio>
+        <telefono>2846005</telefono>
+        <numeroNotaCreditoDebito>1</numeroNotaCreditoDebito>
+        <cuf>44AAEC00DBD34C53C3E5B135433591A5FA086F86A867A75AC82F24C74</cuf>
+        <cufd>BQUE+QytqQUDBKVUFOSVRPQkxVRFZNVFVJBMDAwMDAwM</cufd>
+        <codigoSucursal>1</codigoSucursal>
+        <direccion>AV. JORGE LOPEZ #123</direccion>
+        <codigoPuntoVenta>0</codigoPuntoVenta>
+        <fechaEmision>2027-03-06T16:03:49.570</fechaEmision>
+        <nombreRazonSocial>GUMER CADIMA</nombreRazonSocial>
+        <codigoTipoDocumentoIdentidad>1</codigoTipoDocumentoIdentidad>
+        <numeroDocumento>5115889</numeroDocumento>
+        <complemento>0</complemento>
+        <codigoCliente>51158891</codigoCliente>
+        <numeroFactura>1</numeroFactura>
+        <numeroAutorizacionCuf>13FEDFAC1094D2BE607F6098F1A1E089E2FE8286A2048B1B18FAFDC74
+        </numeroAutorizacionCuf>
+        <fechaEmisionFactura>2027-02-01T10:14:36.000</fechaEmisionFactura>
+        <subTotalNetoOriginal>723.02</subTotalNetoOriginal>
+        <totalPrecioNetoOriginal>673.02</totalPrecioNetoOriginal>
+        <ivaOriginal>87.49</ivaOriginal>
+        <montoaPagarOriginal>760.51</montoaPagarOriginal>
+        <subTotalNetoDevuelto>63.80</subTotalNetoDevuelto>
+        <totalPrecioNetoDevuelto>59.39</totalPrecioNetoDevuelto>
+        <ivaDevuelto>7.72</ivaDevuelto>
+        <montoaPagarDevuelto>67.11</montoaPagarDevuelto>
+        <descuentoAdicionalOriginal>50.00</descuentoAdicionalOriginal>
+        <montoDescuentoDevuelto>4.41</montoDescuentoDevuelto>
+        <codigoExcepcion xsi:nil="true"/>
+        <leyenda>Ley N° 453: Los servicios deben suministrarse en condiciones de inocuidad, calidad y seguridad.</leyenda>
+        <usuario>vjcm</usuario>
+        <codigoInterno>A</codigoInterno>
+        <codigoDocumentoSector>24</codigoDocumentoSector>
+    </cabecera>
+    <detalle>
+        <nroItem>1</nroItem>
+        <actividadEconomica>451010</actividadEconomica>
+        <codigoProductoSin>49111</codigoProductoSin>
+        <codigoProducto>123456</codigoProducto>
+        <descripcion>Amortiguadores</descripcion>
+        <cantidad>1</cantidad>
+        <unidadMedida>1</unidadMedida>
+        <precioNetoUnitario>659.22</precioNetoUnitario>
+        <montoDescuento>0.00</montoDescuento>
+        <subTotal>659.22</subTotal>
+        <codigoDetalleTransaccion>1</codigoDetalleTransaccion>
+    </detalle>
+    <detalle>
+        <nroItem>2</nroItem>
+        <actividadEconomica>451010</actividadEconomica>
+        <codigoProductoSin>49111</codigoProductoSin>
+        <codigoProducto>623456</codigoProducto>
+        <descripcion>Tornillos</descripcion>
+        <cantidad>1</cantidad>
+        <unidadMedida>1</unidadMedida>
+        <precioNetoUnitario>63.80</precioNetoUnitario>
+        <montoDescuento>0.00</montoDescuento>
+        <subTotal>63.80</subTotal>
+        <codigoDetalleTransaccion>1</codigoDetalleTransaccion>
+    </detalle>
+    <detalle>
+        <nroItem>2</nroItem>
+        <actividadEconomica>451010</actividadEconomica>
+        <codigoProductoSin>49111</codigoProductoSin>
+        <codigoProducto>623456</codigoProducto>
+        <descripcion>Tornillos</descripcion>
+        <cantidad>1</cantidad>
+        <unidadMedida>1</unidadMedida>
+        <precioNetoUnitario>63.80</precioNetoUnitario>
+        <montoDescuento>0.00</montoDescuento>
+        <subTotal>63.80</subTotal>
+        <codigoDetalleTransaccion>2</codigoDetalleTransaccion>
+    </detalle>
+</notaFiscalComputarizadaCreditoDebito>

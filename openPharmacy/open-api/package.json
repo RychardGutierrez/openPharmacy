@@ -26,7 +26,9 @@
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:studio": "npx prisma studio",
     "prisma:push": "npx prisma db push",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:seed": "npx tsx prisma/seed.ts",
+    "siat:types": "tsx scripts/siat-generate-types.ts",
+    "siat:verify-spec": "tsx scripts/siat-verify-spec.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.7",
@@ -63,7 +65,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.35.3",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "xmllint-wasm": "5.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -83,6 +86,7 @@
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
+    "fast-xml-parser": "5.12.0",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
     "prettier": "^3.4.2",
