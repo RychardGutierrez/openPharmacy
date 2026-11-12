@@ -57,4 +57,22 @@ export const validationSchema = Joi.object({
   // ─── PDF engine ──────────────────────────────────────────────────────────
   // Empty = auto-detect (env path → OS install paths → sparticuz on Linux).
   PUPPETEER_EXECUTABLE_PATH: Joi.string().allow('').default(''),
+
+  // ─── SIAT electronic invoicing (see modules/siat/README.md) ───────────────
+  SIAT_ENV: Joi.string().valid('pilot', 'production').default('pilot'),
+  SIAT_PILOT_BASE_URL: Joi.string()
+    .uri()
+    .default('https://pilotosiatservicios.impuestos.gob.bo/v2'),
+  SIAT_PRODUCTION_BASE_URL: Joi.string()
+    .uri()
+    .when('SIAT_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().allow(''),
+    }),
+  SIAT_TOKEN: Joi.string().allow('').default(''),
+  SIAT_CONNECT_TIMEOUT_MS: Joi.number().integer().min(100).default(5000),
+  SIAT_TOTAL_TIMEOUT_MS: Joi.number().integer().min(1000).default(20000),
+  SIAT_READ_RETRIES: Joi.number().integer().min(0).max(5).default(2),
+  SIAT_RETRY_BASE_MS: Joi.number().integer().min(0).default(500),
 });
