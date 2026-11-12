@@ -1,0 +1,2 @@
+# Pinned SIAT spec files must keep their exact bytes (SHA-256 in spec/v3/SOURCES.md).
+src/modules/siat/spec/** -text

@@ -1,0 +1,56 @@
+Versionamiento_2026  
+
+
+Versión 0.4 (27/10/2026)
+
+
+Se ajustó el XSD de los siguientes documentos sector cambiando para permitir el valor de cero en los descuentos
+Nota Crédito Débito
+Nota Crédito Débito Ice
+Factura Comercial de Exportación de Hidrocarburos (Incoterm)
+ 
+
+
+Versión 0.3 (23/10/2026)
+
+
+
+
+
+Versión 0.2 (22/10/2026)
+
+
+Se ajustó el XSD de los siguientes documentos sector:
+Comercial de Exportación Minera
+Servicios Básicos Zona Franca
+Compra y Venta de Minerales BCB
+Factura de Comercialización de Combustible
+Zona Franca
+22/10/2026
+
+
+Versión 0.1 (15/10/2026)
+
+
+Se ajustaron XML y XSD de todos los documentos sector para adecuarlos al IVA Transparente
+Se ajusto las validaciones y la representación gráfica de los documentos sector
+Se adiciona en todos los XMLs el campo Código Interno. El mismo será devuelto en la cadena de respuesta del CUFD.
+En la sección de Autorización y Renovación de Sistemas Informáticos de Facturación, se incorpora un apartado que explica el procedimiento para la adición de los nuevos documentos sector con IVA transparente.
+15/10/2026
+
+ 
+
+ 
+
+
+Versión 0.0 (02/09/2026)
+
+
+El presente documento expone la estructuración técnica preliminar del Sistema de Facturación Digital 3.0, desarrollada para dar cumplimiento a las nuevas disposiciones establecidas en la Ley N° 1733 y la Resolución Normativa de Directorio No 102600000034. Actualmente nos encontramos en una etapa activa de rediseño y construcción, por lo que los lineamientos técnicos, parámetros de cálculo y estructuras XML aquí descritos son de carácter estrictamente preparatorio y no constituyen una versión oficial ni definitiva.
+
+Esta documentación se libera de forma anticipada con el propósito exclusivo de facilitar el análisis, el desarrollo y posteriormente las pruebas en entornos controlados. Toda la especificación técnica expuesta se encuentra sujeta a modificaciones continuas conforme se consolide la reglamentación que será emitida por la Administración Tributaria.
+ 
+
+ 
+
+02/09/2026

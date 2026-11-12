@@ -27,6 +27,7 @@ unless explicitly marked public.
 | `alerts` | Low-stock and operational alert retrieval | `/alerts` | `alerts` |
 | `billing` | Billing document domain endpoints | `/billing` | shared with sales/configuration |
 | `doctors` | Doctor directory and prescription providers | `/doctors` | `doctors` |
+| `siat` | SIN electronic invoicing (SIAT V3): pinned spec, generated types, XSD validation. No routes yet (SIAT-01 spike) | none yet | none yet |
 
 ### Auth
 
