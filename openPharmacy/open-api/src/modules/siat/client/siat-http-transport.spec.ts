@@ -1,4 +1,5 @@
 import * as http from 'node:http';
+import * as net from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { SiatUnavailableError } from './siat-errors';
 import { SiatHttpTransport } from './siat-http-transport';
@@ -65,6 +66,36 @@ describe('SiatHttpTransport', () => {
       expect((error as SiatUnavailableError).message).toMatch(/total timeout/);
     } finally {
       await server.close();
+    }
+  });
+
+  it('reports a connect timeout as outcome "not-sent" (TLS handshake never completes)', async () => {
+    // Local TCP server that accepts the connection and never answers the TLS handshake.
+    const sockets: net.Socket[] = [];
+    const server = net.createServer((socket) => sockets.push(socket));
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const error = await transport
+        .post({
+          ...base,
+          url: `https://127.0.0.1:${port}/svc`,
+          connectTimeoutMs: 150,
+          totalTimeoutMs: 5000,
+        })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(SiatUnavailableError);
+      expect((error as SiatUnavailableError).outcome).toBe('not-sent');
+      expect((error as SiatUnavailableError).message).toMatch(
+        /connect timeout after 150 ms/,
+      );
+    } finally {
+      sockets.forEach((socket) => socket.destroy());
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 

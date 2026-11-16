@@ -22,6 +22,12 @@ export interface SiatOperation {
   readonly service: SiatServiceName;
   readonly name: string;
   readonly kind: SiatOperationKind;
+  /**
+   * True when the request wrapper (`Solicitud*`) has a `codigoAmbiente` field. The client fills it
+   * from `SIAT_ENV`, so callers never set it. Only `verificarComunicacion` has no request fields.
+   * A test checks this flag against the pinned WSDLs.
+   */
+  readonly hasCodigoAmbiente: boolean;
 }
 
 const op = (
@@ -32,6 +38,7 @@ const op = (
   service,
   name,
   kind,
+  hasCodigoAmbiente: name !== 'verificarComunicacion',
 });
 
 export const SIAT_OPERATIONS = {

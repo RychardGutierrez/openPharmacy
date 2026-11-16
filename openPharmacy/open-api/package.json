@@ -28,7 +28,8 @@
     "prisma:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "siat:types": "tsx scripts/siat-generate-types.ts",
-    "siat:verify-spec": "tsx scripts/siat-verify-spec.ts"
+    "siat:verify-spec": "tsx scripts/siat-verify-spec.ts",
+    "siat:live-check": "tsx scripts/siat-live-check.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.7",
