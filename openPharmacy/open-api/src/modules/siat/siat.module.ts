@@ -6,6 +6,7 @@ import {
   SiatHttpTransport,
 } from './client/siat-http-transport';
 import { SIAT_REQUEST_LOG } from './client/siat-request-log';
+import { SiatHealthService } from './client/siat-health.service';
 import { PrismaSiatRequestLogSink } from './persistence/prisma-siat-request-log.sink';
 
 /** `PrismaService` comes from the global `PrismaModule`. */
@@ -15,7 +16,8 @@ import { PrismaSiatRequestLogSink } from './persistence/prisma-siat-request-log.
     { provide: SIAT_TRANSPORT, useClass: SiatHttpTransport },
     { provide: SIAT_REQUEST_LOG, useClass: PrismaSiatRequestLogSink },
     SiatSoapClient,
+    SiatHealthService,
   ],
-  exports: [SiatSoapClient],
+  exports: [SiatSoapClient, SiatHealthService],
 })
 export class SiatModule {}

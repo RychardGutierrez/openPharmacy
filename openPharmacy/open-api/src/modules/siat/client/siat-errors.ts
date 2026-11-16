@@ -41,3 +41,49 @@ export class SiatProtocolError extends SiatError {}
 
 /** Missing or invalid SIAT configuration, such as an empty token. */
 export class SiatConfigError extends SiatError {}
+
+/**
+ * HTTP answer for a SIAT error that reaches a route, used by the global exception filter.
+ * Returns undefined for anything else (and for SiatConfigError, which stays a 500: our fault).
+ *
+ * - SiatUnavailableError → 503, with `outcome` so the client knows whether to verify before resending.
+ * - SiatFaultError / SiatProtocolError → 502: SIAT answered, but not with a usable response.
+ *
+ * SIN fault texts are not sent to the browser; they are in the request log and the server log.
+ */
+export function siatErrorToHttp(
+  exception: unknown,
+): { status: number; body: Record<string, unknown> } | undefined {
+  if (exception instanceof SiatUnavailableError) {
+    return {
+      status: 503,
+      body: {
+        statusCode: 503,
+        error: 'SiatUnavailable',
+        message: 'SIAT is unavailable. Try again later.',
+        outcome: exception.outcome,
+      },
+    };
+  }
+  if (exception instanceof SiatFaultError) {
+    return {
+      status: 502,
+      body: {
+        statusCode: 502,
+        error: 'SiatFault',
+        message: 'SIAT rejected the request.',
+      },
+    };
+  }
+  if (exception instanceof SiatProtocolError) {
+    return {
+      status: 502,
+      body: {
+        statusCode: 502,
+        error: 'SiatProtocolError',
+        message: 'SIAT returned a response that could not be read.',
+      },
+    };
+  }
+  return undefined;
+}

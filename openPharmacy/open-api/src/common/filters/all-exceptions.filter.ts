@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { siatErrorToHttp } from '../../modules/siat/client/siat-errors';
 
 /**
  * Global exception filter registered as `APP_FILTER`.
@@ -28,7 +29,9 @@ import { Request, Response } from 'express';
  *
  * - **4xx** — logged as a single-line `warn` with the request path and body.
  * - **5xx** — logged as an `error` with the full stack trace.
- * - **Non-HttpException** (unexpected crashes) — converted to 500.
+ * - **SIAT errors** — mapped by `siatErrorToHttp`: unavailable → 503 (with `outcome`),
+ *   fault or unreadable response → 502.
+ * - **Other non-HttpException** (unexpected crashes) — converted to 500.
  *
  * The `message` field is whatever the thrown exception provides (safe,
  * user-facing text).  Internal error details never leak to the client.
@@ -43,13 +46,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     const isHttp = exception instanceof HttpException;
+    const siat = isHttp ? undefined : siatErrorToHttp(exception);
     const status = isHttp
       ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+      : (siat?.status ?? HttpStatus.INTERNAL_SERVER_ERROR);
 
     const payload = isHttp
       ? exception.getResponse()
-      : { message: 'Internal server error' };
+      : (siat?.body ?? { message: 'Internal server error' });
 
     const body =
       typeof payload === 'string'

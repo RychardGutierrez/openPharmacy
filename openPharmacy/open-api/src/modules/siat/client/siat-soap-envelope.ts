@@ -54,6 +54,55 @@ export function buildEnvelope(
 }
 
 /**
+ * Returns a copy of `payload` whose request wrapper has `codigoAmbiente = value`.
+ *
+ * The payload must hold exactly one wrapper object (for example `{ SolicitudCuis: {...} }`).
+ * A `codigoAmbiente` from the caller is replaced, so the environment always comes from config.
+ *
+ * Position: SIAT request types list their fields in alphabetical order, and `codigoAmbiente` is
+ * always in the base type, whose fields come first. So it goes before the first key that sorts
+ * after it (first in most types, after `certificado` in notificaCertificadoRevocado).
+ * `siat-operations.spec.ts` checks this rule against every request type in the pinned WSDLs.
+ */
+export function withCodigoAmbiente(
+  operation: SiatOperation,
+  payload: Record<string, SiatValue | undefined>,
+  value: number,
+): Record<string, SiatValue | undefined> {
+  const wrappers = Object.entries(payload).filter(
+    ([, v]) => v !== null && typeof v === 'object' && !Array.isArray(v),
+  );
+  if (wrappers.length !== 1 || Object.keys(payload).length !== 1) {
+    // A bug in the calling code, not a SIAT failure.
+    throw new Error(
+      `${operation.name} expects one request wrapper object (such as Solicitud*), got keys: ${Object.keys(payload).join(', ') || 'none'}`,
+    );
+  }
+
+  const [wrapperName, wrapper] = wrappers[0] as [
+    string,
+    Record<string, SiatValue | undefined>,
+  ];
+  return {
+    [wrapperName]: insertCodigoAmbiente(wrapper, value),
+  };
+}
+
+/** Inserts `codigoAmbiente` at its alphabetical position, replacing any existing value. */
+export function insertCodigoAmbiente(
+  fields: Record<string, SiatValue | undefined>,
+  value: number,
+): Record<string, SiatValue | undefined> {
+  const entries = Object.entries(fields).filter(
+    ([key]) => key !== 'codigoAmbiente',
+  );
+  const index = entries.findIndex(([key]) => key > 'codigoAmbiente');
+  const at = index === -1 ? entries.length : index;
+  entries.splice(at, 0, ['codigoAmbiente', value]);
+  return Object.fromEntries(entries);
+}
+
+/**
  * Reads a SIAT SOAP response. Returns the typed result, or throws SiatFaultError for a SOAP fault
  * and SiatProtocolError for anything that does not match the expected shape.
  */

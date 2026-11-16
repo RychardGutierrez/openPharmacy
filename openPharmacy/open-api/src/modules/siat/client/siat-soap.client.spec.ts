@@ -21,8 +21,15 @@ const VERIFICAR_NIT = SIAT_OPERATIONS.FacturacionCodigos.verificarNit;
 const RECEPCION =
   SIAT_OPERATIONS.ServicioFacturacionCompraVenta.recepcionFactura;
 
+const NIT_REQUEST = { SolicitudVerificarNit: { nit: 1 } };
+const RECEPCION_REQUEST = { SolicitudServicioRecepcionFactura: { nit: 1 } };
+
 const OK_BODY = `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>
 <ns2:verificarNitResponse><RespuestaVerificarNit><transaccion>true</transaccion></RespuestaVerificarNit></ns2:verificarNitResponse>
+</soap:Body></soap:Envelope>`;
+
+const COMUNICACION_OK = `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>
+<ns2:verificarComunicacionResponse><RespuestaComunicacion><transaccion>true</transaccion></RespuestaComunicacion></ns2:verificarComunicacionResponse>
 </soap:Body></soap:Envelope>`;
 
 const FAULT_BODY = `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>
@@ -75,11 +82,9 @@ describe('SiatSoapClient', () => {
   it('returns the typed result and logs one successful call', async () => {
     const { client, log } = build([ok()]);
 
-    const result = await client.invoke(
-      VERIFICAR_NIT,
-      { nit: 1 },
-      { metadata: { saleId: 's-1' } },
-    );
+    const result = await client.invoke(VERIFICAR_NIT, NIT_REQUEST, {
+      metadata: { saleId: 's-1' },
+    });
 
     expect(result.transaccion).toBe(true);
     expect(log.entries).toHaveLength(1);
@@ -94,15 +99,79 @@ describe('SiatSoapClient', () => {
   it('links every log row to the point of sale given by the caller', async () => {
     const { client, log } = build([unavailable('not-sent'), ok()]);
 
-    await client.invoke(VERIFICAR_NIT, { nit: 1 }, { pointOfSaleId: 'pos-1' });
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST, { pointOfSaleId: 'pos-1' });
 
     expect(log.entries.map((e) => e.pointOfSaleId)).toEqual(['pos-1', 'pos-1']);
+  });
+
+  describe('codigoAmbiente', () => {
+    it.each([
+      ['pilot', 2],
+      ['production', 1],
+    ] as const)(
+      'takes it from SIAT_ENV=%s (%i), first in the request wrapper',
+      async (environment, expected) => {
+        const { client, transport } = build([ok()], { environment });
+
+        await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
+
+        expect(transport.requests[0].body).toContain(
+          `<SolicitudVerificarNit><codigoAmbiente>${expected}</codigoAmbiente><nit>1</nit></SolicitudVerificarNit>`,
+        );
+      },
+    );
+
+    it('replaces a codigoAmbiente sent by the caller', async () => {
+      const { client, transport } = build([ok()], { environment: 'pilot' });
+
+      await client.invoke(VERIFICAR_NIT, {
+        SolicitudVerificarNit: { codigoAmbiente: 1, nit: 1 },
+      });
+
+      expect(transport.requests[0].body).toContain(
+        '<codigoAmbiente>2</codigoAmbiente>',
+      );
+      expect(transport.requests[0].body).not.toContain(
+        '<codigoAmbiente>1</codigoAmbiente>',
+      );
+    });
+
+    it('sends no codigoAmbiente to verificarComunicacion, which has no fields', async () => {
+      const { client, transport } = build([
+        { status: 200, body: COMUNICACION_OK },
+      ]);
+
+      await client.invoke(
+        SIAT_OPERATIONS.FacturacionCodigos.verificarComunicacion,
+        {},
+      );
+
+      expect(transport.requests[0].body).not.toContain('codigoAmbiente');
+    });
+
+    it('rejects a payload without exactly one request wrapper, before sending', async () => {
+      const { client, transport } = build([ok()]);
+
+      await expect(client.invoke(VERIFICAR_NIT, { nit: 1 })).rejects.toThrow(
+        /one request wrapper/,
+      );
+      expect(transport.requests).toHaveLength(0);
+    });
+  });
+
+  it('lets one call turn read retries off (readRetries: 0)', async () => {
+    const { client, transport } = build([unavailable('not-sent'), ok()]);
+
+    await expect(
+      client.invoke(VERIFICAR_NIT, NIT_REQUEST, { readRetries: 0 }),
+    ).rejects.toBeInstanceOf(SiatUnavailableError);
+    expect(transport.requests).toHaveLength(1);
   });
 
   it('sends the token as apikey and posts to the service endpoint', async () => {
     const { client, transport } = build([ok()]);
 
-    await client.invoke(VERIFICAR_NIT, { nit: 1 });
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
 
     expect(transport.requests[0].url).toBe(
       'https://pilot.example.test/v2/FacturacionCodigos',
@@ -117,7 +186,7 @@ describe('SiatSoapClient', () => {
       ok(),
     ]);
 
-    const result = await client.invoke(VERIFICAR_NIT, { nit: 1 });
+    const result = await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
 
     expect(result.transaccion).toBe(true);
     expect(transport.requests).toHaveLength(3);
@@ -139,7 +208,7 @@ describe('SiatSoapClient', () => {
     );
 
     await expect(
-      client.invoke(VERIFICAR_NIT, { nit: 1 }),
+      client.invoke(VERIFICAR_NIT, NIT_REQUEST),
     ).rejects.toBeInstanceOf(SiatUnavailableError);
     expect(transport.requests).toHaveLength(3);
   });
@@ -147,9 +216,9 @@ describe('SiatSoapClient', () => {
   it('never retries a write operation, even when the outcome is "not-sent"', async () => {
     const { client, transport, log } = build([unavailable('not-sent'), ok()]);
 
-    await expect(client.invoke(RECEPCION, { x: 1 })).rejects.toBeInstanceOf(
-      SiatUnavailableError,
-    );
+    await expect(
+      client.invoke(RECEPCION, RECEPCION_REQUEST),
+    ).rejects.toBeInstanceOf(SiatUnavailableError);
     expect(transport.requests).toHaveLength(1);
     expect(log.entries).toHaveLength(1);
   });
@@ -158,7 +227,7 @@ describe('SiatSoapClient', () => {
     const { client, transport } = build([unavailable('unknown'), ok()]);
 
     const error = await client
-      .invoke(RECEPCION, { x: 1 })
+      .invoke(RECEPCION, RECEPCION_REQUEST)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(SiatUnavailableError);
@@ -170,7 +239,7 @@ describe('SiatSoapClient', () => {
     const { client } = build([new Error('socket hang up')]);
 
     const error = await client
-      .invoke(RECEPCION, { x: 1 })
+      .invoke(RECEPCION, RECEPCION_REQUEST)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(SiatUnavailableError);
@@ -184,7 +253,7 @@ describe('SiatSoapClient', () => {
     ]);
 
     await expect(
-      client.invoke(VERIFICAR_NIT, { nit: 1 }),
+      client.invoke(VERIFICAR_NIT, NIT_REQUEST),
     ).rejects.toBeInstanceOf(SiatFaultError);
     expect(transport.requests).toHaveLength(1);
   });
@@ -193,7 +262,7 @@ describe('SiatSoapClient', () => {
     const { client } = build([{ status: 503, body: 'Service Unavailable' }]);
 
     const error = await client
-      .invoke(RECEPCION, { x: 1 })
+      .invoke(RECEPCION, RECEPCION_REQUEST)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(SiatUnavailableError);
@@ -203,7 +272,7 @@ describe('SiatSoapClient', () => {
     const { client, transport } = build([ok()], { token: '' });
 
     await expect(
-      client.invoke(VERIFICAR_NIT, { nit: 1 }),
+      client.invoke(VERIFICAR_NIT, NIT_REQUEST),
     ).rejects.toBeInstanceOf(SiatConfigError);
     expect(transport.requests).toHaveLength(0);
   });
@@ -218,7 +287,7 @@ describe('SiatSoapClient', () => {
 
     await client.invoke(
       VERIFICAR_NIT,
-      { nit: 1, nota: `echo ${TOKEN}` },
+      { SolicitudVerificarNit: { nit: 1, nota: `echo ${TOKEN}` } },
       { metadata: { leak: TOKEN } },
     );
 
@@ -230,11 +299,9 @@ describe('SiatSoapClient', () => {
   it('keeps the same correlation id across retries of one call', async () => {
     const { client, log } = build([unavailable('not-sent'), ok()]);
 
-    await client.invoke(
-      VERIFICAR_NIT,
-      { nit: 1 },
-      { correlationId: 'corr-42' },
-    );
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST, {
+      correlationId: 'corr-42',
+    });
 
     expect(log.entries.map((e) => e.correlationId)).toEqual([
       'corr-42',
@@ -248,7 +315,7 @@ describe('SiatSoapClient', () => {
     };
     const { client } = build([ok()], {}, failingSink);
 
-    const result = await client.invoke(VERIFICAR_NIT, { nit: 1 });
+    const result = await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
 
     expect(result.transaccion).toBe(true);
   });
@@ -259,7 +326,7 @@ describe('SiatSoapClient', () => {
       baseUrl: 'https://prod.example.test/v2',
     });
 
-    await client.invoke(VERIFICAR_NIT, { nit: 1 });
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
 
     expect(transport.requests[0].url).toBe(
       'https://prod.example.test/v2/FacturacionCodigos',

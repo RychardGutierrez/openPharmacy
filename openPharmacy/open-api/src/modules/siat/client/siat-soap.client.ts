@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { SIAT_CONFIG, type SiatConfig } from '../config/siat.config';
+import {
+  SIAT_CONFIG,
+  type SiatConfig,
+  codigoAmbiente,
+} from '../config/siat.config';
 import {
   SiatConfigError,
   SiatFaultError,
@@ -18,6 +22,7 @@ import { type SiatOperation, endpointFor } from './siat-operations';
 import {
   buildEnvelope,
   parseResponse,
+  withCodigoAmbiente,
   type SiatResult,
   type SiatValue,
 } from './siat-soap-envelope';
@@ -29,6 +34,8 @@ export interface SiatInvokeOptions {
   pointOfSaleId?: string;
   /** Caller context (for example `{ saleId }`). Stored in the request log. */
   metadata?: Record<string, string>;
+  /** Overrides `SIAT_READ_RETRIES` for this call (read operations only). 0 = fail fast. */
+  readRetries?: number;
 }
 
 /**
@@ -62,11 +69,17 @@ export class SiatSoapClient {
 
     const secrets = [token];
     const correlationId = options.correlationId ?? randomUUID();
-    const envelope = buildEnvelope(operation, payload);
+    // The environment always comes from SIAT_ENV, never from the caller.
+    const request = operation.hasCodigoAmbiente
+      ? withCodigoAmbiente(operation, payload, codigoAmbiente(this.config))
+      : payload;
+    const envelope = buildEnvelope(operation, request);
     const requestXml = redactSecrets(envelope, secrets);
     const metadata = redactMetadata(options.metadata ?? {}, secrets);
     const maxAttempts =
-      operation.kind === 'read' ? 1 + this.config.readRetries : 1;
+      operation.kind === 'read'
+        ? 1 + (options.readRetries ?? this.config.readRetries)
+        : 1;
 
     for (let attempt = 1; ; attempt++) {
       const startedAt = new Date();
@@ -88,7 +101,8 @@ export class SiatSoapClient {
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
             SOAPAction: '""',
-            // Token delegado. Verify the header format against the V3 annex before the first live call.
+            // Token delegado, as in the annex "Solicitud Token" page:
+            // headers.put("apikey", Arrays.asList("TokenApi " + pToken));
             apikey: `TokenApi ${token}`,
           },
           body: envelope,

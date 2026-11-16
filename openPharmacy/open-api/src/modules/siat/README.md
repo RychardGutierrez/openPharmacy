@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 engine done, follow-ups open.** The module has no HTTP endpoints yet. The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`).
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending).** The module has no HTTP endpoints yet. The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`).
 
 ## Layout
 
@@ -13,7 +13,8 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 | `codegen/` | `xsd-to-ts` generator. Supports only the XSD constructs used by the V3 schemas, and throws on anything else. |
 | `xml/` | `SiatXsdValidator`, which validates a document against an XSD before it is sent. |
 | `config/` | `readSiatConfig` for the `SIAT_*` variables, the `SIAT_CONFIG` token, and `codigoAmbiente` (1 production, 2 pilot). |
-| `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, and the request-log port. See [SIAT client](#siat-client). |
+| `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, the request-log port, and `SiatHealthService`. See [SIAT client](#siat-client). |
+| `client/__fixtures__/recorded/` | Real pilot responses saved by `npm run siat:live-check -- --record`. Token-free. |
 | `persistence/` | `PrismaSiatRequestLogSink`, which writes request log rows to `siat.siat_request_log`. |
 | `siat.module.ts` | Nest module that wires the client. Not yet imported by the application module. |
 
@@ -23,7 +24,11 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 npm run siat:verify-spec   # hashes of spec/v3 files must match SOURCES.md
 npm run siat:types         # regenerate types/generated from spec/v3/xsd
 npm test -- siat           # validator and generator tests
+npm run siat:live-check    # manual: verificarComunicacion on the pilot (needs SIAT_TOKEN in .env)
+npm run siat:live-check -- --record   # same, and saves the responses as test fixtures
 ```
+
+`siat:live-check` only runs with `SIAT_ENV=pilot`, never prints the token, and is not part of `npm test`.
 
 The generator test fails when the committed types are stale, so run `npm run siat:types` after changing the XSD.
 
@@ -95,8 +100,12 @@ The WSDLs import their schemas from the live URL (`?wsdl=<Name>.wsdl`). The copi
 - **Retries and timeouts.** Connect timeout (`SIAT_CONNECT_TIMEOUT_MS`, default 5 s) and total timeout (`SIAT_TOTAL_TIMEOUT_MS`, default 20 s). Reads retry with exponential backoff (`SIAT_READ_RETRIES`, `SIAT_RETRY_BASE_MS`).
 - **Outcome of a failure.** `SiatUnavailableError.outcome` is `not-sent` when the request never reached SIAT (refused connection, connect timeout). It is `unknown` when the request was written and then timed out. A timeout does not mean the invoice was rejected, so the caller verifies the status before resending (SIAT-14).
 - **Request log.** Every attempt writes a row to `siat.siat_request_log` with the token redacted, a correlation id, the duration, the outcome, the optional point of sale (`options.pointOfSaleId`), and the caller's metadata. A failed log write is logged and does not change the call's result.
-- **Authentication header.** Sent as `apikey: TokenApi <token>`, the format used by the open-source PHP client. Confirm it against the V3 annex before the first live call.
-- **Not covered yet.** The `verificarComunicacion` health check method (SIAT-20). The connect-timeout path has no test of its own; only the total timeout and a refused connection are tested. The production host is not confirmed.
+- **Payload shape.** Pass one request wrapper, as in the WSDL: `{ SolicitudCuis: { codigoModalidad, ... } }`, with fields in XSD sequence order. `verificarComunicacion` takes `{}`.
+- **codigoAmbiente comes from `SIAT_ENV`.** The client inserts it into the wrapper (1 production, 2 pilot) for every operation that has it, and replaces any value sent by the caller. Switching `SIAT_ENV` changes the endpoints and `codigoAmbiente` with no code change. The insertion position is checked against every request type in the WSDLs. `codigoSistema` and `nit` will come from the SIAT settings of SIAT-04 (stored in the database, editable by ADMIN), not from `.env`.
+- **Authentication header.** `apikey: TokenApi <token>`, as stated in the annex page "Solicitud Token" (`headers.put("apikey", Arrays.asList("TokenApi " + pToken));`). The token is generated per NIT in the SIAT portal (a separate pilot token exists) with a chosen duration. Renewing it deactivates the old one, so the new token must be loaded the same day.
+- **Errors over HTTP.** The global exception filter maps `SiatUnavailableError` to **503** (with `outcome`), and `SiatFaultError` / `SiatProtocolError` to **502**, so a SIAT outage is never a generic 500. SIN fault texts are not sent to the browser.
+- **Health check.** `SiatHealthService.checkConnection(service?)` calls `verificarComunicacion` with no retries and never throws. It returns `ok`, `rejected`, `unavailable`, `not-configured` or `error`. For the banner (SIAT-20) and "Test connection" (SIAT-04).
+- **Not covered yet.** The production host is not known (needed only at go-live). Fixtures are written by hand from the WSDL until `siat:live-check -- --record` is run with the pilot token.
 
 ## Data model
 
