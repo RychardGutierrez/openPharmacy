@@ -1,2 +1,5 @@
 # Pinned SIAT spec files must keep their exact bytes (SHA-256 in spec/v3/SOURCES.md).
 src/modules/siat/spec/** -text
+
+# Generated SIAT types are compared byte-for-byte with the generator output (LF) in xsd-to-ts.spec.ts.
+src/modules/siat/types/generated/** text eol=lf
