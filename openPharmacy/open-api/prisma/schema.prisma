@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["auth", "pharmacy"]
+  schemas  = ["auth", "pharmacy", "siat"]
 }
 
 // ─── Enums — Auth ────────────────────────────────────────────────────────────
@@ -715,4 +715,158 @@ model ReportJob {
   @@index([expires_at])
   @@map("report_jobs")
   @@schema("pharmacy")
+}
+
+// ─── SIAT (electronic invoicing, SIN Bolivia) ───────────────────────────────
+// Own schema: tax evidence has its own retention and access rules. See modules/siat/README.md.
+
+enum SiatCufdSource {
+  /// Daily renewal by the scheduler.
+  SCHEDULED
+  /// Requested by a user or service when no valid CUFD was found.
+  ON_DEMAND
+  /// Requested to close a significant event (contingency).
+  EVENT
+
+  @@schema("siat")
+}
+
+/// Branch registered with the SIN. `codigo_sucursal` 0 is the casa matriz.
+model SiatBranch {
+  id              String   @id @default(uuid()) @db.Uuid
+  codigo_sucursal Int      @unique @map("codigo_sucursal")
+  name            String
+  address         String
+  municipality    String
+  phone           String?
+  active          Boolean  @default(true)
+  created_at      DateTime @default(now()) @map("created_at")
+  updated_at      DateTime @updatedAt @map("updated_at")
+
+  points_of_sale SiatPointOfSale[]
+
+  @@map("siat_branches")
+  @@schema("siat")
+}
+
+/// Point of sale inside a branch. `codigo_punto_venta` is unique per branch, not globally.
+model SiatPointOfSale {
+  id                 String   @id @default(uuid()) @db.Uuid
+  branch_id          String   @map("branch_id") @db.Uuid
+  codigo_punto_venta Int      @map("codigo_punto_venta")
+  /// `codigoTipoPuntoVenta` from the SIN catalog (sincronizarParametricaTipoPuntoVenta).
+  /// Null for PoS 0, which belongs to the branch and is not created with registroPuntoVenta.
+  tipo_punto_venta   Int?     @map("tipo_punto_venta")
+  name               String
+  active             Boolean  @default(true)
+  created_at         DateTime @default(now()) @map("created_at")
+  updated_at         DateTime @updatedAt @map("updated_at")
+
+  branch       SiatBranch       @relation(fields: [branch_id], references: [id])
+  cuis         SiatCuis[]
+  cufds        SiatCufd[]
+  request_logs SiatRequestLog[]
+
+  @@unique([branch_id, codigo_punto_venta])
+  @@map("siat_points_of_sale")
+  @@schema("siat")
+}
+
+/// CUIS history. At most one active row per point of sale, enforced by the partial unique
+/// index `siat_cuis_one_active_per_pos` (raw SQL in the SIAT-02 migration).
+model SiatCuis {
+  id               String   @id @default(uuid()) @db.Uuid
+  point_of_sale_id String   @map("point_of_sale_id") @db.Uuid
+  code             String
+  valid_until      DateTime @map("valid_until")
+  requested_at     DateTime @default(now()) @map("requested_at")
+  active           Boolean  @default(true)
+  created_at       DateTime @default(now()) @map("created_at")
+
+  point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+
+  @@index([point_of_sale_id, requested_at])
+  @@map("siat_cuis")
+  @@schema("siat")
+}
+
+/// Full CUFD history. Never delete rows: offline invoices and packages refer to old CUFDs.
+model SiatCufd {
+  id               String         @id @default(uuid()) @db.Uuid
+  point_of_sale_id String         @map("point_of_sale_id") @db.Uuid
+  codigo           String
+  codigo_control   String         @map("codigo_control")
+  direccion        String
+  valid_from       DateTime       @map("valid_from")
+  valid_until      DateTime       @map("valid_until")
+  source           SiatCufdSource
+  created_at       DateTime       @default(now()) @map("created_at")
+
+  point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+
+  @@index([point_of_sale_id, valid_until])
+  @@index([codigo])
+  @@map("siat_cufd")
+  @@schema("siat")
+}
+
+/// Synchronized SIN catalogs (activities, units, payment methods, ...). `catalog` is the
+/// synchronization operation name, so a new catalog needs no migration.
+model SiatCatalogItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  catalog     String
+  code        String
+  description String
+  extra       Json?
+  synced_at   DateTime @map("synced_at")
+
+  @@unique([catalog, code])
+  @@map("siat_catalog_items")
+  @@schema("siat")
+}
+
+/// One row per SIAT call attempt. Bodies are stored redacted (no token). Kept as tax evidence.
+model SiatRequestLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  correlation_id      String   @map("correlation_id") @db.Uuid
+  attempt             Int
+  environment         String
+  service             String
+  operation           String
+  kind                String
+  point_of_sale_id    String?  @map("point_of_sale_id") @db.Uuid
+  started_at          DateTime @map("started_at")
+  duration_ms         Int      @map("duration_ms")
+  /// success | fault | unavailable | protocol-error
+  outcome             String
+  /// For `unavailable`: not-sent (safe to resend) or unknown (verify first).
+  unavailable_outcome String?  @map("unavailable_outcome")
+  http_status         Int?     @map("http_status")
+  request_xml         String   @map("request_xml")
+  response_xml        String?  @map("response_xml")
+  metadata            Json?
+  created_at          DateTime @default(now()) @map("created_at")
+
+  point_of_sale SiatPointOfSale? @relation(fields: [point_of_sale_id], references: [id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@index([correlation_id])
+  @@index([service, operation, created_at])
+  @@index([point_of_sale_id, created_at])
+  @@map("siat_request_log")
+  @@schema("siat")
+}
+
+/// Clock samples from sincronizarFechaHora. The latest row is the current offset.
+/// offset_ms = siat_time - server_time.
+model SiatTimeOffset {
+  id          String   @id @default(uuid()) @db.Uuid
+  siat_time   DateTime @map("siat_time")
+  server_time DateTime @map("server_time")
+  offset_ms   Int      @map("offset_ms")
+  created_at  DateTime @default(now()) @map("created_at")
+
+  @@index([created_at])
+  @@map("siat_time_offset")
+  @@schema("siat")
 }

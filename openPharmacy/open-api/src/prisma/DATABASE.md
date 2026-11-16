@@ -115,6 +115,21 @@ The database uses two PostgreSQL schemas for domain isolation:
 | `Prescription`       | `prescriptions`        |                                                |
 | `Config`             | `config`               |                                                |
 
+### `siat` schema
+SIN electronic invoicing (SIAT-02). Kept apart from `pharmacy` because tax evidence has its own retention and access rules. Details in [modules/siat/README.md](../modules/siat/README.md#data-model).
+
+| Model             | Table                 | Enums            |
+| ----------------- | --------------------- | ---------------- |
+| `SiatBranch`      | `siat_branches`       |                  |
+| `SiatPointOfSale` | `siat_points_of_sale` |                  |
+| `SiatCuis`        | `siat_cuis`           |                  |
+| `SiatCufd`        | `siat_cufd`           | `SiatCufdSource` |
+| `SiatCatalogItem` | `siat_catalog_items`  |                  |
+| `SiatRequestLog`  | `siat_request_log`    |                  |
+| `SiatTimeOffset`  | `siat_time_offset`    |                  |
+
+The partial unique index `siat_cuis_one_active_per_pos` (one active CUIS per point of sale) is written by hand in the migration, because Prisma 7 cannot declare partial indexes. Prisma ignores partial indexes when it checks for drift, so it is not dropped by later migrations.
+
 ### Cross-schema foreign keys
 PostgreSQL supports FKs across schemas. Examples:
 - `pharmacy.sales.user_id` → `auth.users.id`

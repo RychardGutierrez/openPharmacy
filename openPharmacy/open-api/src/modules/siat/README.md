@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-03 in progress (client engine).** The module has no HTTP endpoints yet. The SOAP client is built but not yet used by a domain module. Persistence of the request log comes with SIAT-02 (see `docs/documentation/SIAT_Tickets.md`).
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 engine done, follow-ups open.** The module has no HTTP endpoints yet. The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`).
 
 ## Layout
 
@@ -14,6 +14,7 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 | `xml/` | `SiatXsdValidator`, which validates a document against an XSD before it is sent. |
 | `config/` | `readSiatConfig` for the `SIAT_*` variables, the `SIAT_CONFIG` token, and `codigoAmbiente` (1 production, 2 pilot). |
 | `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, and the request-log port. See [SIAT client](#siat-client). |
+| `persistence/` | `PrismaSiatRequestLogSink`, which writes request log rows to `siat.siat_request_log`. |
 | `siat.module.ts` | Nest module that wires the client. Not yet imported by the application module. |
 
 ## Commands
@@ -93,9 +94,25 @@ The WSDLs import their schemas from the live URL (`?wsdl=<Name>.wsdl`). The copi
 - **Operations.** `client/siat-operations.ts` declares all 49 operations of the pinned WSDLs. The 30 `read` operations can be retried. The 19 `write` operations are never retried. Operations that issue codes (CUIS, CUFD, notifications) are `write`, because a retry could create a second code. A test checks the list against the WSDLs.
 - **Retries and timeouts.** Connect timeout (`SIAT_CONNECT_TIMEOUT_MS`, default 5 s) and total timeout (`SIAT_TOTAL_TIMEOUT_MS`, default 20 s). Reads retry with exponential backoff (`SIAT_READ_RETRIES`, `SIAT_RETRY_BASE_MS`).
 - **Outcome of a failure.** `SiatUnavailableError.outcome` is `not-sent` when the request never reached SIAT (refused connection, connect timeout). It is `unknown` when the request was written and then timed out. A timeout does not mean the invoice was rejected, so the caller verifies the status before resending (SIAT-14).
-- **Request log.** Every attempt writes a row with the token redacted, a correlation id, the duration, the outcome, and the caller's metadata. The interim sink writes these rows to the application log. SIAT-02 replaces it with `siat_request_log`. A failed log write does not change the call's result.
+- **Request log.** Every attempt writes a row to `siat.siat_request_log` with the token redacted, a correlation id, the duration, the outcome, the optional point of sale (`options.pointOfSaleId`), and the caller's metadata. A failed log write is logged and does not change the call's result.
 - **Authentication header.** Sent as `apikey: TokenApi <token>`, the format used by the open-source PHP client. Confirm it against the V3 annex before the first live call.
 - **Not covered yet.** The `verificarComunicacion` health check method (SIAT-20). The connect-timeout path has no test of its own; only the total timeout and a refused connection are tested. The production host is not confirmed.
+
+## Data model
+
+Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
+
+| Table | Purpose | Rules |
+|---|---|---|
+| `siat_branches` | Branches registered with the SIN | `codigo_sucursal` unique. `0` is the casa matriz. Standalone for now; `sedes` has no table yet and can link to it later |
+| `siat_points_of_sale` | Points of sale per branch | Unique (`branch_id`, `codigo_punto_venta`). `tipo_punto_venta` is null for PoS `0`, which is not created with `registroPuntoVenta` |
+| `siat_cuis` | CUIS history | At most one `active` row per point of sale (partial unique index `siat_cuis_one_active_per_pos`, raw SQL in the migration) |
+| `siat_cufd` | Full CUFD history | Never delete rows: offline invoices and packages refer to old CUFDs. `source` is `SCHEDULED`, `ON_DEMAND` or `EVENT` |
+| `siat_catalog_items` | Synchronized SIN catalogs | Unique (`catalog`, `code`). `catalog` is a string (the sync operation name), so a new catalog needs no migration. Codes are strings |
+| `siat_request_log` | One row per call attempt, bodies redacted | Indexed by `created_at`, `correlation_id`, (`service`, `operation`, `created_at`) and (`point_of_sale_id`, `created_at`). Partitioning is left for SIAT-27, when volume is known |
+| `siat_time_offset` | Clock samples from `sincronizarFechaHora` | The latest row is the current offset. `offset_ms = siat_time - server_time` |
+
+The seed (`npm run db:seed`) creates casa matriz `0` and point of sale `0` for development, and skips them when `NODE_ENV=production`.
 
 ## Open items
 

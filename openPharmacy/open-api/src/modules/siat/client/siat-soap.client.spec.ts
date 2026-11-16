@@ -91,6 +91,14 @@ describe('SiatSoapClient', () => {
     });
   });
 
+  it('links every log row to the point of sale given by the caller', async () => {
+    const { client, log } = build([unavailable('not-sent'), ok()]);
+
+    await client.invoke(VERIFICAR_NIT, { nit: 1 }, { pointOfSaleId: 'pos-1' });
+
+    expect(log.entries.map((e) => e.pointOfSaleId)).toEqual(['pos-1', 'pos-1']);
+  });
+
   it('sends the token as apikey and posts to the service endpoint', async () => {
     const { client, transport } = build([ok()]);
 

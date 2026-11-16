@@ -25,6 +25,8 @@ import {
 export interface SiatInvokeOptions {
   /** Ties the log rows of one business action together. Generated when absent. */
   correlationId?: string;
+  /** `siat_points_of_sale.id` the call is made for. Links the request log rows to it. */
+  pointOfSaleId?: string;
   /** Caller context (for example `{ saleId }`). Stored in the request log. */
   metadata?: Record<string, string>;
 }
@@ -75,6 +77,7 @@ export class SiatSoapClient {
         startedAt,
         requestXml,
         metadata,
+        pointOfSaleId: options.pointOfSaleId,
         operation,
         environment: this.config.environment,
       };
@@ -153,6 +156,7 @@ export class SiatSoapClient {
     requestXml: string;
     responseXml?: string;
     metadata: Record<string, string>;
+    pointOfSaleId?: string;
     operation: SiatOperation;
     environment: SiatConfig['environment'];
   }): Promise<void> {
@@ -171,6 +175,7 @@ export class SiatSoapClient {
         httpStatus: entry.httpStatus,
         requestXml: entry.requestXml,
         responseXml: entry.responseXml,
+        pointOfSaleId: entry.pointOfSaleId,
         metadata: entry.metadata,
       });
     } catch (error) {

@@ -348,6 +348,41 @@ async function main() {
   }
   console.log('✓ Config entries created');
 
+  // ─── SIAT (development only) ─────────────────────────────────────────────
+  // Casa matriz 0 and point of sale 0. Real branch codes come from the SIN
+  // registration (SIAT-00) and are never seeded.
+  if (process.env.NODE_ENV === 'production') {
+    console.log('↷ SIAT seed skipped (NODE_ENV=production)');
+  } else {
+    const casaMatriz = await prisma.siatBranch.upsert({
+      where: { codigo_sucursal: 0 },
+      update: {},
+      create: {
+        codigo_sucursal: 0,
+        name: 'Casa Matriz (dev)',
+        address: 'Av. Principal #123',
+        municipality: 'La Paz',
+        phone: '+591 2 1234567',
+      },
+    });
+    await prisma.siatPointOfSale.upsert({
+      where: {
+        branch_id_codigo_punto_venta: {
+          branch_id: casaMatriz.id,
+          codigo_punto_venta: 0,
+        },
+      },
+      update: {},
+      create: {
+        branch_id: casaMatriz.id,
+        codigo_punto_venta: 0,
+        tipo_punto_venta: null,
+        name: 'Punto de venta 0 (dev)',
+      },
+    });
+    console.log('✓ SIAT casa matriz 0 / point of sale 0 created');
+  }
+
   console.log('\nSeeding complete!');
   console.log('─────────────────────────────────────────────');
   console.log('Users:');

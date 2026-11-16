@@ -23,11 +23,13 @@ export interface SiatRequestLogEntry {
   httpStatus?: number;
   requestXml: string;
   responseXml?: string;
+  /** `siat_points_of_sale.id` the call was made for, when there is one. */
+  pointOfSaleId?: string;
   /** Caller context, such as the sale or invoice id. */
   metadata?: Record<string, string>;
 }
 
-/** Persists request log rows. SIAT-02 provides the Prisma implementation for `siat_request_log`. */
+/** Persists request log rows. `PrismaSiatRequestLogSink` writes them to `siat.siat_request_log`. */
 export interface SiatRequestLogSink {
   write(entry: SiatRequestLogEntry): Promise<void>;
 }
