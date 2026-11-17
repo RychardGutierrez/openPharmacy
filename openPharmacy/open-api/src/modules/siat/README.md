@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending).** The module has no HTTP endpoints yet. The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`).
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets).** The only endpoints are the SIAT settings (see [Settings](#settings-siat-04)). The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`). `SiatModule` is imported in `AppModule`; with no token configured it starts normally and SIAT calls report `not-configured`.
 
 ## Layout
 
@@ -101,11 +101,40 @@ The WSDLs import their schemas from the live URL (`?wsdl=<Name>.wsdl`). The copi
 - **Outcome of a failure.** `SiatUnavailableError.outcome` is `not-sent` when the request never reached SIAT (refused connection, connect timeout). It is `unknown` when the request was written and then timed out. A timeout does not mean the invoice was rejected, so the caller verifies the status before resending (SIAT-14).
 - **Request log.** Every attempt writes a row to `siat.siat_request_log` with the token redacted, a correlation id, the duration, the outcome, the optional point of sale (`options.pointOfSaleId`), and the caller's metadata. A failed log write is logged and does not change the call's result.
 - **Payload shape.** Pass one request wrapper, as in the WSDL: `{ SolicitudCuis: { codigoModalidad, ... } }`, with fields in XSD sequence order. `verificarComunicacion` takes `{}`.
-- **codigoAmbiente comes from `SIAT_ENV`.** The client inserts it into the wrapper (1 production, 2 pilot) for every operation that has it, and replaces any value sent by the caller. Switching `SIAT_ENV` changes the endpoints and `codigoAmbiente` with no code change. The insertion position is checked against every request type in the WSDLs. `codigoSistema` and `nit` will come from the SIAT settings of SIAT-04 (stored in the database, editable by ADMIN), not from `.env`.
+- **codigoAmbiente comes from `SIAT_ENV`.** The client inserts it into the wrapper (1 production, 2 pilot) for every operation that has it, and replaces any value sent by the caller. Switching `SIAT_ENV` changes the endpoints and `codigoAmbiente` with no code change. The insertion position is checked against every request type in the WSDLs. `codigoSistema` and `nit` come from the SIAT settings (`SIAT_CREDENTIALS`, see below); each domain ticket puts them in its own request payload.
+- **Credentials per call.** The client asks `SIAT_CREDENTIALS` (`ConfigSiatCredentialsSource`) for `{ token, nit, codigoSistema }` on every call, so a token saved in Settings applies to the next call with no restart and no cache. Scripts and tests use `staticSiatCredentials(...)`.
 - **Authentication header.** `apikey: TokenApi <token>`, as stated in the annex page "Solicitud Token" (`headers.put("apikey", Arrays.asList("TokenApi " + pToken));`). The token is generated per NIT in the SIAT portal (a separate pilot token exists) with a chosen duration. Renewing it deactivates the old one, so the new token must be loaded the same day.
 - **Errors over HTTP.** The global exception filter maps `SiatUnavailableError` to **503** (with `outcome`), and `SiatFaultError` / `SiatProtocolError` to **502**, so a SIAT outage is never a generic 500. SIN fault texts are not sent to the browser.
 - **Health check.** `SiatHealthService.checkConnection(service?)` calls `verificarComunicacion` with no retries and never throws. It returns `ok`, `rejected`, `unavailable`, `not-configured` or `error`. For the banner (SIAT-20) and "Test connection" (SIAT-04).
 - **Not covered yet.** The production host is not known (needed only at go-live). Fixtures are written by hand from the WSDL until `siat:live-check -- --record` is run with the pilot token.
+
+## Settings (SIAT-04)
+
+ADMIN edits the SIAT settings in **Configuración > Facturación SIAT** (`/settings`). Values live in `pharmacy.config` as keys of the `siat` group (`modules/config/config.keys.ts`).
+
+| Key | Notes |
+|---|---|
+| NIT | **No SIAT key: SIAT uses `PHARMACY_NIT`** (same value). Edited in the General tab, digits only, and cannot be cleared while `SIAT_ENABLED` is true |
+| `SIAT_SYSTEM_CODE` | Código de sistema from the SIN |
+| `SIAT_TOKEN` | Token delegado. **Encrypted** with `EncryptionService` (`CONFIG_ENCRYPTION_KEY`), write-only, never returned |
+| `SIAT_TOKEN_EXPIRES_AT` | `YYYY-MM-DD`, required with every new token. Valid through that date, counted in La Paz time |
+| `SIAT_MODALITY` | Only `2` (Computarizada en Línea, decision D1). Defaults to 2 |
+| `SIAT_RAZON_SOCIAL`, `SIAT_MUNICIPIO`, `SIAT_TELEFONO`, `SIAT_DEFAULT_ACTIVITY` | Razón social exactly as in the Padrón, not `PHARMACY_NAME` |
+| `SIAT_ENABLED` | Master switch. Can be true only when NIT, system code, razón social, municipio, activity and a non-expired token are set (`SIAT_NOT_READY` with `missing`) |
+| `SIAT_EMAIL_INVOICES` | Send invoices by email |
+
+`SIAT_ENV` stays an environment variable, so production can never be switched to the pilot from the UI.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/siat/settings` | Values, token status (`configured`, `source`, `expiresAt`, `expired`, `daysUntilExpiry`), environment (`PILOTO`/`PRODUCCION`) and readiness. Never the token |
+| `PATCH` | `/api/siat/settings` | Partial update. An empty `token` keeps the stored one. Audited as `SIAT_CONFIG_UPDATED`, secrets as `[REDACTED]` |
+| `POST` | `/api/siat/settings/test-connection` | `verificarComunicacion` (no retries) plus the CUIS **stored** for casa matriz 0 / PoS 0. It does not request a CUIS (SIAT-05) |
+
+All three are ADMIN only. The generic `/api/config` endpoints neither return nor accept `siat` keys (`CONFIG_KEY_NOT_IN_GROUP`), so the SIAT audit event cannot be bypassed.
+
+- **Token source.** The encrypted setting wins. `SIAT_TOKEN` in `.env` is only a fallback when `SIAT_ENV=pilot` (local work and `siat:live-check`); it is rejected at startup in production.
+- **Missing `CONFIG_ENCRYPTION_KEY`.** Saving a token answers 503 `CONFIG_ENCRYPTION_KEY_MISSING`. If the key changes, the stored token can no longer be read: SIAT calls fail with `SiatConfigError` and the token must be loaded again.
 
 ## Data model
 

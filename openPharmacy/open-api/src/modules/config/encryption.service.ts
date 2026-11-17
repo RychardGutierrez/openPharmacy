@@ -13,6 +13,11 @@ export class EncryptionService {
     this.rawKey = config.get<string>('app.configEncryptionKey', '');
   }
 
+  /** False when `CONFIG_ENCRYPTION_KEY` is empty: secrets can then be neither stored nor read. */
+  isConfigured(): boolean {
+    return this.rawKey.length > 0;
+  }
+
   encrypt(value: string): string {
     const key = this.getKey();
     const iv = randomBytes(12);

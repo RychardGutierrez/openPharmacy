@@ -21,6 +21,14 @@ export const configurationSchema = z.object({
 
 export type ConfigurationValues = z.infer<typeof configurationSchema>
 
+/**
+ * Form validation. Stricter than the response schema, so a legacy stored value still loads.
+ * PHARMACY_NIT is also the NIT sent to SIAT: digits only, exactly as in the Padrón.
+ */
+export const configurationFormSchema = configurationSchema.extend({
+  PHARMACY_NIT: z.string().trim().regex(/^\d{0,20}$/, "El NIT debe contener solo dígitos"),
+})
+
 export const EMPTY_CONFIGURATION: ConfigurationValues = {
   PHARMACY_NAME: "",
   PHARMACY_NIT: "",

@@ -6,6 +6,10 @@ import {
   codigoAmbiente,
 } from '../config/siat.config';
 import {
+  SIAT_CREDENTIALS,
+  type SiatCredentialsSource,
+} from '../config/siat-credentials';
+import {
   SiatConfigError,
   SiatFaultError,
   SiatProtocolError,
@@ -53,6 +57,8 @@ export class SiatSoapClient {
     @Inject(SIAT_CONFIG) private readonly config: SiatConfig,
     @Inject(SIAT_TRANSPORT) private readonly transport: SiatTransport,
     @Inject(SIAT_REQUEST_LOG) private readonly requestLog: SiatRequestLogSink,
+    @Inject(SIAT_CREDENTIALS)
+    private readonly credentials: SiatCredentialsSource,
   ) {}
 
   async invoke(
@@ -60,10 +66,11 @@ export class SiatSoapClient {
     payload: Record<string, SiatValue | undefined>,
     options: SiatInvokeOptions = {},
   ): Promise<SiatResult> {
-    const token = this.config.token;
+    // Read on every call: an admin can replace the token in Settings at any time (SIAT-04).
+    const { token } = await this.credentials.resolve();
     if (!token) {
       throw new SiatConfigError(
-        'SIAT_TOKEN is not set. Load the token delegado through SIAT-04 before calling SIAT.',
+        'The SIAT token delegado is not configured. Load it in Settings > Facturación SIAT.',
       );
     }
 

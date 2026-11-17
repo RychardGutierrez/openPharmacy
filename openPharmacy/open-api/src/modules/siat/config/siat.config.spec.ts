@@ -32,6 +32,16 @@ describe('readSiatConfig', () => {
     expect(config.baseUrl).toBe('https://prod.example.test/v2');
   });
 
+  it('refuses an environment token in production', () => {
+    expect(() =>
+      readSiatConfig({
+        SIAT_ENV: 'production',
+        SIAT_PRODUCTION_BASE_URL: 'https://prod.example.test/v2',
+        SIAT_TOKEN: 'tok',
+      }),
+    ).toThrow('SIAT_TOKEN must be empty when SIAT_ENV=production');
+  });
+
   it('rejects an unknown environment name', () => {
     expect(() => readSiatConfig({ SIAT_ENV: 'staging' })).toThrow(
       'SIAT_ENV must be "pilot" or "production"',
@@ -82,6 +92,16 @@ describe('SIAT keys in the startup validation schema', () => {
         SIAT_PRODUCTION_BASE_URL: 'https://prod.example.test/v2',
       }),
     ).toEqual([]);
+  });
+
+  it('rejects SIAT_TOKEN in production (the token lives in Settings)', () => {
+    expect(
+      siatPaths({
+        SIAT_ENV: 'production',
+        SIAT_PRODUCTION_BASE_URL: 'https://prod.example.test/v2',
+        SIAT_TOKEN: 'tok',
+      }),
+    ).toEqual(['SIAT_TOKEN']);
   });
 
   it('rejects a timeout below the minimum', () => {

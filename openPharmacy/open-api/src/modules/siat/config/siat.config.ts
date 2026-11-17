@@ -5,7 +5,11 @@ export interface SiatConfig {
   environment: SiatEnvironmentName;
   /** Base URL of the SOAP services, without the trailing service name. */
   baseUrl: string;
-  /** Token delegado (sent as `apikey: TokenApi <token>`). Empty until SIAT-00 delivers it. */
+  /**
+   * `SIAT_TOKEN` from the environment: a **pilot-only fallback** for local development and
+   * `siat:live-check`. The token used at runtime is the encrypted setting saved in Settings
+   * (SIAT-04, see `ConfigSiatCredentialsSource`). Rejected when `SIAT_ENV=production`.
+   */
   token: string;
   connectTimeoutMs: number;
   totalTimeoutMs: number;
@@ -22,6 +26,12 @@ export function readSiatConfig(
   if (environment !== 'pilot' && environment !== 'production') {
     throw new Error(
       `SIAT_ENV must be "pilot" or "production", got "${String(env.SIAT_ENV)}"`,
+    );
+  }
+
+  if (environment === 'production' && env.SIAT_TOKEN) {
+    throw new Error(
+      'SIAT_TOKEN must be empty when SIAT_ENV=production. Load the token in Settings > Facturación SIAT.',
     );
   }
 

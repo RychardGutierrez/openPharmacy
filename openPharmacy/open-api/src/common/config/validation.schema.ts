@@ -70,7 +70,11 @@ export const validationSchema = Joi.object({
       then: Joi.required(),
       otherwise: Joi.string().allow(''),
     }),
-  SIAT_TOKEN: Joi.string().allow('').default(''),
+  // Pilot-only fallback. The runtime token is the encrypted setting (SIAT-04).
+  SIAT_TOKEN: Joi.string()
+    .allow('')
+    .default('')
+    .when('SIAT_ENV', { is: 'production', then: Joi.valid('') }),
   SIAT_CONNECT_TIMEOUT_MS: Joi.number().integer().min(100).default(5000),
   SIAT_TOTAL_TIMEOUT_MS: Joi.number().integer().min(1000).default(20000),
   SIAT_READ_RETRIES: Joi.number().integer().min(0).max(5).default(2),
