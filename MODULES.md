@@ -27,7 +27,7 @@ unless explicitly marked public.
 | `alerts` | Low-stock and operational alert retrieval | `/alerts` | `alerts` |
 | `billing` | Billing document domain endpoints | `/billing` | shared with sales/configuration |
 | `doctors` | Doctor directory and prescription providers | `/doctors` | `doctors` |
-| `siat` | SIN electronic invoicing (SIAT V3): pinned spec, generated types, XSD validation, SOAP client, `siat` database schema with request log. No routes yet | none yet | none yet |
+| `siat` | SIN electronic invoicing (SIAT V3): pinned spec, generated types, XSD validation, SOAP client, `siat` database schema with request log, ADMIN settings (token encrypted) and connection test | `/siat/settings` | `siat-settings` |
 
 ### Auth
 
@@ -112,7 +112,8 @@ backend modules when the user workflow is shared.
 | `purchase-orders` | Order list, creation, editing, detail, receiving | `/purchasing/orders*` |
 | `dashboard` | KPI cards, charts, live sale updates, stock summaries | `/dashboard` |
 | `reports` | Report filters, preview, generation and downloads | `/reports` |
-| `configuration` | Admin settings, logo upload, pharmacy values | `/settings` |
+| `configuration` | Admin settings, logo upload, pharmacy values (General tab) | `/settings` |
+| `siat-settings` | SIAT invoicing settings, write-only token, connection test (Facturación SIAT tab) | `/settings` |
 | `config` | Shared configuration contracts/helpers | shared |
 | `sedes` | Branch listing and management UI | `/sedes` |
 | `alerts` | Alert contracts and dashboard presentation | shared/dashboard |

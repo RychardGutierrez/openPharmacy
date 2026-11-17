@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { configurationSchema, EMPTY_CONFIGURATION, type ConfigurationValues } from "@/features/configuration/types"
+import { configurationFormSchema, EMPTY_CONFIGURATION, type ConfigurationValues } from "@/features/configuration/types"
 import {
   useConfiguration,
   useUpdateConfiguration,
@@ -65,7 +65,7 @@ export function ConfigurationPageClient() {
   const [saved, setSaved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const form = useForm<ConfigurationValues>({
-    resolver: zodResolver(configurationSchema),
+    resolver: zodResolver(configurationFormSchema),
     defaultValues: EMPTY_CONFIGURATION,
   })
 
@@ -137,7 +137,7 @@ export function ConfigurationPageClient() {
           <SectionCard title="Información de la farmacia" description="Datos mostrados en recibos y reportes." icon={Building2}>
             <div className="grid gap-5 sm:grid-cols-2">
               <TextField form={form} name="PHARMACY_NAME" label="Nombre de la farmacia" required />
-              <TextField form={form} name="PHARMACY_NIT" label="NIT o número de registro" />
+              <TextField form={form} name="PHARMACY_NIT" label="NIT (también usado en la facturación SIAT)" />
             </div>
             <TextField form={form} name="PHARMACY_ADDRESS" label="Dirección" />
             <div className="grid gap-5 sm:grid-cols-2">

@@ -13,6 +13,7 @@ import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readSiatConfig } from '../src/modules/siat/config/siat.config';
+import { staticSiatCredentials } from '../src/modules/siat/config/siat-credentials';
 import { SiatHttpTransport } from '../src/modules/siat/client/siat-http-transport';
 import { MemorySiatRequestLogSink } from '../src/modules/siat/client/siat-request-log';
 import { SiatSoapClient } from '../src/modules/siat/client/siat-soap.client';
@@ -57,7 +58,12 @@ async function main(): Promise<number> {
   }
 
   const log = new MemorySiatRequestLogSink();
-  const client = new SiatSoapClient(config, new SiatHttpTransport(), log);
+  const client = new SiatSoapClient(
+    config,
+    new SiatHttpTransport(),
+    log,
+    staticSiatCredentials({ token: config.token }),
+  );
   const health = new SiatHealthService(client);
 
   console.log(`SIAT pilot: ${config.baseUrl}`);

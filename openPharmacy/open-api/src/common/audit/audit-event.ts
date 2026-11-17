@@ -69,4 +69,6 @@ export type AuditEvent =
   | 'REPORT_FAILED'
   | 'REPORT_DOWNLOADED'
   // Configuration events
-  | 'CONFIG_UPDATED';
+  | 'CONFIG_UPDATED'
+  // SIAT settings (SIAT-04). Secret values are recorded as [REDACTED].
+  | 'SIAT_CONFIG_UPDATED';

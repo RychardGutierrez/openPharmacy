@@ -22,6 +22,7 @@ import { ShiftsModule } from './modules/shifts/shifts.module';
 import { InventoryMovementsModule } from './modules/inventory-movements/inventory-movements.module';
 import { LotsModule } from './modules/lots/lots.module';
 import { ProductsModule } from './modules/products/products.module';
+import { SiatModule } from './modules/siat/siat.module';
 import {
   appConfig,
   authConfig,
@@ -68,6 +69,7 @@ import { validationSchema } from './common/config/validation.schema';
     AlertsModule,
     BillingModule,
     DoctorsModule,
+    SiatModule,
   ],
   controllers: [],
   providers: [],

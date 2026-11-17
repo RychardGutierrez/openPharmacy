@@ -1,5 +1,9 @@
 import type { SiatConfig } from '../config/siat.config';
 import {
+  staticSiatCredentials,
+  type SiatCredentialsSource,
+} from '../config/siat-credentials';
+import {
   SiatConfigError,
   SiatFaultError,
   SiatUnavailableError,
@@ -70,7 +74,13 @@ function build(
 ) {
   const transport = new ScriptedTransport(steps);
   const log = sink ?? new MemorySiatRequestLogSink();
-  const client = new SiatSoapClient(config(cfg), transport, log);
+  const resolved = config(cfg);
+  const client = new SiatSoapClient(
+    resolved,
+    transport,
+    log,
+    staticSiatCredentials({ token: resolved.token }),
+  );
   return { client, transport, log: log as MemorySiatRequestLogSink };
 }
 
@@ -294,6 +304,27 @@ describe('SiatSoapClient', () => {
     const serialized = JSON.stringify(log.entries);
     expect(serialized).not.toContain(TOKEN);
     expect(serialized).toContain('[REDACTED]');
+  });
+
+  it('reads the token on every call, so a token saved in Settings applies at once', async () => {
+    let current = 'tok-OLD-111111';
+    const credentials: SiatCredentialsSource = {
+      resolve: () =>
+        Promise.resolve({ token: current, nit: '', codigoSistema: '' }),
+    };
+    const transport = new ScriptedTransport([ok(), ok()]);
+    const log = new MemorySiatRequestLogSink();
+    const client = new SiatSoapClient(config(), transport, log, credentials);
+
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
+    current = 'tok-NEW-222222';
+    await client.invoke(VERIFICAR_NIT, NIT_REQUEST);
+
+    expect(transport.requests.map((r) => r.headers.apikey)).toEqual([
+      'TokenApi tok-OLD-111111',
+      'TokenApi tok-NEW-222222',
+    ]);
+    expect(JSON.stringify(log.entries)).not.toContain('tok-NEW-222222');
   });
 
   it('keeps the same correlation id across retries of one call', async () => {
