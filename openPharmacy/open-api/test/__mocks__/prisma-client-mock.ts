@@ -172,3 +172,11 @@ export const ReportJobStatus = {
 } as const;
 export type ReportJobStatus =
   (typeof ReportJobStatus)[keyof typeof ReportJobStatus];
+
+export const SiatCufdSource = {
+  SCHEDULED: 'SCHEDULED',
+  ON_DEMAND: 'ON_DEMAND',
+  EVENT: 'EVENT',
+} as const;
+export type SiatCufdSource =
+  (typeof SiatCufdSource)[keyof typeof SiatCufdSource];

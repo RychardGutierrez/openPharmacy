@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)) and branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS). SIAT-06 done (CUFD lifecycle).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)), branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)) and the CUFD request (see [CUFD](#cufd-siat-06)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
 
 ## Layout
 
@@ -16,7 +16,7 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 | `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, the request-log port, and `SiatHealthService`. See [SIAT client](#siat-client). |
 | `client/__fixtures__/recorded/` | Real pilot responses saved by `npm run siat:live-check -- --record`. Token-free. |
 | `persistence/` | `PrismaSiatRequestLogSink`, which writes request log rows to `siat.siat_request_log`. |
-| `codes/` | `SiatCodesService` (CUIS lifecycle), the CUIS policy, the renewal job, `SIAT_CLOCK`, typed payloads for `cuis` and the point-of-sale operations, and the provisional point-of-sale type list. |
+| `codes/` | `SiatCodesService` (CUIS lifecycle), the CUIS policy, the renewal job, `SiatCufdService` with the CUFD policy and job (SIAT-06), `SIAT_CLOCK`, typed payloads for `cuis`, `cufd` and the point-of-sale operations, and the provisional point-of-sale type list. |
 | `points-of-sale/` | `SiatPointsOfSaleService` and controller (branches, points of sale) and `SiatShiftGate` (used by `shifts`). |
 | `siat.module.ts` | Nest module that wires all of the above. |
 
@@ -165,7 +165,7 @@ All three are ADMIN only. The generic `/api/config` endpoints neither return nor
   - With `force`, or when nothing usable is stored, the error is thrown.
   - A response with no `codigo` raises `SiatRejectedError`, returned as **422** with the SIN message codes only.
 - **Renewal side effects.**
-  - A changed code emits `siat.cuis.renewed` (`SIAT_CUIS_RENEWED_EVENT`). **SIAT-06 must listen for it and request a new CUFD**: the annex requires a new CUFD after a CUIS renewal, and invoice numbering restarts per CUIS.
+  - A changed code emits `siat.cuis.renewed` (`SIAT_CUIS_RENEWED_EVENT`). `SiatCufdService` listens for it and requests a new CUFD (see [CUFD](#cufd-siat-06)): the annex requires a new CUFD after a CUIS renewal, and invoice numbering restarts per CUIS.
   - Audit events `SIAT_CUIS_OBTAINED` and `SIAT_CUIS_RENEWED` are written. The code itself is never audited or returned.
 - **Renewal job** (`SiatCuisRenewalJob`). Runs every hour and covers active, open points of sale. It does nothing while `SIAT_ENABLED` is false and is disabled under `NODE_ENV=test`.
 - **Clock.** `SIAT_CLOCK` (system clock) is injected so tests can use `fixedSiatClock`. SIAT-07 can replace it with a clock corrected by the SIAT time offset.
@@ -201,6 +201,83 @@ All are ADMIN only and audited (`SIAT_BRANCH_*`, `SIAT_POS_*`). The shift side i
 
 **Fase I note.** Create at least one extra point of sale in the pilot to show multi-point-of-sale support. Fase I counts CUIS requests per point of sale.
 
+## CUFD (SIAT-06)
+
+`SiatCufdService` (`codes/siat-cufd.service.ts`) keeps a valid CUFD for every active point of sale. The rules are pure functions in `codes/siat-cufd-policy.ts`.
+
+### Reading the CUFD for an invoice
+
+- **`currentCufd(posId, at)`** returns the CUFD valid **at `at`**: the most recently issued row with `valid_from <= at < valid_until`.
+  - It never calls SIAT, so emission never waits on it.
+  - After a rotation two CUFDs overlap, and the newest wins.
+  - Offline emission (SIAT-17) passes the emission time and gets the CUFD that was valid then.
+  - The CUF (`codigoControl`) and `fechaEmision` must come from the **same** CUFD. That mismatch is the most common Fase I rejection.
+- **`requireCufd(posId, at)`** does the same lookup, and answers **409** `SIAT_CUFD_UNAVAILABLE` when nothing is valid.
+- The returned record holds the codes. It is for internal use only (CUF, invoice header): no endpoint returns it.
+
+### When a new CUFD is requested
+
+The policy checks the **latest** CUFD of the point of sale, in this order:
+
+| State | When | Action | Can still issue |
+|---|---|---|---|
+| `missing` | No CUFD was ever stored | Request | No |
+| `expired` | The latest CUFD is past `valid_until` | Request | No |
+| `stale` | Requested with a CUIS that was replaced since (`cuis_id`) | Request | Yes, while valid |
+| `rotate` | Requested before today's rotation time (`SIAT_CUFD_ROTATE_AT`, default **00:05 Bolivia time**, UTC-4) | Request | Yes |
+| `renew` | Fewer than `SIAT_CUFD_RENEW_BEFORE_MIN` (60) minutes left | Request | Yes |
+| `valid` | None of the above | Nothing | Yes |
+
+- **Two requests a day, on purpose.** A CUFD lasts 24 h from its request. With the defaults, the safety net renews at about 23:05, and the rotation renews again at 00:05.
+  - The safety net guarantees an overlap, so there is never a gap at rotation time.
+  - The rotation keeps one CUFD per Bolivian calendar day.
+  - The test `a point of sale is never without a valid CUFD across midnight` checks this minute by minute.
+- **`valid_from`** is the time the SIAT answer arrived (`SIAT_CLOCK`), so a CUFD never claims validity from before SIAT issued it.
+- **`cuis_id`** records the CUIS used for the request. **`codigo_interno`** stores `codigoInterno` when SIAT returns it. The annex page lists that field, but the pinned WSDL `respuestaCufd` does not.
+
+### `ensureCufd(posId, { source, force })`
+
+- **CUIS first.** It gets the CUIS through `SiatCodesService.cuisCode` **before** opening its transaction. That call takes its own row lock on the same point of sale, so calling it inside the transaction would deadlock.
+- **Concurrency.** The request runs under `SELECT … FOR UPDATE` on the point-of-sale row, and the state is checked again inside the lock. Concurrent callers (shift open, admin, job, CUIS event) therefore cause a single SIAT request.
+- **Failures.**
+  - `cufd` is a write, so the client never retries it.
+  - If SIAT fails while the stored CUFD is still usable (`renew`, `rotate`, `stale`), that CUFD is kept (`renewalFailed: true`).
+  - With `force`, or when nothing usable is stored, the error is thrown.
+  - A response without `codigo`, `codigoControl`, `direccion` or `fechaVigencia` raises `SiatRejectedError` (**422**), and nothing is stored.
+- **CUIS renewal.** `onCuisRenewed` listens to `siat.cuis.renewed` and requests a CUFD with the new CUIS. It never throws. If the event is lost, the `stale` state makes the next sweep do it.
+
+### Job and retries (`SiatCufdJob`)
+
+- **Schedule.** The job sweeps every `SIAT_CUFD_SWEEP_MS` (1 min) and covers active, open points of sale of active branches.
+  - The policy decides what is due, so there is no cron entry, and the rotation happens within one interval of 00:05.
+  - It does nothing while `SIAT_ENABLED` is false, and it is disabled under `NODE_ENV=test`.
+- **Backoff.** After a failed request, that point of sale waits 1, 2, 4, 8 … minutes, capped at `SIAT_CUFD_RETRY_MAX_MS` (15 min), before the next attempt.
+  - A success resets the wait.
+  - Each attempt is in `siat_request_log`, and failures are logged with their attempt number.
+  - The backoff lives in memory, per API instance.
+- **No CUFD at all.** When a point of sale has no valid CUFD and the request fails, the job logs an error and emits **`siat.cufd.unavailable`** (`SIAT_CUFD_UNAVAILABLE_EVENT`) once per outage. SIAT-17 (contingency) and SIAT-27 (alerts) will subscribe to it.
+
+### Shifts and admin
+
+- **Shift open** (`SiatShiftGate`). With SIAT enabled, once the CUIS is usable, `ensureCufd(ON_DEMAND)` runs.
+  - The shift opens if the result is usable, which includes a stored CUFD that is still valid while SIAT is down.
+  - Otherwise it answers 409 `SIAT_POS_NOT_READY`.
+  - Owner decision (2026-11-26): no shift without a CUFD until SIAT-17 adds contingency.
+- `GET /api/siat/points-of-sale` now includes `cufd: { state, validUntil, minutesLeft }`.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/siat/points-of-sale/:id/cufd` | Get a CUFD when the stored one needs renewal. `{ "force": true }` always asks SIAT, for operations and the Fase I CUFD counts (SIAT-25). Returns the status, never the codes |
+
+- **Audit.** It is ADMIN only. A newly issued CUFD is audited as `SIAT_CUFD_REQUESTED`, without the codes. Scheduled renewals are not audited, because `siat_cufd` and `siat_request_log` already record them.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SIAT_CUFD_ROTATE_AT` | `00:05` | Daily rotation, Bolivia time (`HH:mm`) |
+| `SIAT_CUFD_RENEW_BEFORE_MIN` | `60` | Safety net: renew with fewer minutes left |
+| `SIAT_CUFD_SWEEP_MS` | `60000` | Job interval |
+| `SIAT_CUFD_RETRY_MAX_MS` | `900000` | Cap for the retry backoff |
+
 ## Data model
 
 Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
@@ -210,7 +287,7 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | `siat_branches` | Branches registered with the SIN | `codigo_sucursal` unique. `0` is the casa matriz. Standalone for now; `sedes` has no table yet and can link to it later |
 | `siat_points_of_sale` | Points of sale per branch | Unique (`branch_id`, `codigo_punto_venta`). `tipo_punto_venta` is null for PoS `0`, which is not created with `registroPuntoVenta`. `active=false` = retired, `closed_at` = closed in SIAT (SIAT-05). Referenced by `auth.shifts.point_of_sale_id` |
 | `siat_cuis` | CUIS history | At most one `active` row per point of sale (partial unique index `siat_cuis_one_active_per_pos`, raw SQL in the migration) |
-| `siat_cufd` | Full CUFD history | Never delete rows: offline invoices and packages refer to old CUFDs. `source` is `SCHEDULED`, `ON_DEMAND` or `EVENT` |
+| `siat_cufd` | Full CUFD history | Never delete or update rows: offline invoices and packages refer to old CUFDs. `source` is `SCHEDULED`, `ON_DEMAND` or `EVENT`. `codigo_interno` and `cuis_id` added by SIAT-06 (migration `20261126155118_siat_06_cufd`) |
 | `siat_catalog_items` | Synchronized SIN catalogs | Unique (`catalog`, `code`). `catalog` is a string (the sync operation name), so a new catalog needs no migration. Codes are strings |
 | `siat_request_log` | One row per call attempt, bodies redacted | Indexed by `created_at`, `correlation_id`, (`service`, `operation`, `created_at`) and (`point_of_sale_id`, `created_at`). Partitioning is left for SIAT-27, when volume is known |
 | `siat_time_offset` | Clock samples from `sincronizarFechaHora` | The latest row is the current offset. `offset_ms = siat_time - server_time` |

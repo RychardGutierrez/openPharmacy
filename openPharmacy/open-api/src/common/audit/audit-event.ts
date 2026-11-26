@@ -79,4 +79,7 @@ export type AuditEvent =
   | 'SIAT_POS_UPDATED'
   | 'SIAT_POS_CLOSED'
   | 'SIAT_CUIS_OBTAINED'
-  | 'SIAT_CUIS_RENEWED';
+  | 'SIAT_CUIS_RENEWED'
+  // CUFD requested by an ADMIN (SIAT-06). Scheduled renewals are not audited: siat_cufd and
+  // siat_request_log already record them. The CUFD codes are never recorded.
+  | 'SIAT_CUFD_REQUESTED';

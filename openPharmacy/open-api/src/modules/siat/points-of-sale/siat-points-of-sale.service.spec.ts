@@ -5,6 +5,7 @@ import { SiatRejectedError } from '../client/siat-errors';
 import type { SiatSoapClient } from '../client/siat-soap.client';
 import { fixedSiatClock } from '../codes/siat-clock';
 import type { SiatCodesService } from '../codes/siat-codes.service';
+import type { SiatCufdService } from '../codes/siat-cufd.service';
 import { SiatPointsOfSaleService } from './siat-points-of-sale.service';
 
 const NOW = new Date('2026-11-17T12:00:00Z');
@@ -64,15 +65,32 @@ function setup() {
     ensureCuis: jest.fn(() => Promise.resolve({ state: 'valid' })),
     status: jest.fn(),
   };
+  const cufd = {
+    status: jest.fn(() =>
+      Promise.resolve({ state: 'valid', validUntil: NOW, minutesLeft: 60 }),
+    ),
+    ensureCufd: jest.fn(() =>
+      Promise.resolve({
+        pointOfSaleId: 'pos-3',
+        codigoSucursal: 0,
+        codigoPuntoVenta: 3,
+        state: 'valid',
+        validUntil: NOW,
+        minutesLeft: 1440,
+        source: 'siat',
+      }),
+    ),
+  };
   const audit = { create: jest.fn() };
   const service = new SiatPointsOfSaleService(
     prisma as unknown as PrismaService,
     client as unknown as SiatSoapClient,
     codes as unknown as SiatCodesService,
+    cufd as unknown as SiatCufdService,
     audit as unknown as AuditLogRepository,
     fixedSiatClock(NOW),
   );
-  return { service, prisma, client, codes, audit };
+  return { service, prisma, client, codes, cufd, audit };
 }
 
 const registerDto = {
@@ -199,6 +217,71 @@ describe('SiatPointsOfSaleService.close', () => {
     expect(audit.create).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'SIAT_POS_CLOSED' }),
     );
+  });
+
+  it('lists each point of sale with its CUFD status (never the codes)', async () => {
+    const { service, prisma, codes } = setup();
+    prisma.siatPointOfSale.findMany.mockResolvedValue([
+      {
+        id: 'pos-3',
+        branch_id: 'br-0',
+        codigo_punto_venta: 3,
+        tipo_punto_venta: 5,
+        name: 'Caja 3',
+        active: true,
+        closed_at: null,
+        branch: { codigo_sucursal: 0 },
+        _count: { shifts: 1 },
+      },
+    ] as never);
+    codes.status.mockResolvedValue({
+      state: 'valid',
+      validUntil: NOW,
+      daysLeft: 300,
+    });
+
+    const [row] = await service.list();
+
+    expect(row.cufd).toEqual({
+      state: 'valid',
+      validUntil: NOW,
+      minutesLeft: 60,
+    });
+  });
+
+  it('audits a CUFD issued on an admin request, without its codes', async () => {
+    const { service, cufd, audit } = setup();
+
+    await service.ensureCufd('pos-3', true, 'admin');
+
+    expect(cufd.ensureCufd).toHaveBeenCalledWith('pos-3', {
+      source: 'ON_DEMAND',
+      force: true,
+      userId: 'admin',
+    });
+    expect(audit.create).toHaveBeenCalledWith({
+      userId: 'admin',
+      event: 'SIAT_CUFD_REQUESTED',
+      metadata: {
+        pointOfSaleId: 'pos-3',
+        codigoSucursal: 0,
+        codigoPuntoVenta: 3,
+        forced: true,
+        validUntil: NOW.toISOString(),
+      },
+    });
+  });
+
+  it('does not audit when the stored CUFD was returned', async () => {
+    const { service, cufd, audit } = setup();
+    cufd.ensureCufd.mockResolvedValue({
+      ...(await cufd.ensureCufd()),
+      source: 'stored',
+    });
+
+    await service.ensureCufd('pos-3', false, 'admin');
+
+    expect(audit.create).not.toHaveBeenCalled();
   });
 
   it('refuses to close an active (not retired) point of sale', async () => {

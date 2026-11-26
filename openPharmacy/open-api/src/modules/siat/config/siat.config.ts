@@ -23,6 +23,17 @@ export interface SiatConfig {
   cuisRenewDays: number;
   /** Warn (log, later SIAT-27 alert) when a CUIS has this many days left or fewer. Default 15. */
   cuisAlertDays: number;
+  /**
+   * Daily CUFD rotation, in minutes after midnight Bolivia time (SIAT-06). A CUFD requested before
+   * today's rotation time is replaced once that time has passed. `SIAT_CUFD_ROTATE_AT`, default 00:05.
+   */
+  cufdRotateMinute: number;
+  /** Renew a CUFD that has fewer than this many minutes left (safety net). Default 60. */
+  cufdRenewBeforeMinutes: number;
+  /** How often the CUFD job checks the points of sale. Default 60 s. */
+  cufdSweepMs: number;
+  /** Cap for the backoff between failed CUFD requests of one point of sale. Default 15 min. */
+  cufdRetryMaxMs: number;
 }
 
 /** Reads SIAT settings from an environment map. Joi validates the same keys at startup. */
@@ -61,7 +72,19 @@ export function readSiatConfig(
     retryBaseMs: numberOr(env.SIAT_RETRY_BASE_MS, 500),
     cuisRenewDays: numberOr(env.SIAT_CUIS_RENEW_DAYS, 5),
     cuisAlertDays: numberOr(env.SIAT_CUIS_ALERT_DAYS, 15),
+    cufdRotateMinute: parseClockTime(env.SIAT_CUFD_ROTATE_AT, 5),
+    cufdRenewBeforeMinutes: numberOr(env.SIAT_CUFD_RENEW_BEFORE_MIN, 60),
+    cufdSweepMs: numberOr(env.SIAT_CUFD_SWEEP_MS, 60_000),
+    cufdRetryMaxMs: numberOr(env.SIAT_CUFD_RETRY_MAX_MS, 15 * 60_000),
   };
+}
+
+/** `HH:mm` (24 h) to minutes after midnight. */
+function parseClockTime(value: string | undefined, fallback: number): number {
+  if (value === undefined || value === '') return fallback;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match) throw new Error(`Expected a time as HH:mm, got "${value}"`);
+  return Number(match[1]) * 60 + Number(match[2]);
 }
 
 export const SIAT_CONFIG = Symbol('SIAT_CONFIG');

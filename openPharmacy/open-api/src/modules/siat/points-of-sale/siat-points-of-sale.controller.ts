@@ -17,6 +17,7 @@ import type { AuthenticatedUser } from '../../auth/interfaces/jwt-payload.interf
 import {
   CloseSiatPointOfSaleDto,
   CreateSiatBranchDto,
+  EnsureSiatCufdDto,
   EnsureSiatCuisDto,
   ReconcileSiatPointsOfSaleQuery,
   RegisterSiatPointOfSaleDto,
@@ -25,7 +26,7 @@ import {
 } from './dto/siat-points-of-sale.dto';
 import { SiatPointsOfSaleService } from './siat-points-of-sale.service';
 
-/** SIAT branches, points of sale and CUIS (SIAT-05). ADMIN only. */
+/** SIAT branches, points of sale, CUIS (SIAT-05) and CUFD (SIAT-06). ADMIN only. */
 @ApiTags('siat')
 @ApiBearerAuth()
 @Roles(UserRole.ADMIN)
@@ -79,7 +80,8 @@ export class SiatPointsOfSaleController {
 
   @Get('points-of-sale')
   @ApiOperation({
-    summary: 'List points of sale with their CUIS status (never the code)',
+    summary:
+      'List points of sale with their CUIS and CUFD status (never the codes)',
   })
   list() {
     return this.service.list();
@@ -115,6 +117,20 @@ export class SiatPointsOfSaleController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.ensureCuis(id, dto.force === true, user.id);
+  }
+
+  @Post('points-of-sale/:id/cufd')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Get a CUFD when the stored one needs renewal ({ "force": true } always asks SIAT). Never returns the codes',
+  })
+  ensureCufd(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EnsureSiatCufdDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.ensureCufd(id, dto.force === true, user.id);
   }
 
   @Post('points-of-sale/:id/close')

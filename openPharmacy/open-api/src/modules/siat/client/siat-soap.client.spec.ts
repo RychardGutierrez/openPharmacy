@@ -65,6 +65,10 @@ function config(overrides: Partial<SiatConfig> = {}): SiatConfig {
     retryBaseMs: 0,
     cuisRenewDays: 5,
     cuisAlertDays: 15,
+    cufdRotateMinute: 5,
+    cufdRenewBeforeMinutes: 60,
+    cufdSweepMs: 60000,
+    cufdRetryMaxMs: 900000,
     ...overrides,
   };
 }

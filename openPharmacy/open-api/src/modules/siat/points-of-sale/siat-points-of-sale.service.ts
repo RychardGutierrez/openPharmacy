@@ -6,7 +6,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ShiftStatus, type SiatPointOfSale } from '@prisma/client';
+import {
+  ShiftStatus,
+  SiatCufdSource,
+  type SiatPointOfSale,
+} from '@prisma/client';
 import { AuditLogRepository } from '../../../common/audit/audit-log.repository';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SiatRejectedError } from '../client/siat-errors';
@@ -25,6 +29,10 @@ import {
   SiatCodesService,
   type SiatCuisStatus,
 } from '../codes/siat-codes.service';
+import {
+  SiatCufdService,
+  type SiatCufdStatus,
+} from '../codes/siat-cufd.service';
 import {
   isKnownPointOfSaleType,
   PROVISIONAL_POINT_OF_SALE_TYPES,
@@ -55,6 +63,7 @@ export interface SiatPointOfSaleView {
   closedAt: Date | null;
   openShifts: number;
   cuis: Pick<SiatCuisStatus, 'state' | 'validUntil' | 'daysLeft'>;
+  cufd: Pick<SiatCufdStatus, 'state' | 'validUntil' | 'minutesLeft'>;
 }
 
 export interface SiatReconciliation {
@@ -83,6 +92,7 @@ export class SiatPointsOfSaleService {
     private readonly prisma: PrismaService,
     private readonly client: SiatSoapClient,
     private readonly codes: SiatCodesService,
+    private readonly cufd: SiatCufdService,
     private readonly audit: AuditLogRepository,
     @Inject(SIAT_CLOCK) private readonly clock: SiatClock,
   ) {}
@@ -188,7 +198,10 @@ export class SiatPointsOfSaleService {
     });
     return Promise.all(
       rows.map(async (row) => {
-        const cuis = await this.codes.status(row.id);
+        const [cuis, cufd] = await Promise.all([
+          this.codes.status(row.id),
+          this.cufd.status(row.id),
+        ]);
         return {
           id: row.id,
           branchId: row.branch_id,
@@ -203,6 +216,11 @@ export class SiatPointsOfSaleService {
             state: cuis.state,
             validUntil: cuis.validUntil,
             daysLeft: cuis.daysLeft,
+          },
+          cufd: {
+            state: cufd.state,
+            validUntil: cufd.validUntil,
+            minutesLeft: cufd.minutesLeft,
           },
         };
       }),
@@ -323,6 +341,32 @@ export class SiatPointsOfSaleService {
 
   ensureCuis(id: string, force: boolean, userId: string) {
     return this.codes.ensureCuis(id, { force, userId });
+  }
+
+  /**
+   * Gets a CUFD when the stored one needs renewal, or always with `force` (operations, and the
+   * repeated CUFD requests of Fase I). A newly issued CUFD is audited; its codes are not.
+   */
+  async ensureCufd(id: string, force: boolean, userId: string) {
+    const status = await this.cufd.ensureCufd(id, {
+      source: SiatCufdSource.ON_DEMAND,
+      force,
+      userId,
+    });
+    if (status.source === 'siat') {
+      await this.audit.create({
+        userId,
+        event: 'SIAT_CUFD_REQUESTED',
+        metadata: {
+          pointOfSaleId: id,
+          codigoSucursal: status.codigoSucursal,
+          codigoPuntoVenta: status.codigoPuntoVenta,
+          forced: force,
+          validUntil: status.validUntil?.toISOString() ?? null,
+        },
+      });
+    }
+    return status;
   }
 
   /** `consultaPuntoVenta` for one branch, compared with the stored points of sale. Changes nothing. */

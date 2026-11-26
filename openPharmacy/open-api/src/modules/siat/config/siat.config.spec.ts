@@ -15,7 +15,23 @@ describe('readSiatConfig', () => {
       retryBaseMs: 500,
       cuisRenewDays: 5,
       cuisAlertDays: 15,
+      cufdRotateMinute: 5,
+      cufdRenewBeforeMinutes: 60,
+      cufdSweepMs: 60000,
+      cufdRetryMaxMs: 900000,
     });
+  });
+
+  it('reads the CUFD rotation time as HH:mm and rejects anything else (SIAT-06)', () => {
+    expect(
+      readSiatConfig({ SIAT_CUFD_ROTATE_AT: '23:30' }).cufdRotateMinute,
+    ).toBe(23 * 60 + 30);
+    expect(() => readSiatConfig({ SIAT_CUFD_ROTATE_AT: '24:00' })).toThrow(
+      'HH:mm',
+    );
+    expect(
+      validationSchema.validate({ SIAT_CUFD_ROTATE_AT: '7:5' }).error,
+    ).toBeDefined();
   });
 
   it('requires the production base URL when SIAT_ENV=production', () => {

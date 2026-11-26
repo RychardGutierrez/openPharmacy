@@ -56,6 +56,10 @@ function build(
     retryBaseMs: 0,
     cuisRenewDays: 5,
     cuisAlertDays: 15,
+    cufdRotateMinute: 5,
+    cufdRenewBeforeMinutes: 60,
+    cufdSweepMs: 60000,
+    cufdRetryMaxMs: 900000,
     ...options.config,
   };
   const service = new SiatSettingsService(

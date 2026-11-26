@@ -25,12 +25,14 @@ Related tickets:
   (exported by `SiatModule`) resolves it:
   - With no `pointOfSaleId`, the single active point of sale is used.
   - With `SIAT_ENABLED=true`, the shift opens only on a point of sale with a
-    usable CUIS (obtained on the spot if missing). Otherwise it returns `409
-    SIAT_POS_NOT_READY`, or `400 SIAT_POS_REQUIRED` when several points of sale
-    exist and none was chosen.
+    usable CUIS and a usable CUFD (SIAT-06), each obtained on the spot if
+    missing. A stored CUFD that is still valid is enough when SIAT is down.
+    Otherwise it returns `409 SIAT_POS_NOT_READY`, or `400 SIAT_POS_REQUIRED`
+    when several points of sale exist and none was chosen.
   - With SIAT disabled, a shift can open without a point of sale.
   - Several shifts may be open on the same point of sale at once.
-  - Reopening a shift does not check the CUIS again.
+  - Reopening a shift does not check the CUIS or CUFD again. The CUFD job keeps
+    the CUFD of every active point of sale current while shifts stay open.
 
 ## Reconciliation model
 
