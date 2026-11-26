@@ -793,6 +793,7 @@ model SiatCuis {
   created_at       DateTime @default(now()) @map("created_at")
 
   point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+  cufds         SiatCufd[]
 
   @@index([point_of_sale_id, requested_at])
   @@map("siat_cuis")
@@ -808,10 +809,16 @@ model SiatCufd {
   direccion        String
   valid_from       DateTime       @map("valid_from")
   valid_until      DateTime       @map("valid_until")
+  /// `codigoInterno` from the CUFD response (V3, IVA Transparente). The annex page "Solicitud CUFD"
+  /// lists it as an output, but the pinned WSDL does not, so it is nullable (SIAT-06).
+  codigo_interno   String?        @map("codigo_interno")
+  /// CUIS the CUFD was requested with. A CUFD from a replaced CUIS is stale and gets renewed (SIAT-06).
+  cuis_id          String?        @map("cuis_id") @db.Uuid
   source           SiatCufdSource
   created_at       DateTime       @default(now()) @map("created_at")
 
   point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+  cuis          SiatCuis?       @relation(fields: [cuis_id], references: [id])
 
   @@index([point_of_sale_id, valid_until])
   @@index([codigo])

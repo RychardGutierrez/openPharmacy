@@ -18,6 +18,8 @@ import { AuditModule } from '../../common/audit/audit.module';
 import { SIAT_CLOCK, systemSiatClock } from './codes/siat-clock';
 import { SiatCodesService } from './codes/siat-codes.service';
 import { SiatCuisRenewalJob } from './codes/siat-cuis-renewal.job';
+import { SiatCufdService } from './codes/siat-cufd.service';
+import { SiatCufdJob } from './codes/siat-cufd.job';
 import { SiatPointsOfSaleController } from './points-of-sale/siat-points-of-sale.controller';
 import { SiatPointsOfSaleService } from './points-of-sale/siat-points-of-sale.service';
 import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
@@ -33,6 +35,8 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     { provide: SIAT_CLOCK, useValue: systemSiatClock },
     SiatCodesService,
     SiatCuisRenewalJob,
+    SiatCufdService,
+    SiatCufdJob,
     SiatPointsOfSaleService,
     SiatShiftGate,
     { provide: SIAT_CONFIG, useFactory: () => readSiatConfig() },
@@ -49,6 +53,7 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatHealthService,
     SIAT_CREDENTIALS,
     SiatCodesService,
+    SiatCufdService,
     SiatShiftGate,
   ],
 })

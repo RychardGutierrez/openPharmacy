@@ -134,6 +134,16 @@ export class EnsureSiatCuisDto {
   force?: boolean;
 }
 
+export class EnsureSiatCufdDto {
+  @ApiPropertyOptional({
+    description:
+      'Ask SIAT even when the stored CUFD is valid (a new CUFD is issued every time)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+}
+
 export class CloseSiatPointOfSaleDto {
   @ApiProperty({
     enum: [true],

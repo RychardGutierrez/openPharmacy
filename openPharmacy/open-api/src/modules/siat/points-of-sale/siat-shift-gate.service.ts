@@ -4,9 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { SiatCufdSource } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { cuisUsable, type SiatCuisState } from '../codes/siat-cuis-policy';
 import { SiatCodesService } from '../codes/siat-codes.service';
+import { cufdUsable, type SiatCufdState } from '../codes/siat-cufd-policy';
+import { SiatCufdService } from '../codes/siat-cufd.service';
 
 /**
  * Decides which SIAT point of sale a new shift uses (SIAT-05). The only SIAT entry point the
@@ -15,14 +18,15 @@ import { SiatCodesService } from '../codes/siat-codes.service';
  * - A given `pointOfSaleId` must be an active, open point of sale of an active branch.
  * - Without one, the single active point of sale is used. With several, the cashier must choose
  *   while SIAT is enabled; with SIAT disabled the shift opens without a point of sale.
- * - While `SIAT_ENABLED` is true the point of sale needs a usable CUIS, obtained here if missing.
- *   A stored CUIS that is still valid is enough when SIAT is unreachable.
+ * - While `SIAT_ENABLED` is true the point of sale needs a usable CUIS and a usable CUFD (SIAT-06),
+ *   obtained here if missing. Stored codes that are still valid are enough when SIAT is unreachable.
  */
 @Injectable()
 export class SiatShiftGate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly codes: SiatCodesService,
+    private readonly cufd: SiatCufdService,
   ) {}
 
   async resolvePointOfSale(
@@ -78,6 +82,27 @@ export class SiatShiftGate {
         code: 'SIAT_POS_NOT_READY',
         message:
           'The point of sale has no valid CUIS and SIAT could not issue one. Try again or contact the administrator.',
+      });
+    }
+
+    // SIAT-06: invoices need a valid CUFD. Until contingency exists (SIAT-17), a shift does not
+    // open without one. A stored CUFD that is still valid is enough when SIAT is unreachable.
+    let cufd: SiatCufdState;
+    try {
+      cufd = (
+        await this.cufd.ensureCufd(posId, {
+          source: SiatCufdSource.ON_DEMAND,
+          userId,
+        })
+      ).state;
+    } catch {
+      cufd = 'missing' as const;
+    }
+    if (!cufdUsable(cufd)) {
+      throw new ConflictException({
+        code: 'SIAT_POS_NOT_READY',
+        message:
+          'The point of sale has no valid CUFD and SIAT could not issue one. Try again or contact the administrator.',
       });
     }
     return posId;

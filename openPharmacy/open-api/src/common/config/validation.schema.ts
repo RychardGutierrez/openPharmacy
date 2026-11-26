@@ -82,4 +82,15 @@ export const validationSchema = Joi.object({
   // CUIS renewal window (SIAT-05). The annex allows renewal from the 5th day before expiry.
   SIAT_CUIS_RENEW_DAYS: Joi.number().integer().min(1).max(5).default(5),
   SIAT_CUIS_ALERT_DAYS: Joi.number().integer().min(1).max(60).default(15),
+  // CUFD lifecycle (SIAT-06). Daily rotation at a Bolivia time, plus a renewal safety net.
+  SIAT_CUFD_ROTATE_AT: Joi.string()
+    .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .default('00:05'),
+  SIAT_CUFD_RENEW_BEFORE_MIN: Joi.number()
+    .integer()
+    .min(5)
+    .max(720)
+    .default(60),
+  SIAT_CUFD_SWEEP_MS: Joi.number().integer().min(5000).default(60000),
+  SIAT_CUFD_RETRY_MAX_MS: Joi.number().integer().min(60000).default(900000),
 });

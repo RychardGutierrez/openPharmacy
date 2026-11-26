@@ -1,6 +1,7 @@
 /**
- * Typed requests and response mappers for the operations SIAT-05 uses: `cuis` (FacturacionCodigos)
- * and `registroPuntoVenta`, `consultaPuntoVenta`, `cierrePuntoVenta` (FacturacionOperaciones).
+ * Typed requests and response mappers for the operations SIAT-05 and SIAT-06 use: `cuis` and `cufd`
+ * (FacturacionCodigos), and `registroPuntoVenta`, `consultaPuntoVenta`, `cierrePuntoVenta`
+ * (FacturacionOperaciones).
  *
  * Field order follows the pinned WSDL request types (alphabetical). `codigoAmbiente` is inserted
  * by `SiatSoapClient` from `SIAT_ENV`, so it is never set here.
@@ -28,6 +29,25 @@ export function cuisRequest(
       codigoPuntoVenta,
       codigoSistema: id.codigoSistema,
       codigoSucursal,
+      nit: id.nit,
+    },
+  };
+}
+
+/** `SolicitudCufd`. Same fields as the CUIS request, plus the CUIS of the point of sale. */
+export function cufdRequest(
+  id: SiatIdentity,
+  codigoSucursal: number,
+  codigoPuntoVenta: number,
+  cuis: string,
+): Payload {
+  return {
+    SolicitudCufd: {
+      codigoModalidad: id.codigoModalidad,
+      codigoPuntoVenta,
+      codigoSistema: id.codigoSistema,
+      codigoSucursal,
+      cuis,
       nit: id.nit,
     },
   };
@@ -98,6 +118,32 @@ export function cuisResponse(
   const vigencia = text(result.payload.fechaVigencia);
   if (!codigo || !vigencia) return null;
   return { codigo, fechaVigencia: parseSiatDateTime(vigencia) };
+}
+
+export interface SiatIssuedCufd {
+  codigo: string;
+  codigoControl: string;
+  /** Address printed on the invoice. It must match the invoice header exactly (SIAT-11). */
+  direccion: string;
+  fechaVigencia: Date;
+  /** V3. Listed on the annex page "Solicitud CUFD", absent from the pinned WSDL: optional. */
+  codigoInterno: string | null;
+}
+
+/** `RespuestaCufd`. Null when any field needed to issue invoices is missing (a rejection). */
+export function cufdResponse(result: SiatResult): SiatIssuedCufd | null {
+  const codigo = text(result.payload.codigo);
+  const codigoControl = text(result.payload.codigoControl);
+  const direccion = text(result.payload.direccion);
+  const vigencia = text(result.payload.fechaVigencia);
+  if (!codigo || !codigoControl || !direccion || !vigencia) return null;
+  return {
+    codigo,
+    codigoControl,
+    direccion,
+    fechaVigencia: parseSiatDateTime(vigencia),
+    codigoInterno: text(result.payload.codigoInterno) ?? null,
+  };
 }
 
 export function registroPuntoVentaResponse(result: SiatResult): number | null {

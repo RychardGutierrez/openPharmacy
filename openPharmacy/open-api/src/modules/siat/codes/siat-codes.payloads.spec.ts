@@ -6,6 +6,8 @@ import {
   cierrePuntoVentaRequest,
   consultaPuntoVentaRequest,
   consultaPuntoVentaResponse,
+  cufdRequest,
+  cufdResponse,
   cuisRequest,
   cuisResponse,
   parseSiatDateTime,
@@ -37,6 +39,12 @@ describe('SIAT-05 request payloads follow the pinned WSDL field order', () => {
       'FacturacionCodigos--ServicioFacturacionCodigos.wsdl',
       'solicitudCuis',
       cuisRequest(identity, 0, 1),
+    ],
+    [
+      'cufd (SIAT-06)',
+      'FacturacionCodigos--ServicioFacturacionCodigos.wsdl',
+      'solicitudCufd',
+      cufdRequest(identity, 0, 1, 'C'),
     ],
     [
       'registroPuntoVenta',
@@ -120,6 +128,43 @@ describe('SIAT-05 response mappers', () => {
     ).toHaveLength(2);
     expect(consultaPuntoVentaResponse(result({}))).toEqual([]);
   });
+});
+
+describe('cufdResponse (SIAT-06)', () => {
+  const result = (payload: Record<string, unknown>): SiatResult => ({
+    transaccion: true,
+    mensajes: [],
+    payload,
+  });
+  const full = {
+    codigo: 'BQUFDQ0NBQ0E=',
+    codigoControl: '7C2E9B8A1D3F4E5',
+    direccion: 'AV. 6 DE AGOSTO 123',
+    fechaVigencia: '2026-11-21T00:05:12.345-04:00',
+    transaccion: 'true',
+  };
+
+  it('maps the codes and validity; codigoInterno is optional (not in the pinned WSDL)', () => {
+    expect(cufdResponse(result(full))).toEqual({
+      codigo: 'BQUFDQ0NBQ0E=',
+      codigoControl: '7C2E9B8A1D3F4E5',
+      direccion: 'AV. 6 DE AGOSTO 123',
+      fechaVigencia: new Date('2026-11-21T04:05:12.345Z'),
+      codigoInterno: null,
+    });
+    expect(
+      cufdResponse(result({ ...full, codigoInterno: 'A' }))?.codigoInterno,
+    ).toBe('A');
+  });
+
+  it.each([['codigo'], ['codigoControl'], ['direccion'], ['fechaVigencia']])(
+    'is null without %s',
+    (field) => {
+      const payload: Record<string, unknown> = { ...full };
+      delete payload[field];
+      expect(cufdResponse(result(payload))).toBeNull();
+    },
+  );
 });
 
 describe('cuisState', () => {
