@@ -63,6 +63,8 @@ function config(overrides: Partial<SiatConfig> = {}): SiatConfig {
     totalTimeoutMs: 20000,
     readRetries: 2,
     retryBaseMs: 0,
+    cuisRenewDays: 5,
+    cuisAlertDays: 15,
     ...overrides,
   };
 }

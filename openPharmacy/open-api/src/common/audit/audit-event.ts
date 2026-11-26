@@ -16,7 +16,7 @@ export type AuditEvent =
   | 'LOGIN_LOCKED'
   | 'REFRESH_SUCCESS'
   | 'REFRESH_FAIL'
-   | 'LOGOUT'
+  | 'LOGOUT'
   | 'PASSWORD_CHANGED'
   // User-management events
   | 'USER_CREATED'
@@ -71,4 +71,12 @@ export type AuditEvent =
   // Configuration events
   | 'CONFIG_UPDATED'
   // SIAT settings (SIAT-04). Secret values are recorded as [REDACTED].
-  | 'SIAT_CONFIG_UPDATED';
+  | 'SIAT_CONFIG_UPDATED'
+  // SIAT branches, points of sale and CUIS (SIAT-05). The CUIS code is never recorded.
+  | 'SIAT_BRANCH_CREATED'
+  | 'SIAT_BRANCH_UPDATED'
+  | 'SIAT_POS_REGISTERED'
+  | 'SIAT_POS_UPDATED'
+  | 'SIAT_POS_CLOSED'
+  | 'SIAT_CUIS_OBTAINED'
+  | 'SIAT_CUIS_RENEWED';

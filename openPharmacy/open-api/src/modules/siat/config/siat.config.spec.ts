@@ -13,6 +13,8 @@ describe('readSiatConfig', () => {
       totalTimeoutMs: 20000,
       readRetries: 2,
       retryBaseMs: 500,
+      cuisRenewDays: 5,
+      cuisAlertDays: 15,
     });
   });
 

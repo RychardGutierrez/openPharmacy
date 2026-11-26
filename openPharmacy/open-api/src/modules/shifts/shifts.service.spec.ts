@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SiatShiftGate } from '../siat/points-of-sale/siat-shift-gate.service';
 import { ShiftsService } from './shifts.service';
 
 describe('ShiftsService', () => {
@@ -13,8 +14,10 @@ describe('ShiftsService', () => {
     $transaction: jest.Mock;
   };
   let audit: { create: jest.Mock };
+  let siatGate: { resolvePointOfSale: jest.Mock };
 
   beforeEach(async () => {
+    siatGate = { resolvePointOfSale: jest.fn().mockResolvedValue(null) };
     prisma = {
       shift: {
         create: jest.fn(),
@@ -42,10 +45,35 @@ describe('ShiftsService', () => {
         ShiftsService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditLogRepository, useValue: audit },
+        { provide: SiatShiftGate, useValue: siatGate },
       ],
     }).compile();
 
     service = module.get<ShiftsService>(ShiftsService);
+  });
+
+  it('stores the SIAT point of sale resolved by the gate', async () => {
+    siatGate.resolvePointOfSale.mockResolvedValue('pos-1');
+    prisma.shift.create.mockResolvedValue({ id: 'shift-1' });
+
+    await service.open('user-1', { openingCash: 10, pointOfSaleId: 'pos-1' });
+
+    expect(siatGate.resolvePointOfSale).toHaveBeenCalledWith('pos-1', 'user-1');
+    const createCall = prisma.shift.create.mock.calls[0] as unknown as [
+      { data: { point_of_sale_id: string | null } },
+    ];
+    expect(createCall[0].data.point_of_sale_id).toBe('pos-1');
+  });
+
+  it('does not open the shift when the SIAT gate refuses', async () => {
+    siatGate.resolvePointOfSale.mockRejectedValue(
+      new ConflictException('SIAT_POS_NOT_READY'),
+    );
+
+    await expect(
+      service.open('user-1', { openingCash: 10 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.shift.create).not.toHaveBeenCalled();
   });
 
   it('opens a shift and records an audit event', async () => {

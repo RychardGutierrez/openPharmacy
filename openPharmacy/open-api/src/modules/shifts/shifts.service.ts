@@ -12,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { CloseShiftDto } from './dto/close-shift.dto';
 import { ReopenRequestDto } from './dto/reopen-request.dto';
+import { SiatShiftGate } from '../siat/points-of-sale/siat-shift-gate.service';
 
 export interface ShiftCloseResult {
   shift: unknown;
@@ -36,6 +37,7 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditLogRepository,
+    private readonly siatGate: SiatShiftGate,
   ) {}
 
   onModuleInit() {
@@ -110,19 +112,29 @@ export class ShiftsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async open(userId: string, dto: CreateShiftDto) {
+    // SIAT-05: with SIAT enabled, the shift needs a point of sale with a valid CUIS.
+    const pointOfSaleId = await this.siatGate.resolvePointOfSale(
+      dto.pointOfSaleId,
+      userId,
+    );
     try {
       const shift = await this.prisma.shift.create({
         data: {
           user_id: userId,
           opening_cash: dto.openingCash,
           status: ShiftStatus.OPEN,
+          point_of_sale_id: pointOfSaleId,
         },
       });
 
       await this.audit.create({
         userId,
         event: 'SHIFT_OPENED',
-        metadata: { shiftId: shift.id, openingCash: dto.openingCash },
+        metadata: {
+          shiftId: shift.id,
+          openingCash: dto.openingCash,
+          pointOfSaleId,
+        },
       });
       return shift;
     } catch (error) {

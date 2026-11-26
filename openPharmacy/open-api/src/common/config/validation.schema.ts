@@ -79,4 +79,7 @@ export const validationSchema = Joi.object({
   SIAT_TOTAL_TIMEOUT_MS: Joi.number().integer().min(1000).default(20000),
   SIAT_READ_RETRIES: Joi.number().integer().min(0).max(5).default(2),
   SIAT_RETRY_BASE_MS: Joi.number().integer().min(0).default(500),
+  // CUIS renewal window (SIAT-05). The annex allows renewal from the 5th day before expiry.
+  SIAT_CUIS_RENEW_DAYS: Joi.number().integer().min(1).max(5).default(5),
+  SIAT_CUIS_ALERT_DAYS: Joi.number().integer().min(1).max(60).default(15),
 });

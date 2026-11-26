@@ -24,6 +24,8 @@ function build(
       totalTimeoutMs: 20000,
       readRetries: 0,
       retryBaseMs: 0,
+      cuisRenewDays: 5,
+      cuisAlertDays: 15,
       ...config,
     },
   );
