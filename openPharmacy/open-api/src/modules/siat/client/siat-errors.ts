@@ -43,6 +43,25 @@ export class SiatProtocolError extends SiatError {}
 export class SiatConfigError extends SiatError {}
 
 /**
+ * SIAT answered normally but refused the request (`transaccion=false` with no usable result).
+ * `codes` are the `mensajesList` codes, which match the annex "Códigos Error SIAT" table.
+ */
+export class SiatRejectedError extends SiatError {
+  constructor(
+    readonly operation: string,
+    readonly messages: ReadonlyArray<{ codigo: number; descripcion: string }>,
+  ) {
+    super(
+      `SIAT rejected ${operation}: ${messages.map((m) => `${m.codigo} ${m.descripcion}`).join('; ') || 'no message'}`,
+    );
+  }
+
+  get codes(): number[] {
+    return this.messages.map((m) => m.codigo);
+  }
+}
+
+/**
  * HTTP answer for a SIAT error that reaches a route, used by the global exception filter.
  * Returns undefined for anything else (and for SiatConfigError, which stays a 500: our fault).
  *
@@ -72,6 +91,18 @@ export function siatErrorToHttp(
         statusCode: 502,
         error: 'SiatFault',
         message: 'SIAT rejected the request.',
+      },
+    };
+  }
+  if (exception instanceof SiatRejectedError) {
+    // The SIN message codes are safe to show (no SIN text): the admin looks them up in the annex.
+    return {
+      status: 422,
+      body: {
+        statusCode: 422,
+        error: 'SiatRejected',
+        message: 'SIAT rejected the request.',
+        codes: exception.codes,
       },
     };
   }

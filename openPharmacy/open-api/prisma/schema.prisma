@@ -264,20 +264,25 @@ model AuditLog {
 // ─── Auth — Shifts ───────────────────────────────────────────────────────────
 
 model Shift {
-  id            String      @id @default(uuid()) @db.Uuid
-  user_id       String      @map("user_id") @db.Uuid
-  opening_cash  Decimal     @map("opening_cash") @db.Decimal(12, 2)
-  closing_cash  Decimal?    @map("closing_cash") @db.Decimal(12, 2)
-  expected_cash Decimal?    @map("expected_cash") @db.Decimal(12, 2)
-  status        ShiftStatus @default(OPEN)
-  opened_at     DateTime    @default(now()) @map("opened_at")
-  closed_at     DateTime?   @map("closed_at")
+  id               String      @id @default(uuid()) @db.Uuid
+  user_id          String      @map("user_id") @db.Uuid
+  opening_cash     Decimal     @map("opening_cash") @db.Decimal(12, 2)
+  closing_cash     Decimal?    @map("closing_cash") @db.Decimal(12, 2)
+  expected_cash    Decimal?    @map("expected_cash") @db.Decimal(12, 2)
+  status           ShiftStatus @default(OPEN)
+  opened_at        DateTime    @default(now()) @map("opened_at")
+  closed_at        DateTime?   @map("closed_at")
+  /// SIAT point of sale the shift invoices from (SIAT-05). Required to open a shift while
+  /// `SIAT_ENABLED` is true; null for shifts opened without SIAT.
+  point_of_sale_id String?     @map("point_of_sale_id") @db.Uuid
 
   user           User                 @relation(fields: [user_id], references: [id])
+  point_of_sale  SiatPointOfSale?     @relation(fields: [point_of_sale_id], references: [id])
   sales          Sale[]
   reopenRequests ShiftReopenRequest[]
 
   @@index([user_id, status])
+  @@index([point_of_sale_id, status])
   @@map("shifts")
   @@schema("auth")
 }
@@ -751,21 +756,25 @@ model SiatBranch {
 
 /// Point of sale inside a branch. `codigo_punto_venta` is unique per branch, not globally.
 model SiatPointOfSale {
-  id                 String   @id @default(uuid()) @db.Uuid
-  branch_id          String   @map("branch_id") @db.Uuid
-  codigo_punto_venta Int      @map("codigo_punto_venta")
+  id                 String    @id @default(uuid()) @db.Uuid
+  branch_id          String    @map("branch_id") @db.Uuid
+  codigo_punto_venta Int       @map("codigo_punto_venta")
   /// `codigoTipoPuntoVenta` from the SIN catalog (sincronizarParametricaTipoPuntoVenta).
   /// Null for PoS 0, which belongs to the branch and is not created with registroPuntoVenta.
-  tipo_punto_venta   Int?     @map("tipo_punto_venta")
+  tipo_punto_venta   Int?      @map("tipo_punto_venta")
   name               String
-  active             Boolean  @default(true)
-  created_at         DateTime @default(now()) @map("created_at")
-  updated_at         DateTime @updatedAt @map("updated_at")
+  /// False = retired: not selectable for shifts and its CUIS is no longer renewed (SIAT-05).
+  active             Boolean   @default(true)
+  /// Set when `cierrePuntoVenta` succeeded. Final: the SIN never reuses the number.
+  closed_at          DateTime? @map("closed_at")
+  created_at         DateTime  @default(now()) @map("created_at")
+  updated_at         DateTime  @updatedAt @map("updated_at")
 
   branch       SiatBranch       @relation(fields: [branch_id], references: [id])
   cuis         SiatCuis[]
   cufds        SiatCufd[]
   request_logs SiatRequestLog[]
+  shifts       Shift[]
 
   @@unique([branch_id, codigo_punto_venta])
   @@map("siat_points_of_sale")

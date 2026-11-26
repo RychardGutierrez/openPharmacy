@@ -27,7 +27,7 @@ unless explicitly marked public.
 | `alerts` | Low-stock and operational alert retrieval | `/alerts` | `alerts` |
 | `billing` | Billing document domain endpoints | `/billing` | shared with sales/configuration |
 | `doctors` | Doctor directory and prescription providers | `/doctors` | `doctors` |
-| `siat` | SIN electronic invoicing (SIAT V3): pinned spec, generated types, XSD validation, SOAP client, `siat` database schema with request log, ADMIN settings (token encrypted) and connection test | `/siat/settings` | `siat-settings` |
+| `siat` | SIN electronic invoicing (SIAT V3): pinned spec, generated types, XSD validation, SOAP client, `siat` database schema with request log, ADMIN settings (token encrypted) and connection test, branches, points of sale and the CUIS lifecycle (renewal job, shift gate) | `/siat/settings`, `/siat/branches`, `/siat/points-of-sale` | `siat-settings` |
 
 ### Auth
 
@@ -60,7 +60,9 @@ role-aware approval and audit records.
 
 ### Shifts and Sales
 
-`shifts` owns the cash-register lifecycle and reopen requests. `sales` requires
+`shifts` owns the cash-register lifecycle and reopen requests. Each shift can
+be linked to a SIAT point of sale. While SIAT is enabled, a shift opens only on
+a point of sale with a valid CUIS (SIAT-05, through `SiatShiftGate`). `sales` requires
 an active shift, deducts stock through FEFO, creates receipts and sale items,
 and uses transactional writes. Read the detailed [sales documentation](openPharmacy/open-api/src/modules/sales/README.md)
 and [frontend shifts documentation](openPharmacy/open-fronted/features/shifts/README.md).

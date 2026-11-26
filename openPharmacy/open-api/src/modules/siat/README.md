@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets).** The only endpoints are the SIAT settings (see [Settings](#settings-siat-04)). The SOAP client is built but not yet used by a domain module (see `docs/documentation/SIAT_Tickets.md`). `SiatModule` is imported in `AppModule`; with no token configured it starts normally and SIAT calls report `not-configured`.
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)) and branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
 
 ## Layout
 
@@ -16,7 +16,9 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 | `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, the request-log port, and `SiatHealthService`. See [SIAT client](#siat-client). |
 | `client/__fixtures__/recorded/` | Real pilot responses saved by `npm run siat:live-check -- --record`. Token-free. |
 | `persistence/` | `PrismaSiatRequestLogSink`, which writes request log rows to `siat.siat_request_log`. |
-| `siat.module.ts` | Nest module that wires the client. Not yet imported by the application module. |
+| `codes/` | `SiatCodesService` (CUIS lifecycle), the CUIS policy, the renewal job, `SIAT_CLOCK`, typed payloads for `cuis` and the point-of-sale operations, and the provisional point-of-sale type list. |
+| `points-of-sale/` | `SiatPointsOfSaleService` and controller (branches, points of sale) and `SiatShiftGate` (used by `shifts`). |
+| `siat.module.ts` | Nest module that wires all of the above. |
 
 ## Commands
 
@@ -136,6 +138,69 @@ All three are ADMIN only. The generic `/api/config` endpoints neither return nor
 - **Token source.** The encrypted setting wins. `SIAT_TOKEN` in `.env` is only a fallback when `SIAT_ENV=pilot` (local work and `siat:live-check`); it is rejected at startup in production.
 - **Missing `CONFIG_ENCRYPTION_KEY`.** Saving a token answers 503 `CONFIG_ENCRYPTION_KEY_MISSING`. If the key changes, the stored token can no longer be read: SIAT calls fail with `SiatConfigError` and the token must be loaded again.
 
+## Branches, points of sale and CUIS (SIAT-05)
+
+### Decisions
+
+- **`sedes` stays separate.** `siat_branches` is the SIAT branch table, and `sedes` is still a scaffold. Linking them is pending item M1.
+- **Shift to point of sale.** `auth.shifts.point_of_sale_id` is a nullable foreign key to `siat.siat_points_of_sale` (migration `20261117043007_siat_05_pos_cuis`). The cashier can pick one, and if only one is active it is used automatically. Several shifts may be open on the same point of sale.
+- **Renewal window follows the annex, not the original ticket.** The "Solicitud CUIS" page allows renewal only "a partir del quinto día anterior a su vencimiento". Renewal therefore starts 5 days before expiry (`SIAT_CUIS_RENEW_DAYS`, max 5), and from 15 days out the job only logs a warning (`SIAT_CUIS_ALERT_DAYS`). Requesting earlier would just return the same code.
+- **Point-of-sale types are a provisional list** (`codes/siat-point-of-sale-types.ts`: 2–6, without 1 = comisionista, which uses another operation). SIAT-07 replaces it with the synced `sincronizarParametricaTipoPuntoVenta` catalog.
+- **Branches are created by ADMIN** (`POST /siat/branches`), exactly as registered in the Padrón. Creating a branch also creates its point of sale 0. Nothing is sent to SIAT.
+
+### CUIS rules (`SiatCodesService.ensureCuis`)
+
+| Stored CUIS | What happens |
+|---|---|
+| More than 15 days left | Returned with no SIAT call (`valid`) |
+| 15 days left or less | Returned with no SIAT call (`alert`). The job logs a warning |
+| 5 days left or less, expired, or none | `cuis` is requested from SIAT |
+
+- **"CUIS vigente".** A response with a `codigo` is stored whether `transaccion` is true or false. A known code only updates `valid_until`. A different code deactivates the old row and inserts the new one in the same transaction (at most one active row, by the partial unique index).
+- **Concurrency.** The request runs inside a transaction that first takes `SELECT … FOR UPDATE` on the point-of-sale row. A second caller waits, then finds the stored CUIS. The transaction timeout is `SIAT_TOTAL_TIMEOUT_MS` + 15 s.
+- **Failures.**
+  - `cuis` is a write, so it is never retried.
+  - If SIAT fails while the stored CUIS is still valid, that CUIS is kept (`renewalFailed: true`), and the job tries again within the hour.
+  - A timed-out request heals itself: the next call gets the same code back as "vigente".
+  - With `force`, or when nothing usable is stored, the error is thrown.
+  - A response with no `codigo` raises `SiatRejectedError`, returned as **422** with the SIN message codes only.
+- **Renewal side effects.**
+  - A changed code emits `siat.cuis.renewed` (`SIAT_CUIS_RENEWED_EVENT`). **SIAT-06 must listen for it and request a new CUFD**: the annex requires a new CUFD after a CUIS renewal, and invoice numbering restarts per CUIS.
+  - Audit events `SIAT_CUIS_OBTAINED` and `SIAT_CUIS_RENEWED` are written. The code itself is never audited or returned.
+- **Renewal job** (`SiatCuisRenewalJob`). Runs every hour and covers active, open points of sale. It does nothing while `SIAT_ENABLED` is false and is disabled under `NODE_ENV=test`.
+- **Clock.** `SIAT_CLOCK` (system clock) is injected so tests can use `fixedSiatClock`. SIAT-07 can replace it with a clock corrected by the SIAT time offset.
+- **Configuration errors.** A missing token, NIT or system code returns **409** `SIAT_NOT_CONFIGURED` with `missing`, before any SIAT call.
+
+### Point-of-sale operations
+
+`registroPuntoVenta`, `consultaPuntoVenta` and `cierrePuntoVenta` all send the **branch CUIS**, which is the CUIS of point of sale 0 of that branch. It is obtained first when needed.
+
+- **Register.** SIAT assigns `codigoPuntoVenta`. The point of sale is stored as soon as SIAT answers, and its CUIS is requested next. If that CUIS request fails, the point of sale stays and the response reports `cuis.state: 'missing'`. Retry with `POST :id/cuis`.
+- **Close (final).** The SIN never reuses the number, and SIAT closes a point of sale only when it has no valid CUIS or CUFD. The flow:
+  1. Retire the point of sale (`PATCH active=false`). This also stops CUIS renewal.
+  2. Wait for its codes to expire.
+  3. `POST :id/close` with `{ "confirm": true }`.
+
+  The API refuses with 409 when shifts are open, when the point of sale is still active, or when a CUIS or CUFD is still valid. Point of sale 0 cannot be closed.
+- **Reconcile.** Reports `matched`, `remoteOnly` and `localOnly`, and changes nothing.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/siat/branches` | List branches |
+| `POST` | `/api/siat/branches` | Create a branch (Padrón data) and its point of sale 0 |
+| `PATCH` | `/api/siat/branches/:id` | Edit name, address, municipality, phone, `active`. `codigoSucursal` is fixed |
+| `GET` | `/api/siat/points-of-sale` | Points of sale with CUIS state, `validUntil`, `daysLeft`, open shifts |
+| `GET` | `/api/siat/points-of-sale/types` | Provisional `codigoTipoPuntoVenta` list |
+| `POST` | `/api/siat/points-of-sale` | `registroPuntoVenta` + CUIS |
+| `PATCH` | `/api/siat/points-of-sale/:id` | Rename, retire or reactivate (a closed one cannot be reactivated) |
+| `POST` | `/api/siat/points-of-sale/:id/cuis` | Get or renew the CUIS (`{ "force": true }` asks SIAT even when valid) |
+| `GET` | `/api/siat/points-of-sale/reconcile?branchId=` | `consultaPuntoVenta` compared with the stored rows |
+| `POST` | `/api/siat/points-of-sale/:id/close` | `cierrePuntoVenta` (`{ "confirm": true }`) |
+
+All are ADMIN only and audited (`SIAT_BRANCH_*`, `SIAT_POS_*`). The shift side is described in `modules/shifts/README.md`.
+
+**Fase I note.** Create at least one extra point of sale in the pilot to show multi-point-of-sale support. Fase I counts CUIS requests per point of sale.
+
 ## Data model
 
 Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
@@ -143,7 +208,7 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | Table | Purpose | Rules |
 |---|---|---|
 | `siat_branches` | Branches registered with the SIN | `codigo_sucursal` unique. `0` is the casa matriz. Standalone for now; `sedes` has no table yet and can link to it later |
-| `siat_points_of_sale` | Points of sale per branch | Unique (`branch_id`, `codigo_punto_venta`). `tipo_punto_venta` is null for PoS `0`, which is not created with `registroPuntoVenta` |
+| `siat_points_of_sale` | Points of sale per branch | Unique (`branch_id`, `codigo_punto_venta`). `tipo_punto_venta` is null for PoS `0`, which is not created with `registroPuntoVenta`. `active=false` = retired, `closed_at` = closed in SIAT (SIAT-05). Referenced by `auth.shifts.point_of_sale_id` |
 | `siat_cuis` | CUIS history | At most one `active` row per point of sale (partial unique index `siat_cuis_one_active_per_pos`, raw SQL in the migration) |
 | `siat_cufd` | Full CUFD history | Never delete rows: offline invoices and packages refer to old CUFDs. `source` is `SCHEDULED`, `ON_DEMAND` or `EVENT` |
 | `siat_catalog_items` | Synchronized SIN catalogs | Unique (`catalog`, `code`). `catalog` is a string (the sync operation name), so a new catalog needs no migration. Codes are strings |

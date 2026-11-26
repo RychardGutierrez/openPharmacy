@@ -16,6 +16,13 @@ export interface SiatConfig {
   /** Retries for read-only operations only. Write operations are never retried. */
   readRetries: number;
   retryBaseMs: number;
+  /**
+   * Renew a CUIS when it has this many days left or fewer (SIAT-05). The annex allows renewal only
+   * "a partir del quinto día anterior a su vencimiento", so the default is 5.
+   */
+  cuisRenewDays: number;
+  /** Warn (log, later SIAT-27 alert) when a CUIS has this many days left or fewer. Default 15. */
+  cuisAlertDays: number;
 }
 
 /** Reads SIAT settings from an environment map. Joi validates the same keys at startup. */
@@ -52,6 +59,8 @@ export function readSiatConfig(
     totalTimeoutMs: numberOr(env.SIAT_TOTAL_TIMEOUT_MS, 20000),
     readRetries: numberOr(env.SIAT_READ_RETRIES, 2),
     retryBaseMs: numberOr(env.SIAT_RETRY_BASE_MS, 500),
+    cuisRenewDays: numberOr(env.SIAT_CUIS_RENEW_DAYS, 5),
+    cuisAlertDays: numberOr(env.SIAT_CUIS_ALERT_DAYS, 15),
   };
 }
 

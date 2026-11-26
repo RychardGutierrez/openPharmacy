@@ -20,6 +20,17 @@ Related tickets:
   sales. Client-submitted totals are never trusted.
 - Only an `ADMIN` can reopen a closed shift.
 - A `CASHIER` or `PHARMACIST` may request a reopen; an `ADMIN` reviews it.
+- **SIAT point of sale (SIAT-05).** `POST /shifts/open` accepts an optional
+  `pointOfSaleId` and stores it in `shifts.point_of_sale_id`. `SiatShiftGate`
+  (exported by `SiatModule`) resolves it:
+  - With no `pointOfSaleId`, the single active point of sale is used.
+  - With `SIAT_ENABLED=true`, the shift opens only on a point of sale with a
+    usable CUIS (obtained on the spot if missing). Otherwise it returns `409
+    SIAT_POS_NOT_READY`, or `400 SIAT_POS_REQUIRED` when several points of sale
+    exist and none was chosen.
+  - With SIAT disabled, a shift can open without a point of sale.
+  - Several shifts may be open on the same point of sale at once.
+  - Reopening a shift does not check the CUIS again.
 
 ## Reconciliation model
 

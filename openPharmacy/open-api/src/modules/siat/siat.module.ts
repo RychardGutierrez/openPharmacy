@@ -14,15 +14,27 @@ import { PrismaSiatRequestLogSink } from './persistence/prisma-siat-request-log.
 import { PrismaSiatCuisStatusReader } from './persistence/prisma-siat-cuis-status.reader';
 import { SiatSettingsController } from './settings/siat-settings.controller';
 import { SiatSettingsService } from './settings/siat-settings.service';
+import { AuditModule } from '../../common/audit/audit.module';
+import { SIAT_CLOCK, systemSiatClock } from './codes/siat-clock';
+import { SiatCodesService } from './codes/siat-codes.service';
+import { SiatCuisRenewalJob } from './codes/siat-cuis-renewal.job';
+import { SiatPointsOfSaleController } from './points-of-sale/siat-points-of-sale.controller';
+import { SiatPointsOfSaleService } from './points-of-sale/siat-points-of-sale.service';
+import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
 
 /**
  * `PrismaService` comes from the global `PrismaModule`. Safe to import with no token configured:
  * SIAT calls then fail with `SiatConfigError` and the health check reports `not-configured`.
  */
 @Module({
-  imports: [PharmacyConfigModule],
-  controllers: [SiatSettingsController],
+  imports: [PharmacyConfigModule, AuditModule],
+  controllers: [SiatSettingsController, SiatPointsOfSaleController],
   providers: [
+    { provide: SIAT_CLOCK, useValue: systemSiatClock },
+    SiatCodesService,
+    SiatCuisRenewalJob,
+    SiatPointsOfSaleService,
+    SiatShiftGate,
     { provide: SIAT_CONFIG, useFactory: () => readSiatConfig() },
     { provide: SIAT_TRANSPORT, useClass: SiatHttpTransport },
     { provide: SIAT_REQUEST_LOG, useClass: PrismaSiatRequestLogSink },
@@ -32,6 +44,12 @@ import { SiatSettingsService } from './settings/siat-settings.service';
     PrismaSiatCuisStatusReader,
     SiatSettingsService,
   ],
-  exports: [SiatSoapClient, SiatHealthService, SIAT_CREDENTIALS],
+  exports: [
+    SiatSoapClient,
+    SiatHealthService,
+    SIAT_CREDENTIALS,
+    SiatCodesService,
+    SiatShiftGate,
+  ],
 })
 export class SiatModule {}
