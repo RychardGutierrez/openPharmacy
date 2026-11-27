@@ -30,6 +30,10 @@ export type AuditEvent =
   | 'PRODUCT_ACTIVATED'
   | 'PRODUCT_BULK_IMPORTED'
   | 'PRODUCT_PRICE_CHANGED'
+  // Product SIN homologation codes (SIAT-08)
+  | 'PRODUCT_SIN_CODES_UPDATED'
+  | 'PRODUCT_SIN_CODES_BULK_ASSIGNED'
+  | 'PRODUCT_SIN_DEFAULT_UPDATED'
   // Lot / inventory events
   | 'LOT_CREATED'
   | 'LOT_UPDATED'

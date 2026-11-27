@@ -32,6 +32,7 @@ import { ProductNotFoundException } from './exceptions/product-not-found.excepti
 import { ProductsRepository } from './repositories/products.repository';
 import { RequestMetadata } from '../users/users.service';
 import { ConfigService } from '../config/config.service';
+import { ProductSinService } from './product-sin.service';
 
 @Injectable()
 export class ProductsService {
@@ -42,6 +43,7 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly audit: AuditLogRepository,
+    private readonly sin: ProductSinService,
     @Optional() private readonly config?: ConfigService,
   ) {}
 
@@ -50,6 +52,8 @@ export class ProductsService {
     meta?: RequestMetadata,
   ): Promise<ProductResponseDto> {
     await this.validateUniqueBarcode(dto.barcode);
+    const codes = ProductSinService.resolveComplete(dto);
+    if (codes) await this.sin.validateCodes(codes);
 
     const product = await this.prisma.$transaction(async (tx) => {
       const created = await this.products.createTx(tx, this.toCreateInput(dto));
@@ -79,6 +83,9 @@ export class ProductsService {
         category: query.category,
         active: query.active,
         q: query.q,
+        extraWhere: query.sinPending
+          ? await this.sin.pendingWhere()
+          : undefined,
       });
 
     const stock = query.includeStock
@@ -163,6 +170,7 @@ export class ProductsService {
     id: string,
     dto: UpdateProductDto,
     meta?: RequestMetadata,
+    actorId?: string | null,
   ): Promise<ProductResponseDto> {
     const existing = await this.products.findByIdIncludingDeleted(id);
     if (!existing) {
@@ -172,6 +180,21 @@ export class ProductsService {
     if (dto.barcode && dto.barcode !== existing.barcode) {
       await this.validateUniqueBarcode(dto.barcode, id);
     }
+
+    // Partial updates: merge the codes not sent with the stored ones before checking the set.
+    const mergedCodes = ProductSinService.resolveComplete({
+      sinActivityCode:
+        dto.sinActivityCode !== undefined
+          ? dto.sinActivityCode
+          : existing.sin_activity_code,
+      sinProductCode:
+        dto.sinProductCode !== undefined
+          ? dto.sinProductCode
+          : existing.sin_product_code,
+      sinUnitCode:
+        dto.sinUnitCode !== undefined ? dto.sinUnitCode : existing.sin_unit_code,
+    });
+    if (mergedCodes) await this.sin.validateCodes(mergedCodes);
 
     const product = await this.prisma.$transaction(async (tx) => {
       const updated = await this.products.updateTx(
@@ -190,6 +213,35 @@ export class ProductsService {
           changedFields: Object.keys(dto),
         },
       });
+
+      const sinChanged =
+        (dto.sinActivityCode !== undefined &&
+          dto.sinActivityCode !== existing.sin_activity_code) ||
+        (dto.sinProductCode !== undefined &&
+          dto.sinProductCode !== existing.sin_product_code) ||
+        (dto.sinUnitCode !== undefined &&
+          dto.sinUnitCode !== existing.sin_unit_code);
+      if (sinChanged) {
+        await this.audit.createInTx(tx, {
+          userId: actorId ?? null,
+          event: 'PRODUCT_SIN_CODES_UPDATED',
+          ip: meta?.ip ?? null,
+          userAgent: meta?.userAgent ?? null,
+          metadata: {
+            productId: updated.id,
+            before: {
+              activityCode: existing.sin_activity_code,
+              productCode: existing.sin_product_code,
+              unitCode: existing.sin_unit_code,
+            },
+            after: {
+              activityCode: updated.sin_activity_code,
+              productCode: updated.sin_product_code,
+              unitCode: updated.sin_unit_code,
+            },
+          },
+        });
+      }
 
       return updated;
     });
@@ -400,6 +452,9 @@ export class ProductsService {
       }
 
       try {
+        const codes = ProductSinService.resolveComplete(rowDto);
+        if (codes) await this.sin.validateCodes(codes);
+
         const product = await this.prisma.$transaction(async (tx) => {
           const existing = await tx.product.findUnique({
             where: { barcode: rowDto.barcode },
@@ -510,12 +565,20 @@ export class ProductsService {
       sale_price: 'salePrice',
       min_sale_price: 'minSalePrice',
       min_stock: 'minStock',
+      sin_activity_code: 'sinActivityCode',
+      sin_product_code: 'sinProductCode',
+      sin_unit_code: 'sinUnitCode',
     };
 
     for (const [snake, camel] of Object.entries(snakeToCamel)) {
       if (snake in raw && !(camel in normalized)) {
         normalized[camel] = raw[snake];
       }
+    }
+
+    // SIAT-08: an empty SIN cell means "not homologated", not an invalid code.
+    for (const key of ['sinActivityCode', 'sinProductCode', 'sinUnitCode']) {
+      if (normalized[key] === '') normalized[key] = undefined;
     }
 
     return normalized;
@@ -535,6 +598,9 @@ export class ProductsService {
       sale_price: dto.salePrice,
       min_sale_price: dto.minSalePrice,
       min_stock: dto.minStock,
+      sin_activity_code: dto.sinActivityCode ?? null,
+      sin_product_code: dto.sinProductCode ?? null,
+      sin_unit_code: dto.sinUnitCode ?? null,
       active: true,
       deleted_at: null,
     };
@@ -557,6 +623,12 @@ export class ProductsService {
     if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
     if (dto.minSalePrice !== undefined) data.min_sale_price = dto.minSalePrice;
     if (dto.minStock !== undefined) data.min_stock = dto.minStock;
+    if (dto.sinActivityCode !== undefined)
+      data.sin_activity_code = dto.sinActivityCode ?? null;
+    if (dto.sinProductCode !== undefined)
+      data.sin_product_code = dto.sinProductCode ?? null;
+    if (dto.sinUnitCode !== undefined)
+      data.sin_unit_code = dto.sinUnitCode ?? null;
 
     return data;
   }
@@ -577,6 +649,9 @@ export class ProductsService {
       salePrice: Number(product.sale_price),
       minSalePrice: Number(product.min_sale_price),
       minStock: product.min_stock,
+      sinActivityCode: product.sin_activity_code,
+      sinProductCode: product.sin_product_code,
+      sinUnitCode: product.sin_unit_code,
       active: product.active,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

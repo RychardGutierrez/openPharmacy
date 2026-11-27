@@ -8,6 +8,7 @@ import { AuditModule } from '../../common/audit/audit.module';
 import { SalesRepository } from './repositories/sales.repository';
 import { ReturnsModule } from '../returns/returns.module';
 import { InventoryMovementsModule } from '../inventory-movements/inventory-movements.module';
+import { ProductsModule } from '../products/products.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { InventoryMovementsModule } from '../inventory-movements/inventory-movem
     InventoryMovementsModule,
     ConfigModule,
     AuditModule,
+    ProductsModule,
     forwardRef(() => ReturnsModule),
   ],
   controllers: [SalesController],

@@ -5,11 +5,20 @@ import {
   bulkImportResponseSchema,
   paginatedProductsSchema,
   productSchema,
+  sinBulkResultSchema,
+  sinCategoryDefaultSchema,
+  sinCategoryDefaultsSchema,
+  sinSummarySchema,
   type BulkImportResponse,
   type PaginatedProducts,
   type Product,
+  type ProductCategory,
   type ProductFormValues,
   type ProductSearchResult,
+  type SinBulkResult,
+  type SinCategoryDefault,
+  type SinCodes,
+  type SinSummary,
 } from "@/features/products/types"
 import {
   PRODUCTS_ERROR_MESSAGES,
@@ -35,6 +44,23 @@ export interface ProductsListQuery {
   active?: boolean
   q?: string
   includeStock?: boolean
+  /** SIAT-08: only products without complete SIN codes and without a category default. */
+  sinPending?: boolean
+}
+
+/**
+ * The API expects `null` for "no SIN code"; the form uses "" (and undefined when untouched).
+ * Undefined is dropped by JSON.stringify, so the backend keeps the stored value.
+ */
+function toApiValues(values: ProductFormValues): Record<string, unknown> {
+  const { sinActivityCode, sinProductCode, sinUnitCode, ...rest } = values
+  const payload: Record<string, unknown> = { ...rest }
+  const sin = { sinActivityCode, sinProductCode, sinUnitCode }
+  for (const [key, value] of Object.entries(sin)) {
+    if (value === undefined) continue
+    payload[key] = value === "" ? null : value
+  }
+  return payload
 }
 
 interface ApiErrorBody {
@@ -113,6 +139,7 @@ function buildQueryString(query: ProductsListQuery): string {
   if (typeof query.active === "boolean") params.set("active", String(query.active))
   if (query.q && query.q.trim().length > 0) params.set("q", query.q.trim())
   if (query.includeStock) params.set("includeStock", "true")
+  if (query.sinPending) params.set("sinPending", "true")
   const qs = params.toString()
   return qs.length > 0 ? `?${qs}` : ""
 }
@@ -150,7 +177,7 @@ export function searchProducts(
 export function createProduct(values: ProductFormValues): Promise<Product> {
   return request(
     "/products",
-    { method: "POST", body: JSON.stringify(values) },
+    { method: "POST", body: JSON.stringify(toApiValues(values)) },
     productSchema,
   )
 }
@@ -161,8 +188,64 @@ export function updateProduct(
 ): Promise<Product> {
   return request(
     `/products/${id}`,
-    { method: "PATCH", body: JSON.stringify(values) },
+    { method: "PATCH", body: JSON.stringify(toApiValues(values)) },
     productSchema,
+  )
+}
+
+/** Summary of SIN homologation (SIAT-08). */
+export function getSinSummary(): Promise<SinSummary> {
+  return request("/products/sin/summary", { method: "GET" }, sinSummarySchema)
+}
+
+export function listSinDefaults(): Promise<SinCategoryDefault[]> {
+  return request("/products/sin/defaults", { method: "GET" }, sinCategoryDefaultsSchema)
+}
+
+/** Sets the default SIN codes of one category. */
+export function setSinDefault(
+  category: ProductCategory,
+  codes: SinCodes,
+): Promise<SinCategoryDefault> {
+  return request(
+    `/products/sin/defaults/${category}`,
+    { method: "PUT", body: JSON.stringify(codes) },
+    sinCategoryDefaultSchema,
+  )
+}
+
+/** Copies a category default onto its products that have no complete codes. */
+export function applySinDefault(category: ProductCategory): Promise<SinBulkResult> {
+  return request(
+    `/products/sin/defaults/${category}/apply`,
+    { method: "POST" },
+    sinBulkResultSchema,
+  )
+}
+
+export interface BulkAssignSinInput extends SinCodes {
+  /** Either productIds or category is required (the backend checks). */
+  productIds?: string[]
+  category?: ProductCategory
+  overwrite?: boolean
+}
+
+/** Assigns the same SIN codes to selected products, or to a whole category (SIAT-08). */
+export function bulkAssignSin(input: BulkAssignSinInput): Promise<SinBulkResult> {
+  return request(
+    "/products/sin/bulk-assign",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        productIds: input.productIds,
+        category: input.category,
+        sinActivityCode: input.sinActivityCode,
+        sinProductCode: input.sinProductCode,
+        sinUnitCode: input.sinUnitCode,
+        overwrite: input.overwrite ?? false,
+      }),
+    },
+    sinBulkResultSchema,
   )
 }
 

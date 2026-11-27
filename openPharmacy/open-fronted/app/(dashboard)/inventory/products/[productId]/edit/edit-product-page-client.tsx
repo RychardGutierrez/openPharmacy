@@ -56,6 +56,9 @@ export function EditProductPageClient({ id }: { id: string }) {
     salePrice: product.salePrice,
     minSalePrice: product.minSalePrice,
     minStock: product.minStock,
+    sinActivityCode: product.sinActivityCode ?? "",
+    sinProductCode: product.sinProductCode ?? "",
+    sinUnitCode: product.sinUnitCode ?? "",
   }
 
   return (

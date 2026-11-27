@@ -85,4 +85,32 @@ export class CreateProductDto {
   @Max(999999)
   @Type(() => Number)
   minStock!: number;
+
+  /**
+   * SIN homologation codes (SIAT-08). Optional, but a product either has all three or none. The
+   * codes are checked against the synced SIN catalogs in the service.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,20}$/, { message: 'sinActivityCode must contain only digits' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  sinActivityCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,20}$/, { message: 'sinProductCode must contain only digits' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  sinProductCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,20}$/, { message: 'sinUnitCode must contain only digits' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  sinUnitCode?: string | null;
 }

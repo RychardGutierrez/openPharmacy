@@ -186,7 +186,7 @@ describe('SiatCatalogsService.list', () => {
   it('hides non-public catalogs from non-admin roles', async () => {
     const { service } = setup([]);
     await expect(
-      service.list('activities', {}, UserRole.CASHIER),
+      service.list('legends', {}, UserRole.CASHIER),
     ).rejects.toMatchObject({
       status: 403,
     });

@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS). SIAT-06 done (CUFD lifecycle). SIAT-07 done (catalogs and clock).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)), branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)) and the CUFD request (see [CUFD](#cufd-siat-06)), and the catalogs and clock (see [Catalogs and clock](#catalogs-and-clock-siat-07)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS). SIAT-06 done (CUFD lifecycle). SIAT-07 done (catalogs and clock). SIAT-08 implemented, pilot check pending (product homologation, see [Product homologation](#product-homologation-siat-08)).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)), branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)) and the CUFD request (see [CUFD](#cufd-siat-06)), and the catalogs and clock (see [Catalogs and clock](#catalogs-and-clock-siat-07)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
 
 ## Layout
 
@@ -288,10 +288,10 @@ Synchronizes the 17 SIN catalogs (`sincronizar*` operations of `FacturacionSincr
 
 | Slug | Operation | Required for emission | Public |
 |---|---|---|---|
-| `activities` | `sincronizarActividades` | yes | no |
+| `activities` | `sincronizarActividades` | yes | yes (SIAT-08) |
 | `legends` | `sincronizarListaLeyendasFactura` | yes | no |
 | `activity-document-sectors` | `sincronizarListaActividadesDocumentoSector` | yes | no |
-| `products` | `sincronizarListaProductosServicios` | no | no |
+| `products` | `sincronizarListaProductosServicios` | no | yes (SIAT-08) |
 | `service-messages` | `sincronizarListaMensajesServicios` | no | no |
 | `significant-events` | `sincronizarParametricaEventosSignificativos` | no | no |
 | `cancellation-reasons` | `sincronizarParametricaMotivoAnulacion` | no | yes |
@@ -347,6 +347,25 @@ The "required" set is the team's reading of what SIAT-11 emits. It is not yet co
 | `SIAT_CLOCK_WARN_MS` | `5000` | Drift threshold for the warning and `siat.clock.drift` |
 | `SIAT_CLOCK_MAX_RTT_MS` | `2000` | Largest round trip accepted for a clock sample |
 
+## Product homologation (SIAT-08)
+
+Products carry `sin_activity_code`, `sin_product_code` and `sin_unit_code`
+(migration `20261126230000_siat_08_product_homologation`), with defaults per category in
+`pharmacy.product_sin_defaults`. The rules, endpoints and the `PRODUCT_NOT_HOMOLOGATED` sale guard
+are in [`modules/products/README.md`](../products/README.md#sin-homologation-siat-08).
+
+What this module provides for it:
+
+- `activities` and `products` are now **public** catalogs, so PHARMACIST can search them through
+  `GET /api/siat/catalogs/:catalog` when coding products. They hold no secrets.
+- `SiatCatalogsService.validateSinCodes({activityCode, productCode, unitCode})` returns the
+  failing fields. The product code is looked up as `activity:product`, which also proves that it
+  belongs to the activity, as the SIN requires.
+- `SiatCatalogsService.hasActiveCodes(slug)` tells whether a catalog has been synced. Product
+  validation is skipped until `activities` is synced.
+- A code that later leaves the SIN list (`active=false`) stays on products that already use it.
+  New writes are rejected. Reporting stale codes is not implemented yet.
+
 ## Data model
 
 Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
@@ -363,6 +382,8 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | `siat_time_offset` | Clock samples from `sincronizarFechaHora` | The latest row is the current offset. `offset_ms = siat_time - server_time` |
 
 The seed (`npm run db:seed`) creates casa matriz `0` and point of sale `0` for development, and skips them when `NODE_ENV=production`.
+
+**DEMO SIN catalogs (SIAT-08).** `prisma/seed-siat-catalogs.ts` adds 2 activities, 7 products and 6 units so the product "Codificación SIN" pickers work without a pilot token. It runs from the seed, or alone with `npx tsx prisma/seed-siat-catalogs.ts`, which touches nothing else. It is skipped in production. The codes are fake (they start with `99`) and the descriptions start with "(DEMO)". A real sync never returns them, so it marks them inactive. Products that still use them then fail validation on their next save. Replace them with real codes before the pilot.
 
 ## Open items
 

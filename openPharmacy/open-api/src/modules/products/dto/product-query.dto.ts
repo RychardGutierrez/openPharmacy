@@ -48,6 +48,17 @@ export class ProductQueryDto {
   )
   q?: string;
 
+  /** SIAT-08: only products without complete SIN codes and without a category default. */
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
+  @IsBoolean()
+  sinPending?: boolean;
+
   /** When true, attach aggregated lot stock/expiry info per product (POS). */
   @IsOptional()
   @Type(() => String)

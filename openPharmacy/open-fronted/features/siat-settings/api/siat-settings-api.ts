@@ -2,6 +2,10 @@ import { z } from "zod"
 
 import { useAuthStore } from "@/features/auth/store/auth-store"
 import {
+  siatCatalogItemsPageSchema,
+  type SiatCatalogItemsPage,
+} from "@/features/products/types"
+import {
   siatCatalogSyncSchema,
   siatCatalogsStatusSchema,
   siatConnectionTestSchema,
@@ -87,6 +91,33 @@ export function testSiatConnection(): Promise<SiatConnectionTest> {
 
 export function getSiatCatalogsStatus(): Promise<SiatCatalogsStatus> {
   return request("/siat/catalogs", { method: "GET" }, siatCatalogsStatusSchema)
+}
+
+export interface SiatCatalogItemsParams {
+  parentCode?: string
+  search?: string
+  page?: number
+  pageSize?: number
+}
+
+/**
+ * Active codes of one SIN catalog (SIAT-08 pickers). Readable by ADMIN and PHARMACIST for the
+ * activities, products and units catalogs.
+ */
+export function getSiatCatalogItems(
+  catalog: "activities" | "products" | "units",
+  params: SiatCatalogItemsParams = {},
+): Promise<SiatCatalogItemsPage> {
+  const query = new URLSearchParams()
+  if (params.parentCode) query.set("parentCode", params.parentCode)
+  if (params.search) query.set("search", params.search)
+  query.set("page", String(params.page ?? 1))
+  query.set("pageSize", String(params.pageSize ?? 20))
+  return request(
+    `/siat/catalogs/${catalog}?${query.toString()}`,
+    { method: "GET" },
+    siatCatalogItemsPageSchema,
+  )
 }
 
 /** Sync now: every catalog and the clock. */

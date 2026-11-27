@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, UserRole, ProductCategory } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { seedSiatDemoCatalogs } from './seed-siat-catalogs';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -382,6 +383,8 @@ async function main() {
     });
     console.log('✓ SIAT casa matriz 0 / point of sale 0 created');
   }
+  // DEMO SIN catalogs for the product "Codificación SIN" pickers (SIAT-08). Skips production.
+  await seedSiatDemoCatalogs(prisma);
 
   console.log('\nSeeding complete!');
   console.log('─────────────────────────────────────────────');

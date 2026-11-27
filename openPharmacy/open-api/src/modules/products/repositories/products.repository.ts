@@ -8,6 +8,8 @@ export interface ProductsQuery {
   category?: ProductCategory;
   active?: boolean | string;
   q?: string;
+  /** Extra condition, ANDed with the rest (SIAT-08 pending filter). */
+  extraWhere?: Prisma.ProductWhereInput;
 }
 
 export interface Paginated<T> {
@@ -87,7 +89,7 @@ export class ProductsRepository {
    * unless `active` is explicitly set to false.
    */
   async findAllPaginated(query: ProductsQuery): Promise<Paginated<Product>> {
-    const { page, pageSize, category, active, q } = query;
+    const { page, pageSize, category, active, q, extraWhere } = query;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ProductWhereInput = {};
@@ -111,14 +113,18 @@ export class ProductsRepository {
       ];
     }
 
+    const finalWhere: Prisma.ProductWhereInput = extraWhere
+      ? { AND: [where, extraWhere] }
+      : where;
+
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
-        where,
+        where: finalWhere,
         orderBy: { createdAt: 'desc' },
         skip,
         take: pageSize,
       }),
-      this.prisma.product.count({ where }),
+      this.prisma.product.count({ where: finalWhere }),
     ]);
 
     return {

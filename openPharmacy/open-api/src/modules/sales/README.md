@@ -20,6 +20,10 @@ Related tickets:
   `409`.
 - Only active, non-deleted products can be sold. Otherwise `409
   PRODUCT_INACTIVE`.
+- While SIAT is enabled (`SIAT_ENABLED`), every product needs its own SIN codes
+  or a category default (SIAT-08). Otherwise `409 PRODUCT_NOT_HOMOLOGATED` with
+  the offending `products`. The check runs inside the sale transaction
+  (`ProductSinService.assertSalable`).
 - The cart cannot be empty. Otherwise `400 EMPTY_CART`.
 - Stock is deducted using the PostgreSQL function
   `pharmacy.fn_deduct_stock_fefo`, which skips expired and voided lots and
@@ -293,6 +297,7 @@ The FEFO deduction also writes `STOCK_DEDUCTED_FEFO` (defined by PMS-005).
 | `SALE_NOT_FOUND` | 404 | Sale id does not exist |
 | `INSUFFICIENT_STOCK` | 409 | Not enough active non-expired stock (from FEFO) |
 | `PRODUCT_INACTIVE` | 409 | Product is inactive or deleted |
+| `PRODUCT_NOT_HOMOLOGATED` | 409 | SIAT is enabled and a product has no SIN codes or category default (SIAT-08) |
 | (generic) | 409 | No open shift for the current user |
 
 ## Testing

@@ -11,7 +11,7 @@ unless explicitly marked public.
 |---|---|---|---|
 | `auth` | Login, refresh rotation, logout, JWT guards, lockout | `/auth` | `auth` |
 | `users` | User CRUD, roles, activation, profile, password | `/users` | `users` |
-| `products` | Product catalog, status, barcode search/import | `/products` | `products` |
+| `products` | Product catalog, status, barcode search/import, SIN homologation codes (SIAT-08) | `/products` | `products` |
 | `lots` | Inventory lots, expiry, FEFO stock operations | `/lots` | `lots` |
 | `inventory-movements` | Stock history and approval-based adjustments | `/inventory-movements` | `inventory-movements` |
 | `shifts` | Open/close cash shifts and reopen approvals | `/shifts` | `shifts` |
@@ -48,7 +48,11 @@ write an audit event.
 ### Products and Lots
 
 `products` owns catalog identity, pricing, categories, barcode uniqueness,
-activation, and CSV import. `lots` owns batch quantities, expiry, voiding, and
+activation, and CSV import. It also owns SIN homologation (SIAT-08): each product's
+activity, product and unit codes, validated against the synced SIAT catalogs, with
+defaults per category and bulk assignment. See the
+[products documentation](openPharmacy/open-api/src/modules/products/README.md#sin-homologation-siat-08).
+`lots` owns batch quantities, expiry, voiding, and
 FEFO selection. Sales and receiving depend on these modules rather than writing
 inventory rules directly.
 
@@ -64,7 +68,8 @@ role-aware approval and audit records.
 be linked to a SIAT point of sale. While SIAT is enabled, a shift opens only on
 a point of sale with a valid CUIS (SIAT-05) and a valid CUFD (SIAT-06), through `SiatShiftGate`. `sales` requires
 an active shift, deducts stock through FEFO, creates receipts and sale items,
-and uses transactional writes. Read the detailed [sales documentation](openPharmacy/open-api/src/modules/sales/README.md)
+and uses transactional writes. While SIAT is enabled, it also rejects products
+without SIN codes or a category default (`PRODUCT_NOT_HOMOLOGATED`, SIAT-08). Read the detailed [sales documentation](openPharmacy/open-api/src/modules/sales/README.md)
 and [frontend shifts documentation](openPharmacy/open-fronted/features/shifts/README.md).
 
 ### Returns and Prescriptions
@@ -103,7 +108,7 @@ backend modules when the user workflow is shared.
 |---|---|---|
 | `auth` | Login, session restoration, logout, route protection | `/login` |
 | `users` | Admin user management and current profile/password | `/users`, `/profile` |
-| `products` | Catalog CRUD, filters, import, controlled-category warnings | `/inventory/products/*` |
+| `products` | Catalog CRUD, filters, import, controlled-category warnings, SIN codes and bulk assignment (SIAT-08) | `/inventory/products/*` |
 | `lots` | Lot listing, expiry and product lot history | `/inventory/lots*` |
 | `inventory-movements` | Movement history and adjustment approvals | `/inventory/movements` |
 | `shifts` | Cash register, close preview, reopen requests | `/sales/cash-register`, `/admin/reopen-requests` |

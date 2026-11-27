@@ -11,6 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ProductCategoryBadge } from "@/features/products/components/product-category-badge"
 import { formatCurrencyBOB } from "@/shared/utils/format"
 import { StatusBadge } from "@/shared/components/status-badge"
@@ -22,10 +24,21 @@ export interface ProductsTableProps {
   onEdit: (product: Product) => void
   onToggleStatus: (product: Product) => void
   onViewDetail?: (product: Product) => void
+  /** Selection for bulk SIN assignment (SIAT-08). Omit to hide the checkbox column. */
+  selectedIds?: ReadonlySet<string>
+  onToggleSelect?: (product: Product) => void
+  onToggleAll?: (products: Product[], checked: boolean) => void
 }
 
 const ROW_HEIGHT = 56
 const OVERSCAN = 8
+
+/** True when the product carries its own complete SIN codes (SIAT-08). */
+export function hasCompleteSinCodes(product: Product): boolean {
+  return Boolean(
+    product.sinActivityCode && product.sinProductCode && product.sinUnitCode,
+  )
+}
 
 /**
  * Column template using CSS grid track sizes. Using a single `gridTemplateColumns`
@@ -33,14 +46,22 @@ const OVERSCAN = 8
  * `<tr>` / `position: absolute` quirks that break virtualization in real tables.
  */
 const GRID_TEMPLATE =
-  "minmax(180px,1.6fr) minmax(140px,1fr) minmax(170px,1fr) minmax(150px,1fr) minmax(130px,0.9fr) minmax(100px,0.6fr) minmax(110px,0.7fr) 56px"
+  "40px minmax(180px,1.6fr) minmax(140px,1fr) minmax(170px,1fr) minmax(150px,1fr) minmax(130px,0.9fr) minmax(100px,0.6fr) minmax(110px,0.7fr) minmax(110px,0.7fr) 56px"
 
 export function ProductsTable({
   data,
   onEdit,
   onToggleStatus,
   onViewDetail,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
 }: ProductsTableProps) {
+  const selectable = Boolean(onToggleSelect)
+  const allSelected =
+    selectable && data.length > 0 && data.every((p) => selectedIds?.has(p.id))
+  const someSelected =
+    selectable && !allSelected && data.some((p) => selectedIds?.has(p.id))
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const virtualizer = useVirtualizer({
@@ -61,6 +82,18 @@ export function ProductsTable({
         className="grid border-b bg-card text-sm font-medium text-foreground"
         style={{ gridTemplateColumns: GRID_TEMPLATE }}
       >
+        <div role="columnheader" className="flex items-center justify-center px-2 py-2">
+          {selectable ? (
+            <Checkbox
+              aria-label="Seleccionar todos los productos de la página"
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              disabled={data.length === 0}
+              onCheckedChange={(checked) =>
+                onToggleAll?.(data, checked === true)
+              }
+            />
+          ) : null}
+        </div>
         <div role="columnheader" className="px-3 py-2">Nombre comercial</div>
         <div role="columnheader" className="px-3 py-2">DCI</div>
         <div role="columnheader" className="px-3 py-2">Código</div>
@@ -68,6 +101,7 @@ export function ProductsTable({
         <div role="columnheader" className="px-3 py-2">Precio venta</div>
         <div role="columnheader" className="px-3 py-2">Stock mín.</div>
         <div role="columnheader" className="px-3 py-2">Estado</div>
+        <div role="columnheader" className="px-3 py-2">Códigos SIN</div>
         <div role="columnheader" className="px-2 py-2">
           <span className="sr-only">Acciones</span>
         </div>
@@ -108,6 +142,15 @@ export function ProductsTable({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
+                  <div role="cell" className="flex items-center justify-center px-2">
+                    {selectable ? (
+                      <Checkbox
+                        aria-label={`Seleccionar ${product.commercialName}`}
+                        checked={selectedIds?.has(product.id) ?? false}
+                        onCheckedChange={() => onToggleSelect?.(product)}
+                      />
+                    ) : null}
+                  </div>
                   <div role="cell" className="flex items-center px-3">
                     <button
                       type="button"
@@ -141,6 +184,13 @@ export function ProductsTable({
                   </div>
                   <div role="cell" className="flex items-center px-3">
                     <StatusBadge active={product.active} />
+                  </div>
+                  <div role="cell" className="flex items-center px-3">
+                    {hasCompleteSinCodes(product) ? (
+                      <Badge variant="secondary">Completo</Badge>
+                    ) : (
+                      <Badge variant="outline">Sin códigos</Badge>
+                    )}
                   </div>
                   <div role="cell" className="flex items-center justify-center px-1">
                     <DropdownMenu>

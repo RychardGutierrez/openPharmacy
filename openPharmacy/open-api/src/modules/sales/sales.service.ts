@@ -17,6 +17,7 @@ import { SalesRepository } from './repositories/sales.repository';
 import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { EmptyCartException } from './exceptions/empty-cart.exception';
 import { ProductInactiveException } from './exceptions/product-inactive.exception';
+import { ProductSinService } from '../products/product-sin.service';
 import { CashShortException } from './exceptions/cash-short.exception';
 
 const money = (value: number) => Math.round(value * 100) / 100;
@@ -37,6 +38,7 @@ export class SalesService {
     private readonly config: ConfigService,
     private readonly events: EventEmitter2,
     private readonly movements: InventoryMovementsRepository,
+    private readonly productSin: ProductSinService,
   ) {}
 
   async create(userId: string, dto: CreateSaleDto): Promise<SaleResponseDto> {
@@ -67,6 +69,8 @@ export class SalesService {
           if (!product || !product.active)
             throw new ProductInactiveException(item.productId);
         }
+        // SIAT-08: with SIAT enabled, every product must be homologated (own or category default).
+        await this.productSin.assertSalable([...products], tx);
 
         const lines: Array<{
           productId: string;
