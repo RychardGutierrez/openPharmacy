@@ -167,6 +167,10 @@ export const sinSummarySchema = z.object({
   total: z.number().int().nonnegative(),
   homologated: z.number().int().nonnegative(),
   pending: z.number().int().nonnegative(),
+  /** Products whose own codes are no longer active in the synced SIN catalogs. */
+  invalid: z.number().int().nonnegative(),
+  /** Categories whose default codes are no longer active in the synced SIN catalogs. */
+  invalidDefaults: z.number().int().nonnegative(),
 })
 export type SinSummary = z.infer<typeof sinSummarySchema>
 

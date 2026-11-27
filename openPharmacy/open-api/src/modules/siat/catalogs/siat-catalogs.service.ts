@@ -187,6 +187,16 @@ export class SiatCatalogsService {
     return count > 0;
   }
 
+  /** Every active code of a catalog, for checking many values without one query each. */
+  async activeCodeSet(slug: string): Promise<Set<string>> {
+    const entry = this.entry(slug);
+    const rows = await this.prisma.siatCatalogItem.findMany({
+      where: { catalog: entry.operation.name, active: true },
+      select: { code: true },
+    });
+    return new Set(rows.map((row) => row.code));
+  }
+
   /**
    * Checks the SIN homologation codes of a product (SIAT-08). The activity must be one registered
    * on the NIT. The product code is looked up as `activity:product`, so it must belong to that
@@ -196,7 +206,12 @@ export class SiatCatalogsService {
     activityCode: string;
     productCode: string;
     unitCode: string;
-  }): Promise<{ field: 'sinActivityCode' | 'sinProductCode' | 'sinUnitCode'; code: string }[]> {
+  }): Promise<
+    {
+      field: 'sinActivityCode' | 'sinProductCode' | 'sinUnitCode';
+      code: string;
+    }[]
+  > {
     const [activityOk, productOk, unitOk] = await Promise.all([
       this.isActiveCode('activities', codes.activityCode),
       this.isActiveCode(

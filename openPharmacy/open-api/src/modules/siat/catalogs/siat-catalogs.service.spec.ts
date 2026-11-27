@@ -182,6 +182,56 @@ describe('SiatCatalogsService.randomLegend', () => {
   });
 });
 
+describe('SiatCatalogsService.validateSinCodes', () => {
+  const PRODUCTS = 'sincronizarListaProductosServicios';
+  const UNITS = 'sincronizarParametricaUnidadMedida';
+  const items = [
+    row(ACTIVITIES, '47730', 'Farmacia'),
+    row(ACTIVITIES, '11111', 'Otra'),
+    row(PRODUCTS, '47730:6150031', 'Medicamentos', '47730'),
+    row(PRODUCTS, '11111:9999', 'Otro', '11111'),
+    row(UNITS, '58', 'UNIDAD'),
+    row(UNITS, '62', 'CAJA', null, false),
+  ];
+  const codes = {
+    activityCode: '47730',
+    productCode: '6150031',
+    unitCode: '58',
+  };
+
+  it('accepts active codes where the product belongs to the activity', async () => {
+    const { service } = setup(items);
+    expect(await service.validateSinCodes(codes)).toEqual([]);
+  });
+
+  it('rejects a product code that belongs to another activity', async () => {
+    const { service } = setup(items);
+    expect(
+      await service.validateSinCodes({ ...codes, productCode: '9999' }),
+    ).toEqual([{ field: 'sinProductCode', code: '9999' }]);
+  });
+
+  it('rejects an inactive unit and an unknown activity', async () => {
+    const { service } = setup(items);
+    expect(
+      await service.validateSinCodes({
+        activityCode: '00000',
+        productCode: '6150031',
+        unitCode: '62',
+      }),
+    ).toEqual([
+      { field: 'sinActivityCode', code: '00000' },
+      { field: 'sinProductCode', code: '6150031' },
+      { field: 'sinUnitCode', code: '62' },
+    ]);
+  });
+
+  it('returns the active codes of a catalog as a set', async () => {
+    const { service } = setup(items);
+    expect(await service.activeCodeSet('units')).toEqual(new Set(['58']));
+  });
+});
+
 describe('SiatCatalogsService.list', () => {
   it('hides non-public catalogs from non-admin roles', async () => {
     const { service } = setup([]);
