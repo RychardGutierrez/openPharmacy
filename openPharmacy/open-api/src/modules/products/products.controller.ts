@@ -24,7 +24,10 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ProductCategory, UserRole } from '@prisma/client';
-import { ProductSinService } from './product-sin.service';
+import {
+  ProductSinService,
+  type InvalidSinReport,
+} from './product-sin.service';
 import {
   BulkAssignSinDto,
   SetCategoryDefaultDto,
@@ -143,14 +146,27 @@ export class ProductsController {
   }
 
   @Get('sin/summary')
-  @ApiOperation({ summary: 'Count products with and without SIN codes (SIAT-08)' })
-  sinSummary(): Promise<{ total: number; homologated: number; pending: number }> {
+  @ApiOperation({
+    summary: 'Count products with and without SIN codes (SIAT-08)',
+  })
+  sinSummary(): ReturnType<ProductSinService['summary']> {
     return this.productSin.summary();
+  }
+
+  @Get('sin/invalid')
+  @ApiOperation({
+    summary:
+      'List stored SIN codes no longer active in the synced catalogs (SIAT-08)',
+  })
+  sinInvalid(): Promise<InvalidSinReport> {
+    return this.productSin.invalidCodes();
   }
 
   @Post('sin/bulk-assign')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Assign SIN codes to selected products or a category (SIAT-08)' })
+  @ApiOperation({
+    summary: 'Assign SIN codes to selected products or a category (SIAT-08)',
+  })
   bulkAssignSin(
     @Body() dto: BulkAssignSinDto,
     @Req() request: Request,
@@ -173,15 +189,20 @@ export class ProductsController {
   }
 
   @Get('sin/defaults')
-  @ApiOperation({ summary: 'List the default SIN codes per category (SIAT-08)' })
+  @ApiOperation({
+    summary: 'List the default SIN codes per category (SIAT-08)',
+  })
   listSinDefaults() {
     return this.productSin.listDefaults();
   }
 
   @Put('sin/defaults/:category')
-  @ApiOperation({ summary: 'Set the default SIN codes of a category (SIAT-08)' })
+  @ApiOperation({
+    summary: 'Set the default SIN codes of a category (SIAT-08)',
+  })
   setSinDefault(
-    @Param('category', new ParseEnumPipe(ProductCategory)) category: ProductCategory,
+    @Param('category', new ParseEnumPipe(ProductCategory))
+    category: ProductCategory,
     @Body() dto: SetCategoryDefaultDto,
     @Req() request: Request,
     @CurrentUser() user: AuthenticatedUser,
@@ -200,13 +221,21 @@ export class ProductsController {
 
   @Post('sin/defaults/:category/apply')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Apply a category default to its products that lack codes (SIAT-08)' })
+  @ApiOperation({
+    summary:
+      'Apply a category default to its products that lack codes (SIAT-08)',
+  })
   applySinDefault(
-    @Param('category', new ParseEnumPipe(ProductCategory)) category: ProductCategory,
+    @Param('category', new ParseEnumPipe(ProductCategory))
+    category: ProductCategory,
     @Req() request: Request,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ updated: number }> {
-    return this.productSin.applyDefault(category, user.id, extractMetadata(request));
+    return this.productSin.applyDefault(
+      category,
+      user.id,
+      extractMetadata(request),
+    );
   }
 
   @Patch(':id/price')

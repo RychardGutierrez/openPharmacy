@@ -148,6 +148,16 @@ export function ProductsPageClient() {
                 <Badge variant={sinSummary.data.pending > 0 ? "outline" : "secondary"}>
                   Pendientes de códigos SIN: {sinSummary.data.pending} de {sinSummary.data.total}
                 </Badge>
+                {sinSummary.data.invalid > 0 ? (
+                  <Badge variant="destructive">
+                    Códigos SIN no vigentes: {sinSummary.data.invalid}
+                  </Badge>
+                ) : null}
+                {sinSummary.data.invalidDefaults > 0 ? (
+                  <Badge variant="destructive">
+                    Valores por categoría no vigentes: {sinSummary.data.invalidDefaults}
+                  </Badge>
+                ) : null}
               </span>
             ) : null}
           </CardDescription>

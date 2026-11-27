@@ -10,6 +10,7 @@ import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { InventoryMovementsRepository } from '../inventory-movements/repositories/inventory-movements.repository';
 import { ConfigService } from '../config/config.service';
 import { EmptyCartException } from './exceptions/empty-cart.exception';
+import { ProductNotHomologatedException } from './exceptions/product-not-homologated.exception';
 
 describe('SalesService', () => {
   const tx = {
@@ -34,6 +35,7 @@ describe('SalesService', () => {
   const movements = { createManyTx: jest.fn().mockResolvedValue(undefined) };
   const config = { getPharmacyInfo: jest.fn() };
   const events = { emitAsync: jest.fn() };
+  const productSin = { assertSalable: jest.fn() };
 
   let service: SalesService;
 
@@ -79,6 +81,7 @@ describe('SalesService', () => {
       PHARMACY_NAME: 'Test Pharmacy',
     });
     events.emitAsync.mockResolvedValue([]);
+    productSin.assertSalable.mockResolvedValue(undefined);
     service = new SalesService(
       prisma as unknown as PrismaService,
       shifts as unknown as ShiftsService,
@@ -88,8 +91,32 @@ describe('SalesService', () => {
       config as unknown as ConfigService,
       events as unknown as EventEmitter2,
       movements as unknown as InventoryMovementsRepository,
-      { assertSalable: jest.fn().mockResolvedValue(undefined) } as unknown as ProductSinService,
+      productSin as unknown as ProductSinService,
     );
+  });
+
+  it('rejects an unhomologated product before touching stock (SIAT-08)', async () => {
+    productSin.assertSalable.mockRejectedValueOnce(
+      new ProductNotHomologatedException([
+        { id: 'product-1', commercialName: 'Paracetamol' },
+      ]),
+    );
+
+    await expect(
+      service.create('user-1', {
+        items: [{ productId: 'product-1', quantity: 2 }],
+        paymentMethod: 'CASH',
+        cashReceived: 25,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'PRODUCT_NOT_HOMOLOGATED' } });
+
+    expect(productSin.assertSalable).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: 'product-1' })],
+      tx,
+    );
+    expect(fefo.deductStockInTx).not.toHaveBeenCalled();
+    expect(sales.createTx).not.toHaveBeenCalled();
+    expect(events.emitAsync).not.toHaveBeenCalled();
   });
 
   it('creates one sale item for each FEFO lot and emits after the transaction', async () => {

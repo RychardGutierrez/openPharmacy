@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DuplicateBarcodeException } from './exceptions/duplicate-barcode.exception';
 import { ProductNotFoundException } from './exceptions/product-not-found.exception';
 import { CreateProductDto } from './dto/create-product.dto';
+import { InvalidSinCodesException } from './exceptions/invalid-sin-codes.exception';
 
 const mockProduct = (
   overrides: Partial<Record<keyof Product, unknown>> = {},
@@ -37,7 +38,18 @@ const mockTx = {
   productPriceHistory: {
     create: jest.fn().mockResolvedValue({}),
   },
+  product: {
+    findUnique: jest.fn().mockResolvedValue(null),
+  },
 };
+
+const CSV_HEADER =
+  'dciName,commercialName,laboratory,form,concentration,barcode,category,salePrice,minSalePrice,minStock,sinActivityCode,sinProductCode,sinUnitCode';
+const csvFile = (...rows: string[]) =>
+  ({
+    originalname: 'products.csv',
+    buffer: Buffer.from([CSV_HEADER, ...rows].join('\n')),
+  }) as Express.Multer.File;
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -45,6 +57,7 @@ describe('ProductsService', () => {
   let prisma: jest.Mocked<PrismaService>;
   let eventEmitter: jest.Mocked<EventEmitter2>;
   let audit: jest.Mocked<AuditLogRepository>;
+  let module: TestingModule;
 
   beforeEach(async () => {
     products = {
@@ -79,14 +92,17 @@ describe('ProductsService', () => {
       create: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<AuditLogRepository>;
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         ProductsService,
         { provide: ProductsRepository, useValue: products },
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: AuditLogRepository, useValue: audit },
-        { provide: ProductSinService, useValue: { validateCodes: jest.fn().mockResolvedValue(undefined) } },
+        {
+          provide: ProductSinService,
+          useValue: { validateCodes: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -209,6 +225,178 @@ describe('ProductsService', () => {
       await expect(service.update('missing', {})).rejects.toThrow(
         ProductNotFoundException,
       );
+    });
+
+    describe('SIN codes (SIAT-08)', () => {
+      const stored = {
+        sin_activity_code: '47730',
+        sin_product_code: '6150031',
+        sin_unit_code: '58',
+      };
+
+      it('audits a code change with the previous and new codes', async () => {
+        const existing = mockProduct(stored);
+        products.findByIdIncludingDeleted.mockResolvedValue(existing);
+        products.updateTx.mockResolvedValue(
+          mockProduct({ ...stored, sin_unit_code: '62' }),
+        );
+
+        await service.update('p-1', { sinUnitCode: '62' }, undefined, 'u-1');
+
+        expect(audit.createInTx).toHaveBeenCalledWith(
+          mockTx,
+          expect.objectContaining({
+            event: 'PRODUCT_SIN_CODES_UPDATED',
+            userId: 'u-1',
+            metadata: {
+              productId: 'p-1',
+              before: {
+                activityCode: '47730',
+                productCode: '6150031',
+                unitCode: '58',
+              },
+              after: {
+                activityCode: '47730',
+                productCode: '6150031',
+                unitCode: '62',
+              },
+            },
+          }),
+        );
+      });
+
+      it('validates the merged set when only one code is sent', async () => {
+        const sin = module.get(ProductSinService);
+        products.findByIdIncludingDeleted.mockResolvedValue(
+          mockProduct(stored),
+        );
+        products.updateTx.mockResolvedValue(mockProduct(stored));
+
+        await service.update('p-1', { sinUnitCode: '62' });
+
+        expect(sin.validateCodes).toHaveBeenCalledWith({
+          activityCode: '47730',
+          productCode: '6150031',
+          unitCode: '62',
+        });
+      });
+
+      it('does not write a SIN audit row when the codes are unchanged', async () => {
+        products.findByIdIncludingDeleted.mockResolvedValue(
+          mockProduct(stored),
+        );
+        products.updateTx.mockResolvedValue(mockProduct(stored));
+
+        await service.update('p-1', { sinUnitCode: '58', commercialName: 'X' });
+
+        expect(audit.createInTx).not.toHaveBeenCalledWith(
+          mockTx,
+          expect.objectContaining({ event: 'PRODUCT_SIN_CODES_UPDATED' }),
+        );
+      });
+
+      it('rejects a partial set when the product has no codes yet', async () => {
+        products.findByIdIncludingDeleted.mockResolvedValue(
+          mockProduct({
+            sin_activity_code: null,
+            sin_product_code: null,
+            sin_unit_code: null,
+          }),
+        );
+
+        await expect(
+          service.update('p-1', { sinActivityCode: '47730' }),
+        ).rejects.toMatchObject({ response: { code: 'INCOMPLETE_SIN_CODES' } });
+        expect(products.updateTx).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('bulkImport SIN columns (SIAT-08)', () => {
+    beforeEach(() => {
+      products.createTx.mockImplementation((_tx, data) =>
+        Promise.resolve(mockProduct({ barcode: data.barcode })),
+      );
+    });
+
+    it('stores empty SIN cells as null (not homologated yet)', async () => {
+      const result = await service.bulkImport(
+        csvFile(
+          'Paracetamol,Paragesic,Lab,Tableta,500mg,779,OTC,12.50,8.00,100,,,',
+        ),
+      );
+
+      expect(result).toEqual({ inserted: 1, failed: [] });
+      expect(products.createTx).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({
+          sin_activity_code: null,
+          sin_product_code: null,
+          sin_unit_code: null,
+        }),
+      );
+    });
+
+    it('stores a complete, valid set of codes', async () => {
+      const sin = module.get(ProductSinService);
+      const result = await service.bulkImport(
+        csvFile(
+          'Paracetamol,Paragesic,Lab,Tableta,500mg,779,OTC,12.50,8.00,100,47730,6150031,58',
+        ),
+      );
+
+      expect(result.inserted).toBe(1);
+      expect(sin.validateCodes).toHaveBeenCalledWith({
+        activityCode: '47730',
+        productCode: '6150031',
+        unitCode: '58',
+      });
+      expect(products.createTx).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({ sin_unit_code: '58' }),
+      );
+    });
+
+    it('fails the row, and only that row, on a partial set of codes', async () => {
+      const result = await service.bulkImport(
+        csvFile(
+          'Paracetamol,Paragesic,Lab,Tableta,500mg,779,OTC,12.50,8.00,100,47730,,',
+          'Ibuprofeno,Ibuprom,Medix,Tableta,400mg,771,OTC,18.00,11.00,80,,,',
+        ),
+      );
+
+      expect(result.inserted).toBe(1);
+      expect(result.failed).toEqual([
+        expect.objectContaining({ row: 2, barcode: '779' }),
+      ]);
+    });
+
+    it('fails the row when a code is not in the SIN catalogs', async () => {
+      const sin = module.get(ProductSinService);
+      (sin.validateCodes as jest.Mock).mockRejectedValueOnce(
+        new InvalidSinCodesException([{ field: 'sinUnitCode', code: '99' }]),
+      );
+
+      const result = await service.bulkImport(
+        csvFile(
+          'Paracetamol,Paragesic,Lab,Tableta,500mg,779,OTC,12.50,8.00,100,47730,6150031,99',
+        ),
+      );
+
+      expect(result.inserted).toBe(0);
+      expect(result.failed).toHaveLength(1);
+      expect(products.createTx).not.toHaveBeenCalled();
+    });
+
+    it('fails the row on a non-numeric code', async () => {
+      const result = await service.bulkImport(
+        csvFile(
+          'Paracetamol,Paragesic,Lab,Tableta,500mg,779,OTC,12.50,8.00,100,47730,ABC,58',
+        ),
+      );
+
+      expect(result.inserted).toBe(0);
+      expect(result.failed[0].errors.join(' ')).toMatch(/sinProductCode/);
     });
   });
 
