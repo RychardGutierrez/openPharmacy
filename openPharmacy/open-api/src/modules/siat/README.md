@@ -380,6 +380,21 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | `siat_catalog_sync` | Freshness of each catalog | One row per catalog: last attempt, last success, item count and last error (SIAT-07) |
 | `siat_request_log` | One row per call attempt, bodies redacted | Indexed by `created_at`, `correlation_id`, (`service`, `operation`, `created_at`) and (`point_of_sale_id`, `created_at`). Partitioning is left for SIAT-27, when volume is known |
 | `siat_time_offset` | Clock samples from `sincronizarFechaHora` | The latest row is the current offset. `offset_ms = siat_time - server_time` |
+| `siat_invoices` | Invoices and credit notes, and the outbox the worker claims (SIAT-09, migration `siat_09_invoices`) | See "Invoices (SIAT-09)" below |
+| `siat_invoice_items` | Line snapshots of an invoice | Unique (`invoice_id`, `line_number`). Frozen once the invoice has its XML |
+| `siat_invoice_sequences` | Next number per (CUIS, document type) | Reserved with `SiatInvoiceSequenceRepository.reserveNumber` |
+| `pharmacy.customers` | Buyers for autocomplete (SIAT-10) | Unique (`doc_type`, `doc_number`, `complement`). `complement` is `''` when absent |
+
+### Invoices (SIAT-09)
+
+- **Snapshots.** An invoice stores its buyer and each line (SIN codes, description, quantity, unit, price) as columns. The XML is built only from them, never from `products` or `customers`, so later edits never change an issued invoice. `customer_id` is a convenience link only.
+- **V3 amounts.** Columns use the V3 XSD names (IVA Transparente): `sub_total_neto`, `descuento_adicional`, `monto_gift_card`, `total_precio_neto`, `iva`, `monto_a_pagar`, `monto_total_moneda`. The old `montoTotal` no longer exists. The line price is `precio_neto_unitario`. A credit note stores its returned amounts in the same columns, and reads the originals from `original_invoice_id`.
+- **Numbering.** One counter per CUIS and document type. Numbers restart with each CUIS, and invoices and credit notes do not share a series. Unique (`point_of_sale_id`, `cuis_id`, `document_type`, `numero_factura`). Call `reserveNumber` inside the transaction that inserts the invoice: the upsert locks the counter row, and a rollback gives the number back. A rejected number is never reused: an `OBSERVED` invoice is re-emitted as a new row with a new number, linked by `replaces_invoice_id`.
+- **Nullable until later.** `cuf` (SIAT-12, it depends on `tipo_emision`), `fecha_emision` and `xml` are null while the invoice is `PENDING`. `cuf` is unique.
+- **Never update what SIAT received.** Once `siat_reception_code` is set, a trigger (`siat_invoices_freeze_received`) rejects changes to the number, CUF, dates, buyer, amounts, links, XML and hash. Status, attempts, cancellation and package fields stay writable. Another trigger rejects updating or deleting an invoice's items once it has its XML. Corrections are a cancellation plus a new invoice, or a credit note.
+- **Checks.** `tipo_emision` is 1 (online) or 2 (offline). An `INVOICE` needs `sale_id`. A `CREDIT_NOTE` needs `return_id` and `original_invoice_id`. Links to sales, returns and other invoices are `RESTRICT`, so a delete can never unlink a tax document.
+- **Worker index.** (`status`, `locked_until`).
+- **Deferred.** `event_id` and `package_id` have no foreign key yet: SIAT-17 and SIAT-18 add the tables and the keys. `sales.requires_invoice` and `sales.invoice_id` exist but nothing writes them until SIAT-14.
 
 The seed (`npm run db:seed`) creates casa matriz `0` and point of sale `0` for development, and skips them when `NODE_ENV=production`.
 

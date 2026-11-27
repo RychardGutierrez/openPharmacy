@@ -311,25 +311,25 @@ model ShiftReopenRequest {
 // ─── Pharmacy — Products & Inventory ─────────────────────────────────────────
 
 model Product {
-  id              String          @id @default(uuid()) @db.Uuid
-  dci_name        String          @map("dci_name")
-  commercial_name String          @map("commercial_name")
-  laboratory      String?
-  form            String?
-  concentration   String?
-  barcode         String?         @unique
-  category        ProductCategory @default(NON_PHARMACEUTICAL)
-  sale_price      Decimal         @map("sale_price") @db.Decimal(12, 2)
-  min_sale_price  Decimal         @default(0) @map("min_sale_price") @db.Decimal(12, 2)
-  min_stock       Int             @default(0) @map("min_stock")
-  active          Boolean         @default(true)
+  id                String          @id @default(uuid()) @db.Uuid
+  dci_name          String          @map("dci_name")
+  commercial_name   String          @map("commercial_name")
+  laboratory        String?
+  form              String?
+  concentration     String?
+  barcode           String?         @unique
+  category          ProductCategory @default(NON_PHARMACEUTICAL)
+  sale_price        Decimal         @map("sale_price") @db.Decimal(12, 2)
+  min_sale_price    Decimal         @default(0) @map("min_sale_price") @db.Decimal(12, 2)
+  min_stock         Int             @default(0) @map("min_stock")
+  active            Boolean         @default(true)
   /// SIN homologation codes (SIAT-08). Null = not homologated. Validated against siat_catalog_items.
-  sin_activity_code String?       @map("sin_activity_code")
-  sin_product_code  String?       @map("sin_product_code")
-  sin_unit_code     String?       @map("sin_unit_code")
-  deleted_at      DateTime?       @map("deleted_at")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  sin_activity_code String?         @map("sin_activity_code")
+  sin_product_code  String?         @map("sin_product_code")
+  sin_unit_code     String?         @map("sin_unit_code")
+  deleted_at        DateTime?       @map("deleted_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   lots                 Lot[]
   inventoryMovements   InventoryMovement[]
@@ -571,13 +571,19 @@ model Sale {
   cash_received    Decimal        @default(0) @map("cash_received") @db.Decimal(12, 2)
   change_given     Decimal        @default(0) @map("change_given") @db.Decimal(12, 2)
   status           SaleStatus     @default(COMPLETED)
+  /// SIAT-09: the cashier asked for an invoice. SIAT-14 sets it.
+  requires_invoice Boolean        @default(false) @map("requires_invoice")
+  /// SIAT-09: the effective invoice for this sale. SIAT-14 sets it.
+  invoice_id       String?        @unique @map("invoice_id") @db.Uuid
   created_at       DateTime       @default(now()) @map("created_at")
 
-  shift         Shift          @relation(fields: [shift_id], references: [id])
-  user          User           @relation(fields: [user_id], references: [id])
-  saleItems     SaleItem[]
-  returns       Return[]
-  prescriptions Prescription[]
+  shift          Shift          @relation(fields: [shift_id], references: [id])
+  user           User           @relation(fields: [user_id], references: [id])
+  saleItems      SaleItem[]
+  returns        Return[]
+  prescriptions  Prescription[]
+  invoice        SiatInvoice?   @relation("SaleCurrentInvoice", fields: [invoice_id], references: [id])
+  invoiceHistory SiatInvoice[]  @relation("SaleInvoices")
 
   @@index([shift_id])
   @@index([user_id])
@@ -618,9 +624,10 @@ model Return {
   source     ReturnSource @default(RETURN) @map("source")
   created_at DateTime     @default(now()) @map("created_at")
 
-  sale        Sale         @relation(fields: [sale_id], references: [id])
-  user        User         @relation(fields: [user_id], references: [id])
-  returnItems ReturnItem[]
+  sale         Sale          @relation(fields: [sale_id], references: [id])
+  user         User          @relation(fields: [user_id], references: [id])
+  returnItems  ReturnItem[]
+  siatInvoices SiatInvoice[]
 
   @@index([sale_id])
   @@index([user_id])
@@ -787,11 +794,13 @@ model SiatPointOfSale {
   created_at         DateTime  @default(now()) @map("created_at")
   updated_at         DateTime  @updatedAt @map("updated_at")
 
-  branch       SiatBranch       @relation(fields: [branch_id], references: [id])
+  branch       SiatBranch            @relation(fields: [branch_id], references: [id])
   cuis         SiatCuis[]
   cufds        SiatCufd[]
   request_logs SiatRequestLog[]
   shifts       Shift[]
+  invoices     SiatInvoice[]
+  sequences    SiatInvoiceSequence[]
 
   @@unique([branch_id, codigo_punto_venta])
   @@map("siat_points_of_sale")
@@ -809,8 +818,10 @@ model SiatCuis {
   active           Boolean  @default(true)
   created_at       DateTime @default(now()) @map("created_at")
 
-  point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+  point_of_sale SiatPointOfSale       @relation(fields: [point_of_sale_id], references: [id])
   cufds         SiatCufd[]
+  invoices      SiatInvoice[]
+  sequences     SiatInvoiceSequence[]
 
   @@index([point_of_sale_id, requested_at])
   @@map("siat_cuis")
@@ -836,6 +847,7 @@ model SiatCufd {
 
   point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
   cuis          SiatCuis?       @relation(fields: [cuis_id], references: [id])
+  invoices      SiatInvoice[]
 
   @@index([point_of_sale_id, valid_until])
   @@index([codigo])
@@ -921,5 +933,187 @@ model SiatTimeOffset {
 
   @@index([created_at])
   @@map("siat_time_offset")
+  @@schema("siat")
+}
+
+// ─── SIAT invoices (SIAT-09) ─────────────────────────────────────────────────
+
+enum SiatDocumentType {
+  INVOICE
+  CREDIT_NOTE
+
+  @@schema("siat")
+}
+
+/// State machine in docs/documentation/SIAT_Implementation_Plan.md section 2.
+enum SiatInvoiceStatus {
+  PENDING
+  SENDING
+  VALID
+  OBSERVED
+  OFFLINE
+  IN_PACKAGE
+  CANCELLED
+
+  @@schema("siat")
+}
+
+/// Buyer reused for autocomplete (SIAT-10). Invoices keep their own snapshot, so editing a
+/// customer never changes an issued invoice. `complement` is an empty string when absent,
+/// so the unique index works without NULL semantics.
+model Customer {
+  id         String   @id @default(uuid()) @db.Uuid
+  doc_type   Int      @map("doc_type")
+  doc_number String   @map("doc_number")
+  complement String   @default("")
+  name       String
+  email      String?
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  invoices SiatInvoice[]
+
+  @@unique([doc_type, doc_number, complement])
+  @@index([doc_number])
+  @@map("customers")
+  @@schema("pharmacy")
+}
+
+/// Tax document (invoice or credit note) and the outbox row the SIAT worker claims.
+/// Once SIAT received it (`siat_reception_code` set), a trigger blocks changes to its content.
+/// Corrections are a cancellation plus a new invoice, or a credit note.
+/// Amount names follow the V3 XSD (IVA Transparente).
+model SiatInvoice {
+  id                  String            @id @default(uuid()) @db.Uuid
+  document_type       SiatDocumentType  @map("document_type")
+  status              SiatInvoiceStatus @default(PENDING)
+  sale_id             String?           @map("sale_id") @db.Uuid
+  return_id           String?           @map("return_id") @db.Uuid
+  /// Credit note -> the invoice it adjusts.
+  original_invoice_id String?           @map("original_invoice_id") @db.Uuid
+  /// An OBSERVED invoice re-emitted with a NEW number points to the rejected one.
+  replaces_invoice_id String?           @map("replaces_invoice_id") @db.Uuid
+  point_of_sale_id    String            @map("point_of_sale_id") @db.Uuid
+  cuis_id             String            @map("cuis_id") @db.Uuid
+  cufd_id             String            @map("cufd_id") @db.Uuid
+
+  /// numeroFactura / numeroNotaCreditoDebito. Reserved with the invoice sequence repository.
+  numero                  Int       @map("numero_factura")
+  /// Null until SIAT-12 generates it (it depends on tipo_emision).
+  cuf                     String?   @unique
+  /// Null until the builder runs. SIAT time without timezone (V3 format yyyy-MM-ddTHH:mm:ss.SSS).
+  fecha_emision           DateTime? @map("fecha_emision") @db.Timestamp(3)
+  /// 1 online, 2 offline. Contingency is offline plus `cafc`.
+  tipo_emision            Int       @default(1) @map("tipo_emision")
+  codigo_documento_sector Int       @default(1) @map("codigo_documento_sector")
+
+  customer_id      String? @map("customer_id") @db.Uuid
+  buyer_doc_type   Int     @map("buyer_doc_type")
+  buyer_doc_number String  @map("buyer_doc_number")
+  buyer_complement String? @map("buyer_complement")
+  buyer_name       String  @map("buyer_name")
+  buyer_email      String? @map("buyer_email")
+  codigo_cliente   String? @map("codigo_cliente")
+  /// Set only after an explicit, audited cashier confirmation (SIAT-10).
+  codigo_excepcion Int?    @map("codigo_excepcion")
+
+  sub_total_neto      Decimal @map("sub_total_neto") @db.Decimal(12, 2)
+  descuento_adicional Decimal @default(0) @map("descuento_adicional") @db.Decimal(12, 2)
+  monto_gift_card     Decimal @default(0) @map("monto_gift_card") @db.Decimal(12, 2)
+  total_precio_neto   Decimal @map("total_precio_neto") @db.Decimal(12, 2)
+  iva                 Decimal @db.Decimal(12, 2)
+  monto_a_pagar       Decimal @map("monto_a_pagar") @db.Decimal(12, 2)
+  codigo_moneda       Int     @default(1) @map("codigo_moneda")
+  tipo_cambio         Decimal @default(1) @map("tipo_cambio") @db.Decimal(12, 2)
+  monto_total_moneda  Decimal @map("monto_total_moneda") @db.Decimal(12, 2)
+
+  codigo_metodo_pago    Int     @map("codigo_metodo_pago")
+  numero_tarjeta_masked String? @map("numero_tarjeta_masked")
+  leyenda               String?
+  /// Cashier username at emission.
+  usuario               String
+
+  xml                 String? @db.Text
+  xml_hash            String? @map("xml_hash")
+  siat_reception_code String? @map("siat_reception_code")
+  observations        Json?
+
+  /// FKs to siat_events / siat_packages come with SIAT-17 / SIAT-18.
+  event_id   String? @map("event_id") @db.Uuid
+  package_id String? @map("package_id") @db.Uuid
+  cafc       String?
+
+  attempts     Int       @default(0)
+  locked_until DateTime? @map("locked_until")
+  last_error   String?   @map("last_error")
+  sent_at      DateTime? @map("sent_at")
+  validated_at DateTime? @map("validated_at")
+  cancelled_at DateTime? @map("cancelled_at")
+  created_at   DateTime  @default(now()) @map("created_at")
+  updated_at   DateTime  @updatedAt @map("updated_at")
+
+  sale             Sale?             @relation("SaleInvoices", fields: [sale_id], references: [id], onDelete: Restrict)
+  currentForSale   Sale?             @relation("SaleCurrentInvoice")
+  return           Return?           @relation(fields: [return_id], references: [id], onDelete: Restrict)
+  original_invoice SiatInvoice?      @relation("InvoiceAdjustments", fields: [original_invoice_id], references: [id], onDelete: Restrict)
+  adjustments      SiatInvoice[]     @relation("InvoiceAdjustments")
+  replaces_invoice SiatInvoice?      @relation("InvoiceReplacement", fields: [replaces_invoice_id], references: [id], onDelete: Restrict)
+  replaced_by      SiatInvoice[]     @relation("InvoiceReplacement")
+  point_of_sale    SiatPointOfSale   @relation(fields: [point_of_sale_id], references: [id])
+  cuis             SiatCuis          @relation(fields: [cuis_id], references: [id])
+  cufd             SiatCufd          @relation(fields: [cufd_id], references: [id])
+  customer         Customer?         @relation(fields: [customer_id], references: [id])
+  items            SiatInvoiceItem[]
+
+  @@unique([point_of_sale_id, cuis_id, document_type, numero])
+  @@index([status, locked_until])
+  @@index([sale_id])
+  @@index([return_id])
+  @@index([point_of_sale_id, fecha_emision])
+  @@map("siat_invoices")
+  @@schema("siat")
+}
+
+/// Line snapshot. The XML is built from these columns, never from `products`.
+model SiatInvoiceItem {
+  id             String  @id @default(uuid()) @db.Uuid
+  invoice_id     String  @map("invoice_id") @db.Uuid
+  line_number    Int     @map("line_number")
+  /// Traceability only (no FK): the snapshot columns below are the source of truth.
+  sale_item_id   String? @map("sale_item_id") @db.Uuid
+  return_item_id String? @map("return_item_id") @db.Uuid
+  product_id     String? @map("product_id") @db.Uuid
+
+  actividad_economica  String  @map("actividad_economica")
+  codigo_producto_sin  String  @map("codigo_producto_sin")
+  /// Internal product code.
+  codigo_producto      String  @map("codigo_producto")
+  descripcion          String
+  cantidad             Decimal @db.Decimal(12, 2)
+  unidad_medida        Int     @map("unidad_medida")
+  precio_neto_unitario Decimal @map("precio_neto_unitario") @db.Decimal(12, 2)
+  monto_descuento      Decimal @default(0) @map("monto_descuento") @db.Decimal(12, 2)
+  sub_total            Decimal @map("sub_total") @db.Decimal(12, 2)
+
+  invoice SiatInvoice @relation(fields: [invoice_id], references: [id])
+
+  @@unique([invoice_id, line_number])
+  @@map("siat_invoice_items")
+  @@schema("siat")
+}
+
+/// Next invoice number per CUIS and document type. Numbers restart with each CUIS.
+model SiatInvoiceSequence {
+  cuis_id          String           @map("cuis_id") @db.Uuid
+  document_type    SiatDocumentType @map("document_type")
+  point_of_sale_id String           @map("point_of_sale_id") @db.Uuid
+  next_number      Int              @default(1) @map("next_number")
+  updated_at       DateTime         @updatedAt @map("updated_at")
+
+  cuis          SiatCuis        @relation(fields: [cuis_id], references: [id])
+  point_of_sale SiatPointOfSale @relation(fields: [point_of_sale_id], references: [id])
+
+  @@id([cuis_id, document_type])
+  @@map("siat_invoice_sequences")
   @@schema("siat")
 }
