@@ -30,6 +30,10 @@ import { SiatCufdJob } from './codes/siat-cufd.job';
 import { SiatPointsOfSaleController } from './points-of-sale/siat-points-of-sale.controller';
 import { SiatPointsOfSaleService } from './points-of-sale/siat-points-of-sale.service';
 import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
+import { SiatBuyersController } from './buyers/siat-buyers.controller';
+import { SiatBuyerService } from './buyers/siat-buyer.service';
+import { SiatCustomersService } from './buyers/siat-customers.service';
+import { SiatNitVerificationService } from './buyers/siat-nit-verification.service';
 
 /**
  * `PrismaService` comes from the global `PrismaModule`. Safe to import with no token configured:
@@ -41,6 +45,7 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatSettingsController,
     SiatPointsOfSaleController,
     SiatCatalogsController,
+    SiatBuyersController,
   ],
   providers: [
     OffsetSiatClock,
@@ -55,6 +60,9 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatCufdJob,
     SiatPointsOfSaleService,
     SiatShiftGate,
+    SiatNitVerificationService,
+    SiatBuyerService,
+    SiatCustomersService,
     { provide: SIAT_CONFIG, useFactory: () => readSiatConfig() },
     { provide: SIAT_TRANSPORT, useClass: SiatHttpTransport },
     { provide: SIAT_REQUEST_LOG, useClass: PrismaSiatRequestLogSink },
@@ -77,6 +85,9 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatTimeSyncService,
     OffsetSiatClock,
     SiatInvoiceSequenceRepository,
+    SiatBuyerService,
+    SiatCustomersService,
+    SiatNitVerificationService,
   ],
 })
 export class SiatModule {}

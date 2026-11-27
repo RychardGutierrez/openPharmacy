@@ -366,6 +366,50 @@ What this module provides for it:
 - A code that later leaves the SIN list (`active=false`) stays on products that already use it.
   New writes are rejected. Reporting stale codes is not implemented yet.
 
+## Buyers and NIT verification (SIAT-10)
+
+Code lives in `buyers/`. The rules are pure functions in `buyers/siat-buyer-rules.ts` (`resolveBuyer`), so the builder (SIAT-11), the outbox (SIAT-14) and the POS (SIAT-16) all apply the same ones.
+
+### Buyer rules (`resolveBuyer`)
+
+| Rule | Behavior |
+|---|---|
+| Document type | Must be an active code of the `document-types` catalog (`SIAT_DOC_TYPE`: 1 CI, 2 CEX, 3 PAS, 4 OD, 5 NIT). Until it is synced, `resolve` answers 409 `SIAT_CATALOG_NOT_SYNCED` |
+| Number | At most 20 characters (XSD). CI and NIT are digits only. CEX, PAS and OD allow letters, digits and `-` (uppercased) |
+| Complemento | CI only, at most 5 letters or digits, trimmed and uppercased. On any other type: 422 `SIAT_BUYER_COMPLEMENT_NOT_ALLOWED` |
+| S/N | No buyer, number `0`, or the name `S/N` with no number: becomes `SIAT_SN_BUYER` (`S/N`, number `0`) when the total is at most **Bs 1,000.00** |
+| Bs 1,000 limit | Above Bs 1,000.00 an anonymous buyer gets 422 `SIAT_BUYER_REQUIRED`. Totals are compared in cents |
+| `codigoExcepcion` | `null` by default. It is `1` only for a NIT buyer whose stored check failed **and** whose request has `confirmInvalidNit: true`. If the check failed and there is no confirmation: 422 `SIAT_NIT_INVALID`. A confirmation for a CI, an anonymous buyer, or a valid or unchecked NIT: 422 `SIAT_NIT_EXCEPTION_NOT_ALLOWED` |
+| Special codes | Numbers 99001 (exempt entities), 99002 (control tributario) and 99003 ("VENTAS MENORES DEL DÍA" consolidation) are ADMIN only (403 `SIAT_BUYER_SPECIAL_CODE_FORBIDDEN`), use the NIT type, and are never verified or stored as customers. 99002 and 99003 have default names |
+| `codigoCliente` | Given, or the document number (plus `-complemento`) |
+
+### NIT verification (`SiatNitVerificationService`)
+
+- Only NITs are sent to `verificarNit`. CI, CEX, PAS and OD numbers never reach SIAT. NIT `0` and the special codes are refused (422 `SIAT_NIT_FORMAT`) with no call.
+- The request uses the CUIS of the caller's **open-shift point of sale** and the `codigoSucursal` of its branch. `SolicitudVerificarNit` has no `codigoPuntoVenta`. With no open shift: 409 `SHIFT_NOT_OPEN`. With a shift that has no point of sale: 409 `SIAT_SHIFT_WITHOUT_POS`.
+- `valid` is `transaccion`. The annex lists no NIT-specific response codes, so the SIN messages are returned and stored as they come.
+- **Cache** (`siat.siat_nit_verifications`, migration `siat_10_nit_verifications`). One row per NIT, holding the last answer.
+  - A valid answer is reused for 24 h (`cached: true`, no SIAT call).
+  - A failed answer is never served from the cache. It backs a `codigoExcepcion` confirmation in `resolve` for 30 minutes.
+  - SIAT errors store nothing.
+- Each SIAT answer is audited as `SIAT_NIT_VERIFIED` (NIT, valid, codes, point of sale). Cache hits are not audited.
+
+### `codigoExcepcion` audit
+
+`SiatBuyerService.recordExceptionUse(tx, { userId, saleId, invoiceId?, buyer })` writes `SIAT_CODIGO_EXCEPCION_USED` with the user and the sale through `createInTx`. SIAT-14 must call it inside the transaction that creates the invoice, so the audit row exists if and only if the invoice does. It does nothing when `codigoExcepcion` is not 1.
+
+### Customers
+
+`SiatCustomersService.search` is a prefix search on `doc_number`, at most 10 rows. `upsertFromInvoice(tx, buyer)` creates or refreshes the customer keyed on (`doc_type`, `doc_number`, `complement`) inside the invoice transaction (SIAT-14). A missing email does not erase a known one. Anonymous and special buyers are never stored.
+
+### Endpoints
+
+| Method | Route | Roles | Purpose |
+|---|---|---|---|
+| `POST` | `/api/siat/buyers/verify-nit` | CASHIER, PHARMACIST | `{ nit }` → `{ nit, valid, cached, verifiedAt, codigoEstado, messages }` |
+| `POST` | `/api/siat/buyers/resolve` | CASHIER, PHARMACIST, ADMIN | `{ buyer?, total, confirmInvalidNit? }` → the normalized buyer, `codigoExcepcion` and `nitCheck` (`VALID`, `INVALID`, `UNCHECKED`, or null for a non-NIT buyer). Never calls SIAT |
+| `GET` | `/api/siat/buyers/customers?docNumber=&docType=` | CASHIER, PHARMACIST, ADMIN | Customer autocomplete |
+
 ## Data model
 
 Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
@@ -383,7 +427,8 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | `siat_invoices` | Invoices and credit notes, and the outbox the worker claims (SIAT-09, migration `siat_09_invoices`) | See "Invoices (SIAT-09)" below |
 | `siat_invoice_items` | Line snapshots of an invoice | Unique (`invoice_id`, `line_number`). Frozen once the invoice has its XML |
 | `siat_invoice_sequences` | Next number per (CUIS, document type) | Reserved with `SiatInvoiceSequenceRepository.reserveNumber` |
-| `pharmacy.customers` | Buyers for autocomplete (SIAT-10) | Unique (`doc_type`, `doc_number`, `complement`). `complement` is `''` when absent |
+| `pharmacy.customers` | Buyers for autocomplete (SIAT-10) | Unique (`doc_type`, `doc_number`, `complement`). `complement` is `''` when absent. Written by `SiatCustomersService.upsertFromInvoice` |
+| `siat_nit_verifications` | Last `verificarNit` answer per buyer NIT (SIAT-10, migration `siat_10_nit_verifications`) | `nit` primary key. Valid answers are reused for 24 h. Failed ones back a `codigoExcepcion` confirmation for 30 minutes |
 
 ### Invoices (SIAT-09)
 
@@ -405,3 +450,7 @@ The seed (`npm run db:seed`) creates casa matriz `0` and point of sale `0` for d
 - Nota de Crédito-Débito XSD and example XML are pinned. The original zip was downloaded with TLS verification skipped (see `SOURCES.md`). Re-download with verification enabled, and confirm the hashes match.
 - Pages still to save: Generación CUF, Algoritmo de Redondeo, Código Error SIAT, Contingencia, and the Anexo Técnico Versionamiento page with the old-to-V3 diff.
 - Confirm the production host and whether it differs from the pilot.
+- SIAT-10 constants to confirm in the annex or in pilot:
+  - the document type of the S/N buyer (`SIAT_SN_BUYER`, now CI with number `0`);
+  - the document type and names for 99001/99002/99003;
+  - whether a `transaccion=false` from `verificarNit` can mean something other than an invalid NIT (for example a CUIS problem). Today that would still allow the `codigoExcepcion` confirmation.

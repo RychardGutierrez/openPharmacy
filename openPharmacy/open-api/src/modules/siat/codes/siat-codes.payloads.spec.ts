@@ -12,6 +12,8 @@ import {
   cuisResponse,
   parseSiatDateTime,
   registroPuntoVentaRequest,
+  verificarNitRequest,
+  verificarNitResponse,
 } from './siat-codes.payloads';
 import { cuisState } from './siat-cuis-policy';
 
@@ -182,5 +184,47 @@ describe('cuisState', () => {
     [at(15.01), 'valid'],
   ])('%s → %s', (validUntil, expected) => {
     expect(cuisState(validUntil, now, windows)).toBe(expected);
+  });
+});
+
+describe('verificarNit payloads (SIAT-10)', () => {
+  it('follows the WSDL field order without codigoAmbiente', () => {
+    const payload = verificarNitRequest(identity, 0, 'CUIS-1', '1020304022');
+    expect(keysOf(payload)).toEqual(
+      without(
+        wsdlFields(
+          'FacturacionCodigos--ServicioFacturacionCodigos.wsdl',
+          'solicitudVerificarNit',
+        ),
+        'codigoAmbiente',
+      ),
+    );
+    expect(payload).toEqual({
+      SolicitudVerificarNit: {
+        codigoModalidad: 2,
+        codigoSistema: 'SYS',
+        codigoSucursal: 0,
+        cuis: 'CUIS-1',
+        nit: '1234567',
+        nitParaVerificacion: '1020304022',
+      },
+    });
+  });
+
+  it('maps transaccion to valid and keeps the SIN messages', () => {
+    const rejected: SiatResult = {
+      transaccion: false,
+      codigoEstado: 994,
+      mensajes: [{ codigo: 994, descripcion: 'NIT INEXISTENTE' }],
+      payload: {},
+    };
+    expect(verificarNitResponse(rejected)).toEqual({
+      valid: false,
+      codigoEstado: 994,
+      messages: [{ codigo: 994, descripcion: 'NIT INEXISTENTE' }],
+    });
+    expect(
+      verificarNitResponse({ transaccion: true, mensajes: [], payload: {} }),
+    ).toEqual({ valid: true, codigoEstado: null, messages: [] });
   });
 });

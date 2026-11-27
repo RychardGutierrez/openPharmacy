@@ -1,6 +1,6 @@
 /**
- * Typed requests and response mappers for the operations SIAT-05 and SIAT-06 use: `cuis` and `cufd`
- * (FacturacionCodigos), and `registroPuntoVenta`, `consultaPuntoVenta`, `cierrePuntoVenta`
+ * Typed requests and response mappers for the operations SIAT-05, SIAT-06 and SIAT-10 use: `cuis`,
+ * `cufd` and `verificarNit` (FacturacionCodigos), and `registroPuntoVenta`, `consultaPuntoVenta`, `cierrePuntoVenta`
  * (FacturacionOperaciones).
  *
  * Field order follows the pinned WSDL request types (alphabetical). `codigoAmbiente` is inserted
@@ -107,6 +107,47 @@ export function cierrePuntoVentaRequest(
       cuis,
       nit: id.nit,
     },
+  };
+}
+
+/**
+ * `SolicitudVerificarNit` (SIAT-10). `nit` is the pharmacy, `nitParaVerificacion` the buyer.
+ * There is no `codigoPuntoVenta`: any valid CUIS of the branch is accepted.
+ */
+export function verificarNitRequest(
+  id: SiatIdentity,
+  codigoSucursal: number,
+  cuis: string,
+  nitParaVerificacion: string,
+): Payload {
+  return {
+    SolicitudVerificarNit: {
+      codigoModalidad: id.codigoModalidad,
+      codigoSistema: id.codigoSistema,
+      codigoSucursal,
+      cuis,
+      nit: id.nit,
+      nitParaVerificacion,
+    },
+  };
+}
+
+export interface SiatNitCheck {
+  /** `transaccion`. The annex lists no NIT-specific codes, so false means "not valid". */
+  valid: boolean;
+  codigoEstado: number | null;
+  messages: { codigo: number; descripcion: string }[];
+}
+
+/** `RespuestaVerificarNit`: only `transaccion`, `codigoEstado` and `mensajesList`. */
+export function verificarNitResponse(result: SiatResult): SiatNitCheck {
+  return {
+    valid: result.transaccion,
+    codigoEstado: result.codigoEstado ?? null,
+    messages: result.mensajes.map((m) => ({
+      codigo: m.codigo,
+      descripcion: m.descripcion,
+    })),
   };
 }
 

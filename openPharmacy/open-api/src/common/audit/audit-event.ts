@@ -88,4 +88,8 @@ export type AuditEvent =
   | 'SIAT_CATALOGS_SYNCED'
   // CUFD requested by an ADMIN (SIAT-06). Scheduled renewals are not audited: siat_cufd and
   // siat_request_log already record them. The CUFD codes are never recorded.
-  | 'SIAT_CUFD_REQUESTED';
+  | 'SIAT_CUFD_REQUESTED'
+  // verificarNit answered by SIAT (SIAT-10). Cache hits are not audited. No buyer names.
+  | 'SIAT_NIT_VERIFIED'
+  // codigoExcepcion = 1 confirmed by the cashier for an invalid NIT (SIAT-10), with user and sale.
+  | 'SIAT_CODIGO_EXCEPCION_USED';

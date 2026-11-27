@@ -890,6 +890,21 @@ model SiatCatalogSync {
   @@schema("siat")
 }
 
+/// Last `verificarNit` answer per buyer NIT (SIAT-10). A valid answer is reused for 24 h. A
+/// failed one is kept briefly so a cashier can confirm `codigoExcepcion = 1` against it.
+model SiatNitVerification {
+  nit           String
+  valid         Boolean
+  codigo_estado Int?     @map("codigo_estado")
+  /// SIN `mensajesList` entries ({ codigo, descripcion }).
+  messages      Json?
+  verified_at   DateTime @map("verified_at")
+
+  @@id([nit])
+  @@map("siat_nit_verifications")
+  @@schema("siat")
+}
+
 /// One row per SIAT call attempt. Bodies are stored redacted (no token). Kept as tax evidence.
 model SiatRequestLog {
   id                  String   @id @default(uuid()) @db.Uuid
