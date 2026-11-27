@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Product, ProductCategory } from '@prisma/client';
 import { ProductsService } from './products.service';
+import { ProductSinService } from './product-sin.service';
 import { ProductsRepository } from './repositories/products.repository';
 import { AuditLogRepository } from '../../common/audit/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -85,6 +86,7 @@ describe('ProductsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: AuditLogRepository, useValue: audit },
+        { provide: ProductSinService, useValue: { validateCodes: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 

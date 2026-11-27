@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ProductCategory } from '@prisma/client';
 import { SalesService } from './sales.service';
+import { ProductSinService } from '../products/product-sin.service';
 import { ShiftsService } from '../shifts/shifts.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FefoService } from '../lots/fefo.service';
@@ -87,6 +88,7 @@ describe('SalesService', () => {
       config as unknown as ConfigService,
       events as unknown as EventEmitter2,
       movements as unknown as InventoryMovementsRepository,
+      { assertSalable: jest.fn().mockResolvedValue(undefined) } as unknown as ProductSinService,
     );
   });
 

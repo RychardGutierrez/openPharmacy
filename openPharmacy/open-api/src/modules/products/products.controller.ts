@@ -5,9 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UploadedFile,
@@ -21,7 +23,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { UserRole } from '@prisma/client';
+import { ProductCategory, UserRole } from '@prisma/client';
+import { ProductSinService } from './product-sin.service';
+import {
+  BulkAssignSinDto,
+  SetCategoryDefaultDto,
+} from './dto/bulk-assign-sin.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
@@ -53,7 +60,10 @@ const extractMetadata = (request: Request) => ({
 @Roles(UserRole.ADMIN, UserRole.PHARMACIST)
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly productSin: ProductSinService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -122,8 +132,81 @@ export class ProductsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProductDto,
     @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProductResponseDto> {
-    return this.productsService.update(id, dto, extractMetadata(request));
+    return this.productsService.update(
+      id,
+      dto,
+      extractMetadata(request),
+      user.id,
+    );
+  }
+
+  @Get('sin/summary')
+  @ApiOperation({ summary: 'Count products with and without SIN codes (SIAT-08)' })
+  sinSummary(): Promise<{ total: number; homologated: number; pending: number }> {
+    return this.productSin.summary();
+  }
+
+  @Post('sin/bulk-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Assign SIN codes to selected products or a category (SIAT-08)' })
+  bulkAssignSin(
+    @Body() dto: BulkAssignSinDto,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ updated: number }> {
+    return this.productSin.bulkAssign(
+      {
+        codes: {
+          activityCode: dto.sinActivityCode,
+          productCode: dto.sinProductCode,
+          unitCode: dto.sinUnitCode,
+        },
+        productIds: dto.productIds,
+        category: dto.category,
+        overwrite: dto.overwrite,
+      },
+      user.id,
+      extractMetadata(request),
+    );
+  }
+
+  @Get('sin/defaults')
+  @ApiOperation({ summary: 'List the default SIN codes per category (SIAT-08)' })
+  listSinDefaults() {
+    return this.productSin.listDefaults();
+  }
+
+  @Put('sin/defaults/:category')
+  @ApiOperation({ summary: 'Set the default SIN codes of a category (SIAT-08)' })
+  setSinDefault(
+    @Param('category', new ParseEnumPipe(ProductCategory)) category: ProductCategory,
+    @Body() dto: SetCategoryDefaultDto,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.productSin.upsertDefault(
+      category,
+      {
+        activityCode: dto.sinActivityCode,
+        productCode: dto.sinProductCode,
+        unitCode: dto.sinUnitCode,
+      },
+      user.id,
+      extractMetadata(request),
+    );
+  }
+
+  @Post('sin/defaults/:category/apply')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Apply a category default to its products that lack codes (SIAT-08)' })
+  applySinDefault(
+    @Param('category', new ParseEnumPipe(ProductCategory)) category: ProductCategory,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ updated: number }> {
+    return this.productSin.applyDefault(category, user.id, extractMetadata(request));
   }
 
   @Patch(':id/price')

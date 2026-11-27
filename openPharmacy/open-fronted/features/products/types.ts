@@ -64,6 +64,9 @@ export const productSchema = z.object({
   salePrice: z.number().nonnegative(),
   minSalePrice: z.number().nonnegative(),
   minStock: z.number().int().nonnegative(),
+  sinActivityCode: z.string().nullable().optional(),
+  sinProductCode: z.string().nullable().optional(),
+  sinUnitCode: z.string().nullable().optional(),
   active: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -84,6 +87,19 @@ export type PaginatedProducts = z.infer<typeof paginatedProductsSchema>
 /** Subset returned by GET /api/products/search. */
 export const productSearchResultSchema = productSchema
 export type ProductSearchResult = Product
+
+/** SIN homologation codes (SIAT-08): digits only, sent together or not at all. */
+export const SIN_CODE_FIELDS = [
+  "sinActivityCode",
+  "sinProductCode",
+  "sinUnitCode",
+] as const
+export type SinCodeField = (typeof SIN_CODE_FIELDS)[number]
+
+/** Empty string = "not set" in the form. The API layer turns it into null. */
+const sinCodeFormField = z
+  .union([z.literal(""), z.string().regex(/^\d{1,20}$/, "Solo dígitos (máximo 20)")])
+  .optional()
 
 /**
  * Client-side form schema. Mirrors backend validation:
@@ -121,8 +137,75 @@ export const productFormSchema = z.object({
     .int("Debe ser un número entero")
     .min(0, "No puede ser negativo")
     .max(999999, "Máximo 999999"),
+  sinActivityCode: sinCodeFormField,
+  sinProductCode: sinCodeFormField,
+  sinUnitCode: sinCodeFormField,
+}).superRefine((values, ctx) => {
+  const fields = SIN_CODE_FIELDS.filter((field) => !!values[field])
+  if (fields.length === 0 || fields.length === SIN_CODE_FIELDS.length) return
+  for (const field of SIN_CODE_FIELDS) {
+    if (!values[field]) {
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: "Completa los tres códigos SIN o deja los tres vacíos",
+      })
+    }
+  }
 })
 export type ProductFormValues = z.infer<typeof productFormSchema>
+
+/** Stored SIN codes of a product, as the API returns them. */
+export interface SinCodes {
+  sinActivityCode: string
+  sinProductCode: string
+  sinUnitCode: string
+}
+
+/** Counts from GET /products/sin/summary. */
+export const sinSummarySchema = z.object({
+  total: z.number().int().nonnegative(),
+  homologated: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+})
+export type SinSummary = z.infer<typeof sinSummarySchema>
+
+/**
+ * One category default from GET /products/sin/defaults. The backend returns raw Prisma rows, so
+ * the keys are snake_case.
+ */
+export const sinCategoryDefaultSchema = z.object({
+  category: z.enum(PRODUCT_CATEGORIES),
+  sin_activity_code: z.string(),
+  sin_product_code: z.string(),
+  sin_unit_code: z.string(),
+  updated_at: z.string(),
+})
+export type SinCategoryDefault = z.infer<typeof sinCategoryDefaultSchema>
+
+export const sinCategoryDefaultsSchema = z.array(sinCategoryDefaultSchema)
+
+export const sinBulkResultSchema = z.object({ updated: z.number().int().nonnegative() })
+export type SinBulkResult = z.infer<typeof sinBulkResultSchema>
+
+/** One item of GET /siat/catalogs/:catalog (activities, products, units). */
+export const siatCatalogItemSchema = z.object({
+  code: z.string(),
+  parentCode: z.string().nullable(),
+  description: z.string(),
+  extra: z.record(z.string(), z.unknown()).nullable().optional(),
+  active: z.boolean(),
+})
+export type SiatCatalogItem = z.infer<typeof siatCatalogItemSchema>
+
+export const siatCatalogItemsPageSchema = z.object({
+  catalog: z.string(),
+  page: z.number(),
+  pageSize: z.number(),
+  total: z.number(),
+  items: z.array(siatCatalogItemSchema),
+})
+export type SiatCatalogItemsPage = z.infer<typeof siatCatalogItemsPageSchema>
 
 /** Header row for the downloadable CSV template. */
 export const BULK_IMPORT_HEADERS = [
@@ -136,6 +219,10 @@ export const BULK_IMPORT_HEADERS = [
   "salePrice",
   "minSalePrice",
   "minStock",
+  // SIAT-08: optional SIN codes. Leave all three empty, or fill all three.
+  "sinActivityCode",
+  "sinProductCode",
+  "sinUnitCode",
 ] as const
 
 /** Per-row error from the bulk-import endpoint. */

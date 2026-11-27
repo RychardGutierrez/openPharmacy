@@ -52,6 +52,11 @@ A product represents a pharmaceutical or non-pharmaceutical item in inventory.
 | `minSalePrice` | number | Minimum sale price (floor) in BOB |
 | `minStock` | number | Minimum stock threshold |
 | `active` | boolean | Soft-delete flag |
+| `sinActivityCode` | string \| null | SIN activity (CAEB) code (SIAT-08) |
+| `sinProductCode` | string \| null | SIN product code (`extra.codigoProducto` of the catalog item) |
+| `sinUnitCode` | string \| null | SIN unit of measure code |
+
+The three SIN codes go together: all three or none (enforced in the Zod form schema and by the API).
 
 ### Categories
 
@@ -64,6 +69,18 @@ A product represents a pharmaceutical or non-pharmaceutical item in inventory.
 | `NON_PHARMACEUTICAL` | No farmacéutico | No |
 
 Use `isControlledCategory(category)` from `types.ts` to determine whether a category triggers the SEDES compliance flow.
+
+## SIN homologation (SIAT-08)
+
+Products need SIN codes before they can be sold while SIAT is enabled (the API answers `409 PRODUCT_NOT_HOMOLOGATED`). Backend rules: `open-api/src/modules/products/README.md`.
+
+- **Form.** `product-form.tsx` has a "Codificación SIN" section (`sin-codes-fields.tsx`). The product picker is enabled only after an activity is chosen, and changing the activity clears it.
+- **Catalog picker.** `siat-catalog-picker.tsx` searches the synced SIN catalogs (`activities`, `products` filtered by `parentCode`, `units`) through `GET /api/siat/catalogs/:catalog`. The items hook lives in `features/siat-settings` under `SIAT_CATALOGS_QUERY_KEY`, so a catalog sync refreshes the pickers.
+- **List.** The "Sin código SIN" filter sends `sinPending=true`. The page shows the pending count from `GET /api/products/sin/summary`. The table's "Sin códigos" badge reflects the product's own codes only, while the filter and counter also count category defaults as covered.
+- **Bulk assignment.** Select rows (checkbox column) or choose a category, then `product-sin-bulk-dialog.tsx` calls `POST /api/products/sin/bulk-assign`. Complete codes are kept unless "overwrite" is on.
+- **Category defaults.** `product-sin-defaults-dialog.tsx` lists, sets and applies the default codes per category.
+- **CSV import.** The template has `sinActivityCode`, `sinProductCode`, `sinUnitCode`. Leave all three empty to import without codes.
+- Hooks: `api/use-product-sin.ts`. Mutations invalidate `productsKeys.all`.
 
 ## Routes
 

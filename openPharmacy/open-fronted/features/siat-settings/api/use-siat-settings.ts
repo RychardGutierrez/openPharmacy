@@ -3,11 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
+  getSiatCatalogItems,
   getSiatCatalogsStatus,
   getSiatSettings,
   syncSiatCatalogs,
   testSiatConnection,
   updateSiatSettings,
+  type SiatCatalogItemsParams,
 } from "@/features/siat-settings/api/siat-settings-api"
 import type { SiatSettingsUpdate } from "@/features/siat-settings/types"
 
@@ -35,6 +37,22 @@ export const SIAT_CATALOGS_QUERY_KEY = ["siat-catalogs"]
 
 export function useSiatCatalogsStatus() {
   return useQuery({ queryKey: SIAT_CATALOGS_QUERY_KEY, queryFn: getSiatCatalogsStatus })
+}
+
+/**
+ * Codes of one catalog for the SIAT-08 pickers. Keyed under SIAT_CATALOGS_QUERY_KEY, so a
+ * catalog sync invalidates it too.
+ */
+export function useSiatCatalogItems(
+  catalog: "activities" | "products" | "units",
+  params: SiatCatalogItemsParams,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: [...SIAT_CATALOGS_QUERY_KEY, "items", catalog, params],
+    queryFn: () => getSiatCatalogItems(catalog, params),
+    enabled: options.enabled ?? true,
+  })
 }
 
 export function useSyncSiatCatalogs() {

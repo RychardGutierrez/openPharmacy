@@ -24,6 +24,8 @@ export interface ProductsFiltersValue {
   q: string
   category: ProductCategory | undefined
   status: boolean | undefined
+  /** SIAT-08: show only products without complete SIN codes and without a category default. */
+  sinPending: boolean
 }
 
 export interface ProductsFiltersProps {
@@ -101,6 +103,21 @@ export function ProductsFilters({ value, onChange }: ProductsFiltersProps) {
           <SelectItem value={ALL}>Todos los estados</SelectItem>
           <SelectItem value="active">Activos</SelectItem>
           <SelectItem value="inactive">Inactivos</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={value.sinPending ? "pending" : ALL}
+        onValueChange={(next) =>
+          onChange({ ...value, sinPending: next === "pending" })
+        }
+      >
+        <SelectTrigger className="sm:w-52" aria-label="Filtrar por códigos SIN">
+          <SelectValue placeholder="Códigos SIN" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>Todos (códigos SIN)</SelectItem>
+          <SelectItem value="pending">Sin código SIN</SelectItem>
         </SelectContent>
       </Select>
     </div>

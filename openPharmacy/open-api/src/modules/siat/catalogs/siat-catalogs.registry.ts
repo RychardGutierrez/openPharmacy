@@ -39,7 +39,8 @@ export const SIAT_CATALOG_ENTRIES: readonly SiatCatalogEntry[] = [
     listKey: 'listaActividades',
     map: activityRow,
     requiredForEmission: true,
-    public: false,
+    // Public so PHARMACIST can pick SIN codes for products (SIAT-08).
+    public: true,
   },
   {
     slug: 'legends',
@@ -63,7 +64,8 @@ export const SIAT_CATALOG_ENTRIES: readonly SiatCatalogEntry[] = [
     listKey: PARAMETRIC,
     map: productRow,
     requiredForEmission: false,
-    public: false,
+    // Public so PHARMACIST can pick SIN codes for products (SIAT-08).
+    public: true,
   },
   {
     slug: 'service-messages',

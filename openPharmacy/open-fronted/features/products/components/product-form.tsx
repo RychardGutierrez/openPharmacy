@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { BarcodeUniquenessIndicator } from "@/features/products/components/barcode-uniqueness-indicator"
 import { CategoryCardGroup } from "@/features/products/components/category-card-group"
 import { ComplianceWarningBanner } from "@/features/products/components/compliance-warning-banner"
+import { SiatCatalogPicker } from "@/features/products/components/siat-catalog-picker"
 import {
   isControlledCategory,
   productFormSchema,
@@ -43,6 +44,9 @@ const EMPTY_DEFAULTS: ProductFormValues = {
   salePrice: 0,
   minSalePrice: 0,
   minStock: 0,
+  sinActivityCode: "",
+  sinProductCode: "",
+  sinUnitCode: "",
 }
 
 export function ProductForm({
@@ -59,6 +63,7 @@ export function ProductForm({
 
   const category = form.watch("category")
   const barcode = form.watch("barcode")
+  const sinActivityCode = form.watch("sinActivityCode")
 
   return (
     <Form {...form}>
@@ -299,6 +304,75 @@ export function ProductForm({
             )}
           />
         </div>
+
+        <fieldset className="grid gap-4 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-medium">Codificación SIN</legend>
+          <p className="text-xs text-muted-foreground">
+            Opcional. Si se completa, deben indicarse la actividad, el producto y la unidad. El
+            producto debe pertenecer a la actividad elegida.
+          </p>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <FormField
+              control={form.control}
+              name="sinActivityCode"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <SiatCatalogPicker
+                    id="product-sin-activity"
+                    catalog="activities"
+                    label="Actividad económica"
+                    value={field.value || undefined}
+                    ariaInvalid={!!fieldState.error}
+                    onChange={(code) => {
+                      if ((code ?? "") !== (field.value ?? "")) {
+                        form.setValue("sinProductCode", "", { shouldValidate: false })
+                      }
+                      field.onChange(code ?? "")
+                    }}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sinProductCode"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <SiatCatalogPicker
+                    id="product-sin-product"
+                    catalog="products"
+                    parentCode={sinActivityCode || undefined}
+                    label="Producto SIN"
+                    value={field.value || undefined}
+                    ariaInvalid={!!fieldState.error}
+                    onChange={(code) => field.onChange(code ?? "")}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sinUnitCode"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <SiatCatalogPicker
+                    id="product-sin-unit"
+                    catalog="units"
+                    label="Unidad de medida"
+                    value={field.value || undefined}
+                    ariaInvalid={!!fieldState.error}
+                    onChange={(code) => field.onChange(code ?? "")}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </fieldset>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="submit" disabled={isPending} className="min-w-32">

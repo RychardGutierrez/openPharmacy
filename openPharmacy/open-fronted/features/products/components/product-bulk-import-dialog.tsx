@@ -41,6 +41,10 @@ const SAMPLE_ROW = [
   "2.50",
   "1.20",
   "20",
+  // SIN codes left empty: the product is imported without homologation.
+  "",
+  "",
+  "",
 ]
 
 function downloadTemplate() {

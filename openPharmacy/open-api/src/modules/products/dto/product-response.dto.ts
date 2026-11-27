@@ -50,6 +50,16 @@ export class ProductResponseDto {
   @Expose()
   minStock!: number;
 
+  /** SIN homologation codes (SIAT-08). Null when not homologated. */
+  @Expose()
+  sinActivityCode!: string | null;
+
+  @Expose()
+  sinProductCode!: string | null;
+
+  @Expose()
+  sinUnitCode!: string | null;
+
   @Expose()
   active!: boolean;
 

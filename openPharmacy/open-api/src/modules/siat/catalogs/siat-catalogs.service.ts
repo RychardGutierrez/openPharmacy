@@ -178,6 +178,45 @@ export class SiatCatalogsService {
     return count > 0;
   }
 
+  /** True when the catalog has at least one active code, i.e. it has been synchronized. */
+  async hasActiveCodes(slug: string): Promise<boolean> {
+    const entry = this.entry(slug);
+    const count = await this.prisma.siatCatalogItem.count({
+      where: { catalog: entry.operation.name, active: true },
+    });
+    return count > 0;
+  }
+
+  /**
+   * Checks the SIN homologation codes of a product (SIAT-08). The activity must be one registered
+   * on the NIT. The product code is looked up as `activity:product`, so it must belong to that
+   * activity. Returns the failing fields, empty when all three are valid.
+   */
+  async validateSinCodes(codes: {
+    activityCode: string;
+    productCode: string;
+    unitCode: string;
+  }): Promise<{ field: 'sinActivityCode' | 'sinProductCode' | 'sinUnitCode'; code: string }[]> {
+    const [activityOk, productOk, unitOk] = await Promise.all([
+      this.isActiveCode('activities', codes.activityCode),
+      this.isActiveCode(
+        'products',
+        `${codes.activityCode}:${codes.productCode}`,
+      ),
+      this.isActiveCode('units', codes.unitCode),
+    ]);
+    const failures: {
+      field: 'sinActivityCode' | 'sinProductCode' | 'sinUnitCode';
+      code: string;
+    }[] = [];
+    if (!activityOk)
+      failures.push({ field: 'sinActivityCode', code: codes.activityCode });
+    if (!productOk)
+      failures.push({ field: 'sinProductCode', code: codes.productCode });
+    if (!unitOk) failures.push({ field: 'sinUnitCode', code: codes.unitCode });
+    return failures;
+  }
+
   /**
    * One legend for an invoice, chosen at random among the active legends of its activity (SIAT
    * expert rule). Null when the activity has none.
