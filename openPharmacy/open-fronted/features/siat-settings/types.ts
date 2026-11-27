@@ -55,6 +55,77 @@ export const siatConnectionTestSchema = z.object({
 })
 export type SiatConnectionTest = z.infer<typeof siatConnectionTestSchema>
 
+/** Labels of the SIN catalogs, by URL slug (SIAT-07). */
+export const SIAT_CATALOG_LABELS: Record<string, string> = {
+  activities: "Actividades económicas",
+  legends: "Leyendas",
+  "activity-document-sectors": "Actividad ↔ sector documentario",
+  products: "Productos y servicios",
+  "service-messages": "Mensajes de servicio",
+  "significant-events": "Eventos significativos",
+  "cancellation-reasons": "Motivos de anulación",
+  countries: "Países",
+  "document-types": "Tipos de documento de identidad",
+  "document-sectors": "Tipos de documento sector",
+  "emission-types": "Tipos de emisión",
+  "room-types": "Tipos de habitación",
+  "payment-methods": "Métodos de pago",
+  currencies: "Monedas",
+  "pos-types": "Tipos de punto de venta",
+  "invoice-types": "Tipos de factura",
+  units: "Unidades de medida",
+}
+
+const isoDate = z.string().nullable()
+
+/** `GET /api/siat/catalogs` (ADMIN). */
+export const siatCatalogsStatusSchema = z.object({
+  catalogs: z.array(
+    z.object({
+      slug: z.string(),
+      catalog: z.string(),
+      requiredForEmission: z.boolean(),
+      public: z.boolean(),
+      activeCount: z.number(),
+      lastAttemptAt: isoDate,
+      lastSuccessAt: isoDate,
+      lastError: z.string().nullable(),
+    }),
+  ),
+  failing: z.array(z.string()),
+  missingForEmission: z.array(z.string()),
+  clock: z.object({
+    offsetMs: z.number(),
+    sampledAt: isoDate,
+    stale: z.boolean(),
+    warning: z.boolean(),
+  }),
+})
+export type SiatCatalogsStatus = z.infer<typeof siatCatalogsStatusSchema>
+
+/** `POST /api/siat/catalogs/sync`. `clock` is absent when a single catalog was synced. */
+export const siatCatalogSyncSchema = z.object({
+  clock: z
+    .discriminatedUnion("accepted", [
+      z.object({ accepted: z.literal(true), offsetMs: z.number() }),
+      z.object({ accepted: z.literal(false), error: z.string() }),
+    ])
+    .optional(),
+  catalogs: z.array(
+    z.object({
+      slug: z.string(),
+      status: z.enum(["synced", "failed"]),
+      added: z.number(),
+      updated: z.number(),
+      deactivated: z.number(),
+      reactivated: z.number(),
+      total: z.number(),
+      error: z.string().optional(),
+    }),
+  ),
+})
+export type SiatCatalogSync = z.infer<typeof siatCatalogSyncSchema>
+
 const optionalPattern = (pattern: RegExp, message: string) =>
   z.string().trim().refine((value) => value === "" || pattern.test(value), message)
 

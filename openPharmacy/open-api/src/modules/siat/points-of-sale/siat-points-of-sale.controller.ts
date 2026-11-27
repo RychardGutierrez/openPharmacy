@@ -63,7 +63,7 @@ export class SiatPointsOfSaleController {
 
   @Get('points-of-sale/types')
   @ApiOperation({
-    summary: 'Point-of-sale types (provisional list until SIAT-07)',
+    summary: 'Point-of-sale types from the synced SIN catalog',
   })
   types() {
     return this.service.types();

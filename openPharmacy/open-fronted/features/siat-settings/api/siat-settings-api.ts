@@ -2,8 +2,12 @@ import { z } from "zod"
 
 import { useAuthStore } from "@/features/auth/store/auth-store"
 import {
+  siatCatalogSyncSchema,
+  siatCatalogsStatusSchema,
   siatConnectionTestSchema,
   siatSettingsSchema,
+  type SiatCatalogSync,
+  type SiatCatalogsStatus,
   type SiatConnectionTest,
   type SiatSettings,
   type SiatSettingsUpdate,
@@ -79,4 +83,13 @@ export function updateSiatSettings(values: SiatSettingsUpdate): Promise<SiatSett
 
 export function testSiatConnection(): Promise<SiatConnectionTest> {
   return request("/siat/settings/test-connection", { method: "POST" }, siatConnectionTestSchema)
+}
+
+export function getSiatCatalogsStatus(): Promise<SiatCatalogsStatus> {
+  return request("/siat/catalogs", { method: "GET" }, siatCatalogsStatusSchema)
+}
+
+/** Sync now: every catalog and the clock. */
+export function syncSiatCatalogs(): Promise<SiatCatalogSync> {
+  return request("/siat/catalogs/sync", { method: "POST", body: JSON.stringify({}) }, siatCatalogSyncSchema)
 }

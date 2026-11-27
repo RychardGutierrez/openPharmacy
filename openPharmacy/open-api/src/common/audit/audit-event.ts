@@ -80,6 +80,8 @@ export type AuditEvent =
   | 'SIAT_POS_CLOSED'
   | 'SIAT_CUIS_OBTAINED'
   | 'SIAT_CUIS_RENEWED'
+  // Manual or scheduled catalog sync (SIAT-07). The summary is recorded, not the codes.
+  | 'SIAT_CATALOGS_SYNCED'
   // CUFD requested by an ADMIN (SIAT-06). Scheduled renewals are not audited: siat_cufd and
   // siat_request_log already record them. The CUFD codes are never recorded.
   | 'SIAT_CUFD_REQUESTED';

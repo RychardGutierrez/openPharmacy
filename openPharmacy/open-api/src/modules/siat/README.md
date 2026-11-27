@@ -2,7 +2,7 @@
 
 Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing services (SIAT, Anexo Técnico Ley 1733, V3).
 
-**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS). SIAT-06 done (CUFD lifecycle).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)), branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)) and the CUFD request (see [CUFD](#cufd-siat-06)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
+**Status: SIAT-01 done (spec, types, validator). SIAT-02 done (data model). SIAT-03 done except the live pilot run (token pending). SIAT-04 done (settings and secrets). SIAT-05 done (branches, points of sale, CUIS). SIAT-06 done (CUFD lifecycle). SIAT-07 done (catalogs and clock).** Endpoints: the SIAT settings (see [Settings](#settings-siat-04)), branches / points of sale (see [Branches, points of sale and CUIS](#branches-points-of-sale-and-cuis-siat-05)) and the CUFD request (see [CUFD](#cufd-siat-06)), and the catalogs and clock (see [Catalogs and clock](#catalogs-and-clock-siat-07)). `SiatModule` is imported in `AppModule` and by `ShiftsModule`. With no token configured it starts normally and SIAT calls report `not-configured`.
 
 ## Layout
 
@@ -16,7 +16,9 @@ Integration with the Servicio de Impuestos Nacionales (SIN) electronic invoicing
 | `client/` | The SOAP client engine: operation registry, envelope builder and parser, HTTP transport, errors, the request-log port, and `SiatHealthService`. See [SIAT client](#siat-client). |
 | `client/__fixtures__/recorded/` | Real pilot responses saved by `npm run siat:live-check -- --record`. Token-free. |
 | `persistence/` | `PrismaSiatRequestLogSink`, which writes request log rows to `siat.siat_request_log`. |
-| `codes/` | `SiatCodesService` (CUIS lifecycle), the CUIS policy, the renewal job, `SiatCufdService` with the CUFD policy and job (SIAT-06), `SIAT_CLOCK`, typed payloads for `cuis`, `cufd` and the point-of-sale operations, and the provisional point-of-sale type list. |
+| `codes/` | `SiatCodesService` (CUIS lifecycle), the CUIS policy, the renewal job, `SiatCufdService` with the CUFD policy and job (SIAT-06), `SIAT_CLOCK`, typed payloads for `cuis`, `cufd` and the point-of-sale operations. |
+| `catalogs/` | SIN catalogs and date-time (SIAT-07): the registry of the 17 catalogs, the `sincronizar*` payloads and mappers, `SiatCatalogSyncService`, `SiatCatalogsService` (reads and readiness), the daily job and the controller. |
+| `codes/siat-offset-clock.ts`, `codes/siat-time-sync.service.ts` | `OffsetSiatClock` (the SIAT clock, `SIAT_CLOCK`) and the clock sample from `sincronizarFechaHora` (SIAT-07). |
 | `points-of-sale/` | `SiatPointsOfSaleService` and controller (branches, points of sale) and `SiatShiftGate` (used by `shifts`). |
 | `siat.module.ts` | Nest module that wires all of the above. |
 
@@ -67,7 +69,7 @@ Terms marked *pending* are not in the annex pages saved so far. Add them when th
 | **codigoPuntoVenta** | Point of sale number. Send `0` when the transaction does not use a point of sale. | Solicitud CUIS page |
 | **codigoDocumentoSector** | Code for the invoice's document sector. Compra-Venta is `1`, and the XSD fixes it to that value. | XSD (`fixed="1"`) |
 | **tipoFacturaDocumento** | Code for the invoice type or adjustment document being sent. | Recepción pages |
-| **tipoEmision** | *pending* | Not in the saved pages |
+| **tipoEmision** | Code of the emission type | Synced from `sincronizarParametricaTipoEmision` (SIAT-07, `siat_catalog_items`) |
 
 ## V3 differences
 
@@ -145,7 +147,7 @@ All three are ADMIN only. The generic `/api/config` endpoints neither return nor
 - **`sedes` stays separate.** `siat_branches` is the SIAT branch table, and `sedes` is still a scaffold. Linking them is pending item M1.
 - **Shift to point of sale.** `auth.shifts.point_of_sale_id` is a nullable foreign key to `siat.siat_points_of_sale` (migration `20261117043007_siat_05_pos_cuis`). The cashier can pick one, and if only one is active it is used automatically. Several shifts may be open on the same point of sale.
 - **Renewal window follows the annex, not the original ticket.** The "Solicitud CUIS" page allows renewal only "a partir del quinto día anterior a su vencimiento". Renewal therefore starts 5 days before expiry (`SIAT_CUIS_RENEW_DAYS`, max 5), and from 15 days out the job only logs a warning (`SIAT_CUIS_ALERT_DAYS`). Requesting earlier would just return the same code.
-- **Point-of-sale types are a provisional list** (`codes/siat-point-of-sale-types.ts`: 2–6, without 1 = comisionista, which uses another operation). SIAT-07 replaces it with the synced `sincronizarParametricaTipoPuntoVenta` catalog.
+- **Point-of-sale types come from the synced catalog** (`sincronizarParametricaTipoPuntoVenta`, SIAT-07). Comisionista is excluded, because it uses another operation. Until the first sync, `types` and registration answer 409 `SIAT_CATALOG_NOT_SYNCED`.
 - **Branches are created by ADMIN** (`POST /siat/branches`), exactly as registered in the Padrón. Creating a branch also creates its point of sale 0. Nothing is sent to SIAT.
 
 ### CUIS rules (`SiatCodesService.ensureCuis`)
@@ -168,7 +170,7 @@ All three are ADMIN only. The generic `/api/config` endpoints neither return nor
   - A changed code emits `siat.cuis.renewed` (`SIAT_CUIS_RENEWED_EVENT`). `SiatCufdService` listens for it and requests a new CUFD (see [CUFD](#cufd-siat-06)): the annex requires a new CUFD after a CUIS renewal, and invoice numbering restarts per CUIS.
   - Audit events `SIAT_CUIS_OBTAINED` and `SIAT_CUIS_RENEWED` are written. The code itself is never audited or returned.
 - **Renewal job** (`SiatCuisRenewalJob`). Runs every hour and covers active, open points of sale. It does nothing while `SIAT_ENABLED` is false and is disabled under `NODE_ENV=test`.
-- **Clock.** `SIAT_CLOCK` (system clock) is injected so tests can use `fixedSiatClock`. SIAT-07 can replace it with a clock corrected by the SIAT time offset.
+- **Clock.** `SIAT_CLOCK` is the SIAT clock from SIAT-07 (see [Catalogs and clock](#catalogs-and-clock-siat-07)). Tests inject `fixedSiatClock`.
 - **Configuration errors.** A missing token, NIT or system code returns **409** `SIAT_NOT_CONFIGURED` with `missing`, before any SIAT call.
 
 ### Point-of-sale operations
@@ -190,7 +192,7 @@ All three are ADMIN only. The generic `/api/config` endpoints neither return nor
 | `POST` | `/api/siat/branches` | Create a branch (Padrón data) and its point of sale 0 |
 | `PATCH` | `/api/siat/branches/:id` | Edit name, address, municipality, phone, `active`. `codigoSucursal` is fixed |
 | `GET` | `/api/siat/points-of-sale` | Points of sale with CUIS state, `validUntil`, `daysLeft`, open shifts |
-| `GET` | `/api/siat/points-of-sale/types` | Provisional `codigoTipoPuntoVenta` list |
+| `GET` | `/api/siat/points-of-sale/types` | `codigoTipoPuntoVenta` from the synced catalog (409 until synced) |
 | `POST` | `/api/siat/points-of-sale` | `registroPuntoVenta` + CUIS |
 | `PATCH` | `/api/siat/points-of-sale/:id` | Rename, retire or reactivate (a closed one cannot be reactivated) |
 | `POST` | `/api/siat/points-of-sale/:id/cuis` | Get or renew the CUIS (`{ "force": true }` asks SIAT even when valid) |
@@ -278,6 +280,73 @@ The policy checks the **latest** CUFD of the point of sale, in this order:
 | `SIAT_CUFD_SWEEP_MS` | `60000` | Job interval |
 | `SIAT_CUFD_RETRY_MAX_MS` | `900000` | Cap for the retry backoff |
 
+## Catalogs and clock (SIAT-07)
+
+Synchronizes the 17 SIN catalogs (`sincronizar*` operations of `FacturacionSincronizacion`) and the SIAT date-time. Each invoice field that takes a code is checked against these tables before SIAT sees it.
+
+### Catalogs
+
+| Slug | Operation | Required for emission | Public |
+|---|---|---|---|
+| `activities` | `sincronizarActividades` | yes | no |
+| `legends` | `sincronizarListaLeyendasFactura` | yes | no |
+| `activity-document-sectors` | `sincronizarListaActividadesDocumentoSector` | yes | no |
+| `products` | `sincronizarListaProductosServicios` | no | no |
+| `service-messages` | `sincronizarListaMensajesServicios` | no | no |
+| `significant-events` | `sincronizarParametricaEventosSignificativos` | no | no |
+| `cancellation-reasons` | `sincronizarParametricaMotivoAnulacion` | no | yes |
+| `countries` | `sincronizarParametricaPaisOrigen` | no | no |
+| `document-types` | `sincronizarParametricaTipoDocumentoIdentidad` | yes | yes |
+| `document-sectors` | `sincronizarParametricaTipoDocumentoSector` | yes | no |
+| `emission-types` | `sincronizarParametricaTipoEmision` | yes | no |
+| `room-types` | `sincronizarParametricaTipoHabitacion` | no | no |
+| `payment-methods` | `sincronizarParametricaTipoMetodoPago` | yes | yes |
+| `currencies` | `sincronizarParametricaTipoMoneda` | yes | yes |
+| `pos-types` | `sincronizarParametricaTipoPuntoVenta` | no | no |
+| `invoice-types` | `sincronizarParametricaTiposFactura` | yes | no |
+| `units` | `sincronizarParametricaUnidadMedida` | yes | yes |
+
+The "required" set is the team's reading of what SIAT-11 emits. It is not yet confirmed against the Fase I checklist.
+
+- **Keys.** The stored `catalog` is the operation name. Activities use `codigoCaeb`. Activity ↔ sector uses `codigoActividad:codigoDocumentoSector`. Products use `codigoActividad:codigoProducto`, with `nandina` in `extra`. Parametric catalogs use `codigoClasificador`. **Legends have no code in SIAT**, so each one is keyed by its activity and the first 16 hex characters of the SHA-256 of its text.
+- **Idempotent.** A sync writes only rows whose content changed. Codes that leave the SIN list are set `active=false`. They are never deleted, because old invoices refer to them. They are reactivated if they come back.
+- **One transaction per catalog**, under `pg_advisory_xact_lock(hashtext('siat-catalog:' || catalog))`, so several API instances never write the same catalog at once.
+- **Failures change nothing.** A refused request (`transaccion=false`) or an empty list while active codes exist is recorded in `siat_catalog_sync.last_error`, and the active codes stay. One failing catalog does not stop the others.
+- **Calls** use the CUIS of casa matriz (branch 0, point of sale 0), with `codigoPuntoVenta` 0. The client never retries writes, and these are reads, so they retry as usual.
+- **Legend for an invoice.** `SiatCatalogsService.randomLegend(activity)` picks one of the active legends of the activity at random (SIAT expert rule).
+- **Readiness.** `assertReadyForEmission()` answers 409 `SIAT_CATALOGS_MISSING` with `missing`. The list holds the required catalogs with no active code, and `defaultActivity` when `SIAT_DEFAULT_ACTIVITY` is not set. It also holds `activity:<code>` when that activity has no active code, and `legends:<code>` when it has no legend. SIAT-11 calls it before emitting. It does not block enabling SIAT (owner decision).
+
+### Clock
+
+- `OffsetSiatClock` is `SIAT_CLOCK`. `now()` is the server time plus an offset held in memory. The offset is loaded from `siat_time_offset` at startup, and it is 0 until the first sample.
+- A sample calls `sincronizarFechaHora` **without retries**. The offset is the SIN time minus the midpoint of the request and response times. A sample whose round trip is above `SIAT_CLOCK_MAX_RTT_MS` (2 s) is discarded.
+- **Every offset is applied.** Above `SIAT_CLOCK_WARN_MS` (5 s) the sample is logged as a warning and emits `siat.clock.drift` (`SIAT_CLOCK_DRIFT_EVENT`). Above 5 minutes it is logged as an error. SIAT-20 and SIAT-27 subscribe to the event.
+- **Stays on server time:** the request log timing and the token expiry dates in the settings. They are not SIAT timestamps.
+
+### Jobs (`SiatSyncJob`)
+
+- **Clock:** every `SIAT_CLOCK_SYNC_MS` (1 h).
+- **Catalogs:** once a day after `SIAT_CATALOG_SYNC_AT` (Bolivia time, default 01:00). A sweep every 5 min runs the sync when some catalog has no success since that time. A failing catalog is retried at most every 30 min.
+- Both are no-ops while `SIAT_ENABLED` is false, and they are disabled under `NODE_ENV=test`. The manual sync works as soon as the settings are complete, so catalogs can be loaded before SIAT is enabled.
+
+### Endpoints
+
+| Method | Route | Role | Purpose |
+|---|---|---|---|
+| `GET` | `/api/siat/catalogs` | ADMIN | Per-catalog counts and sync state, `failing`, `missingForEmission` and the clock |
+| `GET` | `/api/siat/catalogs/:catalog` | Any role for public catalogs, ADMIN otherwise | Active codes. Query: `parentCode`, `search`, `includeInactive`, `page`, `pageSize` (max 200) |
+| `POST` | `/api/siat/catalogs/sync` | ADMIN | Sync now: every catalog and the clock. Audited as `SIAT_CATALOGS_SYNCED` with counts only |
+
+- **Settings response.** `GET /api/siat/settings` does not include catalog status. `SiatSettingsService` would then depend on the catalogs, which depend on it. The "Catálogos y hora SIAT" card reads `GET /api/siat/catalogs` instead.
+- **Point-of-sale types** (`GET /points-of-sale/types` and registration) read the synced `pos-types` catalog.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SIAT_CATALOG_SYNC_AT` | `01:00` | Daily catalog sync, Bolivia time (`HH:mm`) |
+| `SIAT_CLOCK_SYNC_MS` | `3600000` | Clock re-sample interval |
+| `SIAT_CLOCK_WARN_MS` | `5000` | Drift threshold for the warning and `siat.clock.drift` |
+| `SIAT_CLOCK_MAX_RTT_MS` | `2000` | Largest round trip accepted for a clock sample |
+
 ## Data model
 
 Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112155757_siat_02_data_model`).
@@ -288,7 +357,8 @@ Tables live in their own PostgreSQL schema, `siat` (SIAT-02, migration `20261112
 | `siat_points_of_sale` | Points of sale per branch | Unique (`branch_id`, `codigo_punto_venta`). `tipo_punto_venta` is null for PoS `0`, which is not created with `registroPuntoVenta`. `active=false` = retired, `closed_at` = closed in SIAT (SIAT-05). Referenced by `auth.shifts.point_of_sale_id` |
 | `siat_cuis` | CUIS history | At most one `active` row per point of sale (partial unique index `siat_cuis_one_active_per_pos`, raw SQL in the migration) |
 | `siat_cufd` | Full CUFD history | Never delete or update rows: offline invoices and packages refer to old CUFDs. `source` is `SCHEDULED`, `ON_DEMAND` or `EVENT`. `codigo_interno` and `cuis_id` added by SIAT-06 (migration `20261126155118_siat_06_cufd`) |
-| `siat_catalog_items` | Synchronized SIN catalogs | Unique (`catalog`, `code`). `catalog` is a string (the sync operation name), so a new catalog needs no migration. Codes are strings |
+| `siat_catalog_items` | Synchronized SIN catalogs | Unique (`catalog`, `code`). `catalog` is a string (the sync operation name), so a new catalog needs no migration. Codes are strings. `parent_code` (activity), `active` (false = left the SIN list, never deleted) and `updated_at` added by SIAT-07 (migration `siat_07_catalogs`) |
+| `siat_catalog_sync` | Freshness of each catalog | One row per catalog: last attempt, last success, item count and last error (SIAT-07) |
 | `siat_request_log` | One row per call attempt, bodies redacted | Indexed by `created_at`, `correlation_id`, (`service`, `operation`, `created_at`) and (`point_of_sale_id`, `created_at`). Partitioning is left for SIAT-27, when volume is known |
 | `siat_time_offset` | Clock samples from `sincronizarFechaHora` | The latest row is the current offset. `offset_ms = siat_time - server_time` |
 

@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
+  getSiatCatalogsStatus,
   getSiatSettings,
+  syncSiatCatalogs,
   testSiatConnection,
   updateSiatSettings,
 } from "@/features/siat-settings/api/siat-settings-api"
@@ -27,4 +29,18 @@ export function useUpdateSiatSettings() {
 
 export function useTestSiatConnection() {
   return useMutation({ mutationFn: testSiatConnection })
+}
+
+export const SIAT_CATALOGS_QUERY_KEY = ["siat-catalogs"]
+
+export function useSiatCatalogsStatus() {
+  return useQuery({ queryKey: SIAT_CATALOGS_QUERY_KEY, queryFn: getSiatCatalogsStatus })
+}
+
+export function useSyncSiatCatalogs() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: syncSiatCatalogs,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: SIAT_CATALOGS_QUERY_KEY }),
+  })
 }

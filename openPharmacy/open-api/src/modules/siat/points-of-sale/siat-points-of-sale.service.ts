@@ -33,10 +33,7 @@ import {
   SiatCufdService,
   type SiatCufdStatus,
 } from '../codes/siat-cufd.service';
-import {
-  isKnownPointOfSaleType,
-  PROVISIONAL_POINT_OF_SALE_TYPES,
-} from '../codes/siat-point-of-sale-types';
+import { SiatCatalogsService } from '../catalogs/siat-catalogs.service';
 import type {
   CreateSiatBranchDto,
   RegisterSiatPointOfSaleDto,
@@ -94,11 +91,13 @@ export class SiatPointsOfSaleService {
     private readonly codes: SiatCodesService,
     private readonly cufd: SiatCufdService,
     private readonly audit: AuditLogRepository,
+    private readonly catalogs: SiatCatalogsService,
     @Inject(SIAT_CLOCK) private readonly clock: SiatClock,
   ) {}
 
+  /** Point-of-sale types from the synced SIN catalog (SIAT-07). 409 until it is synchronized. */
   types() {
-    return PROVISIONAL_POINT_OF_SALE_TYPES;
+    return this.catalogs.pointOfSaleTypes();
   }
 
   // ─── Branches ────────────────────────────────────────────────────────────
@@ -233,7 +232,8 @@ export class SiatPointsOfSaleService {
    * already has the point of sale). Retry the CUIS with `POST :id/cuis`.
    */
   async register(dto: RegisterSiatPointOfSaleDto, userId: string) {
-    if (!isKnownPointOfSaleType(dto.codigoTipoPuntoVenta)) {
+    const types = await this.catalogs.pointOfSaleTypes();
+    if (!types.some((type) => type.codigo === dto.codigoTipoPuntoVenta)) {
       throw new BadRequestException({
         code: 'SIAT_POS_TYPE_UNKNOWN',
         message: `Unknown codigoTipoPuntoVenta ${dto.codigoTipoPuntoVenta}`,

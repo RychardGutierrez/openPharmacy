@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { FileText, KeyRound, LoaderCircle, PlugZap, Power } from "lucide-react"
+import { Clock, FileText, KeyRound, LoaderCircle, PlugZap, Power, RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useForm, type UseFormReturn } from "react-hook-form"
 
@@ -24,11 +24,14 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { SiatSettingsApiError } from "@/features/siat-settings/api/siat-settings-api"
 import {
+  useSiatCatalogsStatus,
   useSiatSettings,
+  useSyncSiatCatalogs,
   useTestSiatConnection,
   useUpdateSiatSettings,
 } from "@/features/siat-settings/api/use-siat-settings"
 import {
+  SIAT_CATALOG_LABELS,
   SIAT_READINESS_LABELS,
   siatSettingsFormSchema,
   toSiatFormValues,
@@ -194,6 +197,8 @@ export function SiatSettingsPanel() {
           </div>
         </div>
 
+        <CatalogsCard />
+
         <ConnectionTestCard environment={settings.environment} />
 
         <div className="sticky bottom-4 z-10 flex items-center justify-end gap-4 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
@@ -275,6 +280,106 @@ const CUIS_LABELS: Record<SiatConnectionTest["cuis"]["status"], string> = {
   expired: "Vencido",
   missing: "Sin CUIS (se solicita al configurar los puntos de venta)",
   "no-point-of-sale": "El punto de venta no está registrado",
+}
+
+/** Clock offset above this is flagged to the user (SIAT_CLOCK_WARN_MS default). */
+const CLOCK_WARN_MS = 5000
+
+function CatalogsCard() {
+  const status = useSiatCatalogsStatus()
+  const sync = useSyncSiatCatalogs()
+  const data = status.data
+  const result = sync.data
+
+  return (
+    <SectionCard
+      title="Catálogos y hora SIAT"
+      description="Catálogos del SIN (productos, leyendas, tipos de documento, monedas) y la hora que usa SIAT. Se sincronizan cada día y al pulsar el botón."
+      icon={Clock}
+    >
+      {status.error ? (
+        <Alert variant="destructive"><AlertDescription>{status.error.message}</AlertDescription></Alert>
+      ) : null}
+      {data ? (
+        <>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-muted-foreground">Desfase de hora</dt>
+            <dd>
+              {data.clock.sampledAt ? (
+                <>
+                  {data.clock.offsetMs} ms
+                  {Math.abs(data.clock.offsetMs) > CLOCK_WARN_MS ? (
+                    <Badge variant="destructive" className="ml-2">Revisar la hora del equipo</Badge>
+                  ) : null}
+                  {data.clock.stale ? <Badge variant="secondary" className="ml-2">Desactualizada</Badge> : null}
+                </>
+              ) : (
+                "Sin medir todavía"
+              )}
+            </dd>
+            <dt className="text-muted-foreground">Última sincronización completa</dt>
+            <dd>{formatLastSuccess(data.catalogs)}</dd>
+          </dl>
+
+          {data.missingForEmission.length > 0 ? (
+            <Alert>
+              <AlertTitle>Faltan catálogos para emitir facturas:</AlertTitle>
+              <AlertDescription className="flex flex-wrap gap-2 pt-1">
+                {data.missingForEmission.map((slug) => (
+                  <Badge key={slug} variant="outline">{SIAT_CATALOG_LABELS[slug] ?? slug}</Badge>
+                ))}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {data.failing.length > 0 ? (
+            <Alert variant="destructive">
+              <AlertTitle>Fallaron {data.failing.length} catálogo(s) en la última sincronización</AlertTitle>
+              <AlertDescription>
+                {data.failing.map((slug) => SIAT_CATALOG_LABELS[slug] ?? slug).join(", ")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>
+          {sync.isPending ? (
+            <><LoaderCircle className="animate-spin" aria-hidden="true" />Sincronizando…</>
+          ) : (
+            <><RefreshCw aria-hidden="true" />Sincronizar ahora</>
+          )}
+        </Button>
+      </div>
+
+      {sync.error ? <Alert variant="destructive"><AlertDescription>{sync.error.message}</AlertDescription></Alert> : null}
+      {result ? (
+        <Alert variant={result.catalogs.some((c) => c.status === "failed") ? "destructive" : "default"}>
+          <AlertTitle>
+            {result.catalogs.filter((c) => c.status === "synced").length} sincronizados,{" "}
+            {result.catalogs.filter((c) => c.status === "failed").length} con error
+          </AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-5">
+              {result.catalogs
+                .filter((c) => c.status === "failed")
+                .map((c) => (
+                  <li key={c.slug}>{(SIAT_CATALOG_LABELS[c.slug] ?? c.slug) + ": " + (c.error ?? "")}</li>
+                ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </SectionCard>
+  )
+}
+
+/** The oldest successful sync: the set is only as fresh as its least recent catalog. */
+function formatLastSuccess(catalogs: { lastSuccessAt: string | null }[]) {
+  const times = catalogs.map((c) => (c.lastSuccessAt ? Date.parse(c.lastSuccessAt) : null))
+  if (times.some((t) => t === null)) return "Algún catálogo nunca se ha sincronizado"
+  return new Date(Math.min(...(times as number[]))).toLocaleString("es-BO")
 }
 
 function ConnectionTestCard({ environment }: { environment: SiatEnvironment }) {
