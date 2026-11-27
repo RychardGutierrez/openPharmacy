@@ -203,6 +203,8 @@ out of scope here and belong to PMS-009-BE.
 | `cash_received` | DECIMAL(12,2) | default 0 |
 | `change_given` | DECIMAL(12,2) | default 0 |
 | `status` | `SaleStatus` enum | `COMPLETED` / `CANCELLED` / `REFUNDED` |
+| `requires_invoice` | BOOLEAN | default false. SIAT-09 column, set by SIAT-14 |
+| `invoice_id` | UUID? | UNIQUE, FK → `siat.siat_invoices.id`: the effective invoice. SIAT-09 column, set by SIAT-14 |
 | `created_at` | TIMESTAMP | default now |
 
 ### `pharmacy.sale_items`

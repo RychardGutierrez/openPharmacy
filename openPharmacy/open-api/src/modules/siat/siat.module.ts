@@ -12,6 +12,7 @@ import { SIAT_REQUEST_LOG } from './client/siat-request-log';
 import { SiatHealthService } from './client/siat-health.service';
 import { PrismaSiatRequestLogSink } from './persistence/prisma-siat-request-log.sink';
 import { PrismaSiatCuisStatusReader } from './persistence/prisma-siat-cuis-status.reader';
+import { SiatInvoiceSequenceRepository } from './persistence/siat-invoice-sequence.repository';
 import { SiatSettingsController } from './settings/siat-settings.controller';
 import { SiatSettingsService } from './settings/siat-settings.service';
 import { AuditModule } from '../../common/audit/audit.module';
@@ -61,6 +62,7 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatSoapClient,
     SiatHealthService,
     PrismaSiatCuisStatusReader,
+    SiatInvoiceSequenceRepository,
     SiatSettingsService,
   ],
   exports: [
@@ -74,6 +76,7 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatCatalogSyncService,
     SiatTimeSyncService,
     OffsetSiatClock,
+    SiatInvoiceSequenceRepository,
   ],
 })
 export class SiatModule {}
