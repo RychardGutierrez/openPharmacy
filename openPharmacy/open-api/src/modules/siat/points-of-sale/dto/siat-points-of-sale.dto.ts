@@ -89,7 +89,7 @@ export class RegisterSiatPointOfSaleDto {
   @ApiProperty({
     example: 5,
     description:
-      'codigoTipoPuntoVenta (provisional list until SIAT-07 syncs the catalog)',
+      'codigoTipoPuntoVenta from the synced SIN catalog (see GET /siat/points-of-sale/types)',
   })
   @IsInt()
   codigoTipoPuntoVenta!: number;

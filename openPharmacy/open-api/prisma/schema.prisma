@@ -833,11 +833,31 @@ model SiatCatalogItem {
   catalog     String
   code        String
   description String
+  /// Parent code: the activity for legends, products and activity ↔ document sector (SIAT-07).
+  parent_code String?  @map("parent_code")
   extra       Json?
+  /// False = the code disappeared from the SIN list. Never deleted (SIAT-07).
+  active      Boolean  @default(true)
+  /// Last time a sync wrote this row (its content changed or it was reactivated).
   synced_at   DateTime @map("synced_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
 
   @@unique([catalog, code])
+  @@index([catalog, active, parent_code])
   @@map("siat_catalog_items")
+  @@schema("siat")
+}
+
+/// Freshness of each synchronized catalog (SIAT-07). One row per catalog, written by every attempt.
+model SiatCatalogSync {
+  catalog          String    @id
+  last_attempt_at  DateTime  @map("last_attempt_at")
+  last_success_at  DateTime? @map("last_success_at")
+  item_count       Int       @default(0) @map("item_count")
+  last_error       String?   @map("last_error")
+  point_of_sale_id String?   @map("point_of_sale_id") @db.Uuid
+
+  @@map("siat_catalog_sync")
   @@schema("siat")
 }
 

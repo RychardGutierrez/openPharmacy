@@ -4,6 +4,7 @@ import type { PrismaService } from '../../../prisma/prisma.service';
 import { SiatRejectedError } from '../client/siat-errors';
 import type { SiatSoapClient } from '../client/siat-soap.client';
 import { fixedSiatClock } from '../codes/siat-clock';
+import type { SiatCatalogsService } from '../catalogs/siat-catalogs.service';
 import type { SiatCodesService } from '../codes/siat-codes.service';
 import type { SiatCufdService } from '../codes/siat-cufd.service';
 import { SiatPointsOfSaleService } from './siat-points-of-sale.service';
@@ -82,12 +83,21 @@ function setup() {
     ),
   };
   const audit = { create: jest.fn() };
+  // The synced point-of-sale types (SIAT-07). Codes 2–6, as in the SIN catalog.
+  const catalogs = {
+    pointOfSaleTypes: jest.fn(() =>
+      Promise.resolve(
+        [2, 3, 4, 5, 6].map((codigo) => ({ codigo, descripcion: 'TIPO' })),
+      ),
+    ),
+  };
   const service = new SiatPointsOfSaleService(
     prisma as unknown as PrismaService,
     client as unknown as SiatSoapClient,
     codes as unknown as SiatCodesService,
     cufd as unknown as SiatCufdService,
     audit as unknown as AuditLogRepository,
+    catalogs as unknown as SiatCatalogsService,
     fixedSiatClock(NOW),
   );
   return { service, prisma, client, codes, cufd, audit };

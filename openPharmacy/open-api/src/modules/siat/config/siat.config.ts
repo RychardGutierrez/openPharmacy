@@ -34,6 +34,14 @@ export interface SiatConfig {
   cufdSweepMs: number;
   /** Cap for the backoff between failed CUFD requests of one point of sale. Default 15 min. */
   cufdRetryMaxMs: number;
+  /** Daily catalog sync, minutes after midnight Bolivia time (SIAT-07). Default 01:00. */
+  catalogSyncMinute: number;
+  /** How often the clock is re-sampled from sincronizarFechaHora (SIAT-07). Default 1 h. */
+  clockSyncMs: number;
+  /** Warn and emit siat.clock.drift when |offset| is above this. Default 5 s. */
+  clockWarnMs: number;
+  /** Discard a clock sample whose round trip is above this. Default 2 s. */
+  clockMaxRttMs: number;
 }
 
 /** Reads SIAT settings from an environment map. Joi validates the same keys at startup. */
@@ -76,6 +84,10 @@ export function readSiatConfig(
     cufdRenewBeforeMinutes: numberOr(env.SIAT_CUFD_RENEW_BEFORE_MIN, 60),
     cufdSweepMs: numberOr(env.SIAT_CUFD_SWEEP_MS, 60_000),
     cufdRetryMaxMs: numberOr(env.SIAT_CUFD_RETRY_MAX_MS, 15 * 60_000),
+    catalogSyncMinute: parseClockTime(env.SIAT_CATALOG_SYNC_AT, 60),
+    clockSyncMs: numberOr(env.SIAT_CLOCK_SYNC_MS, 60 * 60_000),
+    clockWarnMs: numberOr(env.SIAT_CLOCK_WARN_MS, 5000),
+    clockMaxRttMs: numberOr(env.SIAT_CLOCK_MAX_RTT_MS, 2000),
   };
 }
 

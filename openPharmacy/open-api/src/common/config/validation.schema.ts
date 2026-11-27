@@ -93,4 +93,11 @@ export const validationSchema = Joi.object({
     .default(60),
   SIAT_CUFD_SWEEP_MS: Joi.number().integer().min(5000).default(60000),
   SIAT_CUFD_RETRY_MAX_MS: Joi.number().integer().min(60000).default(900000),
+  // Catalogs and clock (SIAT-07). Daily catalog sync at a Bolivia time; clock re-sampled hourly.
+  SIAT_CATALOG_SYNC_AT: Joi.string()
+    .pattern(/^([01]d|2[0-3]):[0-5]d$/)
+    .default('01:00'),
+  SIAT_CLOCK_SYNC_MS: Joi.number().integer().min(60000).default(3600000),
+  SIAT_CLOCK_WARN_MS: Joi.number().integer().min(0).default(5000),
+  SIAT_CLOCK_MAX_RTT_MS: Joi.number().integer().min(100).default(2000),
 });

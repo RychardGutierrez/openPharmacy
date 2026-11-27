@@ -15,7 +15,13 @@ import { PrismaSiatCuisStatusReader } from './persistence/prisma-siat-cuis-statu
 import { SiatSettingsController } from './settings/siat-settings.controller';
 import { SiatSettingsService } from './settings/siat-settings.service';
 import { AuditModule } from '../../common/audit/audit.module';
-import { SIAT_CLOCK, systemSiatClock } from './codes/siat-clock';
+import { SIAT_CLOCK } from './codes/siat-clock';
+import { OffsetSiatClock } from './codes/siat-offset-clock';
+import { SiatTimeSyncService } from './codes/siat-time-sync.service';
+import { SiatCatalogSyncService } from './catalogs/siat-catalog-sync.service';
+import { SiatCatalogsService } from './catalogs/siat-catalogs.service';
+import { SiatCatalogsController } from './catalogs/siat-catalogs.controller';
+import { SiatSyncJob } from './catalogs/siat-sync.job';
 import { SiatCodesService } from './codes/siat-codes.service';
 import { SiatCuisRenewalJob } from './codes/siat-cuis-renewal.job';
 import { SiatCufdService } from './codes/siat-cufd.service';
@@ -30,9 +36,18 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
  */
 @Module({
   imports: [PharmacyConfigModule, AuditModule],
-  controllers: [SiatSettingsController, SiatPointsOfSaleController],
+  controllers: [
+    SiatSettingsController,
+    SiatPointsOfSaleController,
+    SiatCatalogsController,
+  ],
   providers: [
-    { provide: SIAT_CLOCK, useValue: systemSiatClock },
+    OffsetSiatClock,
+    { provide: SIAT_CLOCK, useExisting: OffsetSiatClock },
+    SiatTimeSyncService,
+    SiatCatalogSyncService,
+    SiatCatalogsService,
+    SiatSyncJob,
     SiatCodesService,
     SiatCuisRenewalJob,
     SiatCufdService,
@@ -55,6 +70,10 @@ import { SiatShiftGate } from './points-of-sale/siat-shift-gate.service';
     SiatCodesService,
     SiatCufdService,
     SiatShiftGate,
+    SiatCatalogsService,
+    SiatCatalogSyncService,
+    SiatTimeSyncService,
+    OffsetSiatClock,
   ],
 })
 export class SiatModule {}

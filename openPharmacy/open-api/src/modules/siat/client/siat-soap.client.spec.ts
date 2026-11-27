@@ -69,6 +69,10 @@ function config(overrides: Partial<SiatConfig> = {}): SiatConfig {
     cufdRenewBeforeMinutes: 60,
     cufdSweepMs: 60000,
     cufdRetryMaxMs: 900000,
+    catalogSyncMinute: 60,
+    clockSyncMs: 3600000,
+    clockWarnMs: 5000,
+    clockMaxRttMs: 2000,
     ...overrides,
   };
 }
